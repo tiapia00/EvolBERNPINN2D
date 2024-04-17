@@ -11,8 +11,8 @@ model_file = "PINN2D.torch"
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, i: float = 1) -> torch.tensor:
     # description of displacements, so i don't have to add anything
-    res_ux = torch.zeros_like(res_uy)
     res_uy = torch.sin(i*torch.pi/x[-1]*x)
+    res_ux = torch.zeros_like(res_uy)
     return res_ux, res_uy
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device = torch.device('cpu'), requires_grad=True):
@@ -87,7 +87,7 @@ class PINN(nn.Module):
         super().__init__()
 
         self.layer_in = nn.Linear(3, dim_hidden)
-        self.layer_out = nn.Linear(dim_hidden, 1)
+        self.layer_out = nn.Linear(dim_hidden, 2)
 
         num_middle = num_hidden - 1
         self.middle_layers = nn.ModuleList(
@@ -140,8 +140,7 @@ class Loss:
         y_domain: Tuple[float, float],
         t_domain: Tuple[float, float],
         n_points: int,
-        z_1 : float,
-        z_2 : float,
+        z : torch.tensor,
         initial_condition: Callable,
         weight_r: float = 1.0,
         weight_b: float = 1.0,
@@ -156,7 +155,7 @@ class Loss:
         self.weight_r = weight_r
         self.weight_b = weight_b
         self.weight_i = weight_i
-        self.z = [z_1, z_2]
+        self.z = z
 
     def residual_loss(self, pinn: PINN):
         x, y, t = get_interior_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -297,8 +296,8 @@ lam = 100000 # MPa
 
 # Parameters NN
 epochs = 5000
-n_train = 200
-dim_hidden = 50
+n_train = 20
+dim_hidden = 30
 lr = 0.001
 om_RESIDUAL = 1.0           
 om_INITIAL = 1.0            
@@ -306,7 +305,7 @@ om_BOUNDARY = 1.0
 
 Lx = 0.5
 Ly = 0.02
-T = 0.4
+T = 0.2
 
 x_domain = [0.0, Lx]
 y_domain = [0.0, Ly]
@@ -318,12 +317,11 @@ def return_adim(x_dom : np.ndarray, t_dom:np.ndarray, rho: float, mu : float, la
     T_ast = t_dom[-1]
     z_1 = T_ast**2/(L_ast*rho)*mu
     z_2 = z_1/mu*lam
-    z = [z_1, z_2]
+    z = np.array([z_1, z_2])
+    z = torch.tensor(z)
     return z
 
-pinn = PINN(2, dim_hidden)
 
-# train the PINN
 loss_fn = Loss(
     x_domain,
     y_domain,
