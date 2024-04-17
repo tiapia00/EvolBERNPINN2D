@@ -113,6 +113,7 @@ class PINN(nn.Module):
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     """Compute the value of the approximate solution from the NN model
     Internally calling the forward method when calling the class as a function"""
+    print(pinn(x,y,t).shape)
     return pinn(x, y, t)
 
 def df(output: torch.Tensor, inputs: list, var : int) -> torch.Tensor:
@@ -145,7 +146,7 @@ class Loss:
         weight_r: float = 1.0,
         weight_b: float = 1.0,
         weight_i: float = 1.0,
-        verbose: bool = False,   
+        verbose: bool = False,
     ):
         self.x_domain = x_domain
         self.y_domain = y_domain
@@ -184,7 +185,7 @@ class Loss:
         return loss1.pow(2).mean() + loss2.pow(2).mean()
 
     def boundary_loss(self, pinn: PINN):
-        """For now, 
+        """For now,
             - down, up: Dirichlet conditions
             - left, right : Neumann conditions"""
         # n (normal vector) assumed constant during deformation
@@ -248,7 +249,7 @@ class Loss:
             self.weight_b * boundary_loss
 
         return final_loss, residual_loss, initial_loss, boundary_loss
-    
+
     def __call__(self, pinn: PINN):
         """
         Allows you to use instance of this class as if it was a function:
@@ -288,6 +289,14 @@ def train_model(
 
     return nn_approximator, np.array(loss_values)
 
+def return_adim(x_dom : np.ndarray, t_dom:np.ndarray, rho: float, mu : float, lam : float):
+    L_ast = x_dom[-1]
+    T_ast = t_dom[-1]
+    z_1 = T_ast**2/(L_ast*rho)*mu
+    z_2 = z_1/mu*lam
+    z = np.array([z_1, z_2])
+    z = torch.tensor(z)
+    return z
 
 # Parameters model
 rho = 0.5
@@ -297,10 +306,11 @@ lam = 100000 # MPa
 # Parameters NN
 epochs = 5000
 n_train = 20
+layers = 2
 dim_hidden = 30
 lr = 0.001
-om_RESIDUAL = 1.0           
-om_INITIAL = 1.0            
+om_RESIDUAL = 1.0
+om_INITIAL = 1.0
 om_BOUNDARY = 1.0
 
 Lx = 0.5
@@ -311,16 +321,7 @@ x_domain = [0.0, Lx]
 y_domain = [0.0, Ly]
 t_domain = [0.0, T]
 
-
-def return_adim(x_dom : np.ndarray, t_dom:np.ndarray, rho: float, mu : float, lam : float):
-    L_ast = x_dom[-1]
-    T_ast = t_dom[-1]
-    z_1 = T_ast**2/(L_ast*rho)*mu
-    z_2 = z_1/mu*lam
-    z = np.array([z_1, z_2])
-    z = torch.tensor(z)
-    return z
-
+pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
 
 loss_fn = Loss(
     x_domain,
