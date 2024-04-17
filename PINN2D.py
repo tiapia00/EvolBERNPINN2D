@@ -304,9 +304,9 @@ om_RESIDUAL = 1.0
 om_INITIAL = 1.0            
 om_BOUNDARY = 1.0
 
-Lx = 2
+Lx = 0.5
 Ly = 0.02
-T = 10
+T = 0.4
 
 x_domain = [0.0, Lx]
 y_domain = [0.0, Ly]
