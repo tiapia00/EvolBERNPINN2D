@@ -12,3 +12,6 @@ dependencies:
   - matplotlib
   - scipy
   - ipykernel
+  - tensorboard
+  - tqdm
+  - pytz
