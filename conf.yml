@@ -1,0 +1,13 @@
+# To use
+# conda env create -f conf.yml
+# conda activate EvolBern
+name: EvolBern
+dependencies:
+- python=3.9
+- pip
+- pip:
+  - numpy
+  - torch
+  - matplotlib
+  - import_ipynb
+  - ipykernel
