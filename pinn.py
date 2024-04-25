@@ -6,6 +6,8 @@ from torch import nn
 from typing import Tuple
 import os
 
+from write_logs import get_last_modified_file, get_current_time, create_folder_date
+
 torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -289,8 +291,7 @@ def train_model(
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
     log_dir = f'logs/{folder_name}'
 
-    current_time = get_current_time()
-    subfolder = '/' + current_time.strftime("%H:%M")
+    subfolder = '/' + get_current_time(fmt="%H:%M")
     writer = SummaryWriter(log_dir=log_dir + f'/lr = {learning_rate}, max_e = {max_epochs}, hidden_n = {nn_approximator.dim_hidden}' + subfolder)
 
     for epoch in range(max_epochs):
