@@ -1,15 +1,19 @@
 import torch
 import torch.nn as nn
 import numpy as np
-
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
+import datetime
+import pytz
+from typing import Callable
 
 class NN(nn.Module):
     """Simple neural network accepting two features as input and returning a single output
 
-    In the context of PINNs, the neural network is used as universal function approximator
+    In the context of PINNs, the neural network is used as a universal function approximator
     to approximate the solution of the differential equation
     """
-    def __init__(self, num_hidden: int, dim_hidden: int, dim_input : int = 3, dim_output : int = 2, act=nn.Tanh()):
+    def __init__(self, num_hidden: int, dim_hidden: int, dim_input: int = 3, dim_output: int = 2, act=nn.Tanh()):
 
         super().__init__()
         self.dim_hidden = dim_hidden
@@ -29,13 +33,11 @@ class NN(nn.Module):
         nn.init.xavier_uniform_(self.layer_out.weight)
 
     def forward(self, x, t):
-
         x_stack = torch.cat([x, t], dim=1)
         out = self.act(self.layer_in(x_stack))
         for layer in self.middle_layers:
             out = self.act(layer(out))
         logits = self.layer_out(out)
-
         return logits
 
     def device(self):
@@ -46,61 +48,52 @@ class Loss:
         self,
         X: torch.tensor,
         T: torch.tensor,
-        y_true : torch.tensor,
+        y_true: torch.tensor,
         verbose: bool = False,
     ):
         self.X = X
         self.T = T
-        self.y_true = y_true 
-        
+        self.y_true = y_true
+
     def loss(self, nn: NN):
         output = f(nn, self.X, self.T)
         loss = output - self.y_true
         return loss.pow(2).mean()
 
     def __call__(self, nn: NN):
-        """
-        Allows you to use instance of this class as if it was a function:
-
-        ```
-            >>> loss = Loss(*some_args)
-            >>> calculated_loss = loss(nn)
-        ```
-        """
         return self.loss(nn)
-
-from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
-import datetime
-import pytz
-from typing import Callable
 
 def train_model(
     nn_approximator: NN,
     loss_fn: Callable,
     learning_rate: int,
-    max_epochs: int
+    max_epochs: int,
+    x_val: torch.tensor,
+    t_val: torch.tensor,
+    y_val: torch.tensor,
 ) -> NN:
-
     optimizer = torch.optim.Adam(nn_approximator.parameters(), lr=learning_rate)
     loss_values = []
-    loss: torch.Tensor = torch.inf
-
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
+    log_dir = 'in_model/logs'
+
+    subfolder = '/' + get_current_time(fmt="%H:%M")
+    writer = SummaryWriter(log_dir=log_dir + subfolder)
 
     for epoch in range(max_epochs):
-
-        loss: torch.Tensor = loss_fn(nn_approximator)
         loss = loss_fn(nn_approximator)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
         loss_values.append(loss.item())
-
-        # Log loss
         pbar.set_description(f"Loss: {loss.item():.4f}")
-        
+
+        output = f(nn_approximator, x_val, t_val)
+        loss_val = output - y_val
+        writer.add_scalar("Global loss", loss.item(), epoch)
+        writer.add_scalar("Validation loss", loss_val.pow(2).mean(), epoch)
+
         pbar.update(1)
 
     pbar.update(1)
@@ -112,3 +105,7 @@ def f(nn: NN, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     Internally calling the forward method when calling the class as a function"""
     return nn(x, t)
 
+def get_current_time(fmt="%H:%M") -> str:
+    tz = pytz.timezone('Europe/Berlin')
+    now = datetime.datetime.now(tz)
+    return now.strftime(fmt)

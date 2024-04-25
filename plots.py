@@ -1,10 +1,11 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import MaxNLocator, FuncFormatter
+import torch
 
-def plot_initial_conditions(z: torch.tensor, y: torch.tensor, x:torch.tensor, name : str, n_train : int, from_pinn : bool = 1):
-    """ For this function, z is the full tensor with both components"""
-	fig, ax = plt.subplots(nrows=1, ncols=2, subplot_kw={'projection': '3d'}, figsize=(15, 8))
+def plot_initial_conditions(z: torch.tensor, y: torch.tensor, x: torch.tensor, name: str, n_train: int, from_pinn: bool = True):
+    """Plot initial conditions."""
+    fig, ax = plt.subplots(nrows=1, ncols=2, subplot_kw={'projection': '3d'}, figsize=(15, 8))
 
     nbins = 7
     x_raw = x.detach().cpu().numpy()
@@ -28,6 +29,7 @@ def plot_initial_conditions(z: torch.tensor, y: torch.tensor, x:torch.tensor, na
         return f'{value:.3f}'
 
     cmap = 'viridis'
+
     p1 = ax[0].plot_surface(Y, X, ux, cmap=cmap)
     ax[0].set_xlabel('$\\hat{y}$')
     ax[0].set_ylabel('$\\hat{x}$')
@@ -55,10 +57,3 @@ def plot_initial_conditions(z: torch.tensor, y: torch.tensor, x:torch.tensor, na
     ax[1].set_box_aspect([2, 2, 1])
 
     fig.suptitle(name)
-
-def plot_solution(pinn: PINN, x: torch.Tensor, t: torch.Tensor, n_train : int, figsize=(12, 8), dpi=100):
-	fig, ax = plt.subplots(nrows=1, ncols=2, subplot_kw={'projection': '3d'}, figsize=(15, 8))
-	
-	
-	
-	
