@@ -4,7 +4,7 @@ from matplotlib.ticker import MaxNLocator, FuncFormatter
 import torch
 import matplotlib.animation as animation
 from matplotlib import rc
-from pinn import f
+from pinn import PINN, f
 
 def plot_initial_conditions(z: torch.tensor, y: torch.tensor, x: torch.tensor, name: str, n_train: int, from_pinn: bool = True):
     """Plot initial conditions."""
@@ -76,6 +76,7 @@ def plot_solution(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor,
     ax.set_ylabel('$\\hat{x}$')
     ax.set_title('$\\hat{u}_y(t)$')
     ax.view_init(elev=30, azim=45)
+    t_raw = torch.unique(t)
     
     def animate(i):
 
