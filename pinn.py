@@ -143,7 +143,6 @@ class Loss:
         n_points: int,
         z : torch.tensor,
         initial_condition: Callable,
-        weight_r: float = 1.0,
         weight_b: float = 1.0,
         weight_i: float = 1.0,
         verbose: bool = False,
@@ -154,11 +153,8 @@ class Loss:
         self.n_points = n_points
         self.z = z
         self.initial_condition = initial_condition
-        self.weight_r = weight_r
-        self.weight_b = weight_b
-        self.weight_i = weight_i
+        self.weights = [weight_i, weight_b]
         
-
     def residual_loss(self, pinn: PINN):
         x, y, t = get_interior_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         output = f(pinn, x, y, t)
@@ -173,7 +169,7 @@ class Loss:
 
         loss1 = dux_tt - 2*self.z[0]*(dux_xx+1/2*(duy_xy+dux_xy)) - self.z[1]*(dux_xx+duy_xy)
         loss2 = duy_tt - 2*self.z[0]*(1/2*(dux_xy+duy_xy)+duy_yy) - self.z[1]*(dux_xy+duy_yy)
-        return self.weight_r*(loss1.pow(2).mean() + loss2.pow(2).mean())
+        return (loss1.pow(2).mean() + loss2.pow(2).mean())
 
     def initial_loss(self, pinn: PINN):
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -183,7 +179,7 @@ class Loss:
         uy = output[:, 1]
         loss1 = ux - pinn_init_ux
         loss2 = uy - pinn_init_uy
-        return self.weight_i*(loss1.pow(2).mean() + loss2.pow(2).mean())
+        return self.weights[0]*(loss1.pow(2).mean() + loss2.pow(2).mean())
 
     def boundary_loss(self, pinn: PINN):
         """For now,
@@ -227,7 +223,7 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right+duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right+self.z[1]*tr_right
 
-        return self.weight_b*(loss_left1.pow(2).mean()  + \
+        return self.weights[1]*(loss_left1.pow(2).mean()  + \
             loss_left2.pow(2).mean()    + \
             loss_right1.pow(2).mean()  + \
             loss_right2.pow(2).mean()  + \
@@ -247,9 +243,9 @@ class Loss:
         boundary_loss = self.boundary_loss(pinn)
 
         final_loss = \
-            self.weight_r * residual_loss + \
-            self.weight_i * initial_loss + \
-            self.weight_b * boundary_loss
+            residual_loss + \
+            self.weights[0] * initial_loss + \
+            self.weights[1] * boundary_loss
 
         return final_loss, residual_loss, initial_loss, boundary_loss
 
@@ -270,6 +266,23 @@ from datetime import date
 import datetime
 import pytz
 
+
+def update_weights(
+    grads : torch.tensor,
+    loss_fn : Loss,
+    alpha : torch.tensor = 0.9
+    ) -> Loss:
+    """Order: [res, i, b]"""
+    
+    max_grad = grads[0]
+    mean_grads = grads[1:]
+    
+    for i in np.arange(len(grads)-1):
+        lambda_i = loss_fn.weights[i]
+        loss_fn.weights[i] = (1-alpha)*lambda_i + alpha*max_grad/mean_grads[i]
+    
+    return loss_fn
+    
 def train_model(
     nn_approximator: PINN,
     loss_fn: Callable,
@@ -294,13 +307,40 @@ def train_model(
     writer = SummaryWriter(log_dir=log_dir + f'/lr = {learning_rate}, max_e = {max_epochs}, hidden_n = {nn_approximator.dim_hidden}' + subfolder)
 
     for epoch in range(max_epochs):
-
-        loss: torch.Tensor = loss_fn(nn_approximator)
-        _, residual_loss, initial_loss, boundary_loss = loss_fn.verbose(nn_approximator)
+        grads = []
+        
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        _, residual_loss, initial_loss, boundary_loss = loss_fn.verbose(nn_approximator)
+        
+        residual_loss.backward(retain_graph=True)
+        res_grads = [param.grad.clone() for param in nn_approximator.parameters()]
+        res_grads = [tensor.detach().cpu().numpy().reshape(-1) for tensor in res_grads]
+        res_grads = np.concatenate(res_grads)
+        grads.append(np.max(np.abs(res_grads)))
+        optimizer.zero_grad()
+        
+        initial_loss.backward(retain_graph=True)
+        in_grads = [param.grad.clone() for param in nn_approximator.parameters()]
+        in_grads = [tensor.detach().cpu().numpy().reshape(-1) for tensor in in_grads]
+        in_grads = np.concatenate(in_grads)
+        grads.append(np.mean(np.abs(in_grads)))
+        optimizer.zero_grad()
 
+        boundary_loss.backward()
+        bound_grads = [param.grad.clone() for param in nn_approximator.parameters()]
+        bound_grads = [tensor.detach().cpu().numpy().reshape(-1) for tensor in bound_grads]
+        bound_grads = np.concatenate(bound_grads)
+        grads.append(np.mean(np.abs(bound_grads)))
+        optimizer.zero_grad()
+        
+        loss_fn = update_weights(grads, loss_fn)
+        
+        loss: torch.Tensor = loss_fn(nn_approximator)
+        
+        loss.backward()
+        
+        optimizer.step()
+        
         loss_values.append(loss.item())
 
         # Log loss
