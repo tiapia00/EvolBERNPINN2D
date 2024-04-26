@@ -338,7 +338,6 @@ def train_model(
         loss: torch.Tensor = loss_fn(nn_approximator)
         
         loss.backward()
-        
         optimizer.step()
         
         loss_values.append(loss.item())
