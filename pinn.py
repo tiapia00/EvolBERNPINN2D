@@ -285,7 +285,7 @@ def obtain_max_grad(iter: torch.nn.parameter) -> float:
     max = 0
     for _, param in iter:
         if param.grad is not None:
-            max_i = np.max(np.abs(param.grad.numpy()))
+            max_i = torch.max(torch.abs(param.grad))
             if max_i > max:
                 max = max_i
     return max
@@ -294,7 +294,7 @@ def obtain_mean_grad(iter: torch.nn.parameter) -> float:
     mean = 0
     for _, param in iter:
         if param.grad is not None:
-            mean = mean + np.mean(np.abs(param.grad.numpy()))
+            mean = mean + torch.mean(torch.abs(param.grad))
     return mean
 
 def train_model(
@@ -348,7 +348,7 @@ def train_model(
         loss_values.append(loss.item())
 
         # Log loss
-        pbar.set_description(f"Loss: {loss.item():.4f}")
+        pbar.set_description(f"Loss: {loss.item():.4e}")
 
         writer.add_scalar("Global loss", loss.item(), epoch)
         writer.add_scalar("Residual loss", residual_loss.item(), epoch)
