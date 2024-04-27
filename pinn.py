@@ -265,7 +265,6 @@ from datetime import date
 import datetime
 import pytz
 
-
 def update_weights(
     grads : torch.tensor,
     loss_fn : Loss,
@@ -281,7 +280,23 @@ def update_weights(
         loss_fn.weights[i] = (1-alpha)*lambda_i + alpha*max_grad/mean_grads[i]
     
     return loss_fn
-    
+
+def obtain_max_grad(iter: torch.nn.parameter) -> float:
+    max = 0
+    for _, param in iter:
+        if param.grad is not None:
+            max_i = np.max(np.abs(param.grad.numpy()))
+            if max_i > max:
+                max = max_i
+    return max
+
+def obtain_mean_grad(iter: torch.nn.parameter) -> float:
+    mean = 0
+    for _, param in iter:
+        if param.grad is not None:
+            mean = mean + np.mean(np.abs(param.grad.numpy()))
+    return mean
+
 def train_model(
     nn_approximator: PINN,
     loss_fn: Callable,
@@ -312,24 +327,15 @@ def train_model(
         _, residual_loss, initial_loss, boundary_loss = loss_fn.verbose(nn_approximator)
         
         residual_loss.backward(retain_graph=True)
-        res_grads = [param.grad.clone() for param in nn_approximator.parameters() if param.grad is not None]
-        res_grads = [tensor.detach().cpu().numpy().reshape(-1) for tensor in res_grads]
-        res_grads = np.concatenate(res_grads)
-        grads.append(np.max(np.abs(res_grads)))
+        grads.append(obtain_max_grad(nn_approximator.named_parameters()))
         optimizer.zero_grad()
         
         initial_loss.backward(retain_graph=True)
-        in_grads = [param.grad.clone() for param in nn_approximator.parameters()]
-        in_grads = [tensor.detach().cpu().numpy().reshape(-1) for tensor in in_grads]
-        in_grads = np.concatenate(in_grads)
-        grads.append(np.mean(np.abs(in_grads)))
+        grads.append(obtain_mean_grad(nn_approximator.named_parameters()))
         optimizer.zero_grad()
 
         boundary_loss.backward(retain_graph=True)
-        bound_grads = [param.grad.clone() for param in nn_approximator.parameters()]
-        bound_grads = [tensor.detach().cpu().numpy().reshape(-1) for tensor in bound_grads]
-        bound_grads = np.concatenate(bound_grads)
-        grads.append(np.mean(np.abs(bound_grads)))
+        grads.append(obtain_mean_grad(nn_approximator.named_parameters()))
         optimizer.zero_grad()
         
         loss_fn = update_weights(grads, loss_fn)
