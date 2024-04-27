@@ -5,10 +5,9 @@ from torch import nn
 from typing import Tuple
 import os
 
-from write_logs import get_last_modified_file, get_current_time, create_folder_date
-
 torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from write_logs import get_last_modified_file, get_current_time, create_folder_date
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     # description of displacements, so i don't have to add anything
@@ -313,7 +312,7 @@ def train_model(
         _, residual_loss, initial_loss, boundary_loss = loss_fn.verbose(nn_approximator)
         
         residual_loss.backward(retain_graph=True)
-        res_grads = [param.grad.clone() for param in nn_approximator.parameters()]
+        res_grads = [param.grad.clone() for param in nn_approximator.parameters() if param.grad is not None]
         res_grads = [tensor.detach().cpu().numpy().reshape(-1) for tensor in res_grads]
         res_grads = np.concatenate(res_grads)
         grads.append(np.max(np.abs(res_grads)))
@@ -326,7 +325,7 @@ def train_model(
         grads.append(np.mean(np.abs(in_grads)))
         optimizer.zero_grad()
 
-        boundary_loss.backward()
+        boundary_loss.backward(retain_graph=True)
         bound_grads = [param.grad.clone() for param in nn_approximator.parameters()]
         bound_grads = [tensor.detach().cpu().numpy().reshape(-1) for tensor in bound_grads]
         bound_grads = np.concatenate(bound_grads)
