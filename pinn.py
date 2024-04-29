@@ -265,38 +265,6 @@ from datetime import date
 import datetime
 import pytz
 
-def update_weights(
-    grads : torch.tensor,
-    loss_fn : Loss,
-    alpha : torch.tensor = 0.9
-    ) -> Loss:
-    """Order: [res, i, b]"""
-    
-    max_grad = grads[0]
-    mean_grads = grads[1:]
-    
-    for i in np.arange(len(grads)-1):
-        lambda_i = loss_fn.weights[i]
-        loss_fn.weights[i] = (1-alpha)*lambda_i + alpha*max_grad/mean_grads[i]
-    
-    return loss_fn
-
-def obtain_max_grad(iter: torch.nn.parameter) -> float:
-    max = 0
-    for _, param in iter:
-        if param.grad is not None:
-            max_i = torch.max(torch.abs(param.grad))
-            if max_i > max:
-                max = max_i
-    return max
-
-def obtain_mean_grad(iter: torch.nn.parameter) -> float:
-    mean = 0
-    for _, param in iter:
-        if param.grad is not None:
-            mean = mean + torch.mean(torch.abs(param.grad))
-    return mean
-
 def train_model(
     nn_approximator: PINN,
     loss_fn: Callable,
@@ -325,21 +293,6 @@ def train_model(
         
         optimizer.zero_grad()
         _, residual_loss, initial_loss, boundary_loss = loss_fn.verbose(nn_approximator)
-        
-        residual_loss.backward(retain_graph=True)
-        grads.append(obtain_max_grad(nn_approximator.named_parameters()))
-        optimizer.zero_grad()
-        
-        initial_loss.backward(retain_graph=True)
-        grads.append(obtain_mean_grad(nn_approximator.named_parameters()))
-        optimizer.zero_grad()
-
-        boundary_loss.backward(retain_graph=True)
-        grads.append(obtain_mean_grad(nn_approximator.named_parameters()))
-        optimizer.zero_grad()
-        
-        loss_fn = update_weights(grads, loss_fn)
-        
         loss: torch.Tensor = loss_fn(nn_approximator)
         
         loss.backward()
