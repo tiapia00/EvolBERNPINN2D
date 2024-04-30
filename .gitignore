@@ -1,0 +1,6 @@
+# Ignore all folders except specific ones
+/*
+!/in_model
+!/logs
+!/model
+!.gitignore
