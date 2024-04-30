@@ -1,5 +1,11 @@
 {
-  "parameters": {
+  "params_mat": {
+    "rho": 2700,
+    "E": 68e9,
+    "nu": 0.26,
+    "h": 0.2
+  },
+  "params_nn_common": {
     "x_end": 0.2,
     "y_end": 0.2,
     "t_end": 0.2,

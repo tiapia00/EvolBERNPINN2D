@@ -3,7 +3,7 @@ import datetime
 import pytz
 import yaml
 import json
-from string import Template
+from jinja2 import Template
 
 def create_folder_date(directory, folder_name):
     folder_path = os.path.join(directory, folder_name)
@@ -44,39 +44,24 @@ def get_current_time(timezone_name='Europe/Paris', fmt='%Y-%m-%d %H:%M:%S'):
     return time_str
 
 def resolve_json(filename):
-    with open(filename, 'r') as file:
-        template_dict = json.load(file)
+    
+    parameters = {
+    "x_end": 0.2,
+    "y_end": 0.2,
+    "t_end": 0.2,
+    "n": 40,
+    "hid_layers": 3,
+    "neurons_per_layer": 40
+}
+    with open(filename, 'r') as f:
+        template_content = f.read()
+    
+    template = Template(template_content)
 
-    parameters = template_dict['parameters']
+    rendered_json = template.render(parameters=parameters)
 
-    template_dict['pinn'] = {
-        "x_end": parameters['x_end'],
-        "y_end": parameters['y_end'],
-        "t_end": parameters['t_end'],
-        "n": parameters['n'],
-        "hid_layers": parameters['hid_layers'],
-        "neurons_per_layer": parameters['neurons_per_layer'],
-        "lr": 0.002,
-        "epoch": 50000,
-        "weight_in": 1,
-        "weight_bound": 1
-    }
-
-    template_dict['nn'] = {
-        "x_end": parameters['x_end'],
-        "t_end": parameters['t_end'],
-        "n": parameters['n'],
-        "hid_layers": parameters['hid_layers'],
-        "neurons_per_layer": parameters['neurons_per_layer'],
-        "lr": 0.002,
-        "epoch": 8000
-    }
-    resolved_json_str = json.dumps(template_dict, indent=2)
-
-    output_file_path = 'par_resolved.json'
-
-    with open(output_file_path, 'w') as output_file:
-        output_file.write(resolved_json_str)
+    with open('par_resolved.json', 'w') as f:
+        f.write(rendered_json)
 
 def get_params_PINN(filename):
     
@@ -114,4 +99,18 @@ def get_params_NN(filename):
     epoch = nn['epoch']
     
     return Lx, T, n, hid_layers, dim_hidden, lr, epoch
+
+def get_params_mat(filename):
+    
+    with open(filename, 'r') as file:
+        config = json.load(file)
+        
+    mat_par = config['params_mat']
+    
+    rho = mat_par['rho']
+    E = mat_par['E']
+    nu = mat_par['nu']
+    h = mat_par['h']
+    
+    return E, rho, h, nu
         

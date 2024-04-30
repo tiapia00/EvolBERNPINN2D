@@ -43,7 +43,7 @@ class NN(nn.Module):
     def device(self):
         return next(self.parameters()).device
 
-class Loss:
+class Loss_NN:
     def __init__(
         self,
         X: torch.tensor,
@@ -63,7 +63,7 @@ class Loss:
     def __call__(self, nn: NN):
         return self.loss(nn)
 
-def train_model(
+def train_model_nn(
     nn_approximator: NN,
     loss_fn: Callable,
     learning_rate: int,

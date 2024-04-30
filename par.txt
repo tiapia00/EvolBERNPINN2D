@@ -1,0 +1,9 @@
+Measurement units:
+    mu: MPa
+    E: Pa, initialization model expects an input of this type
+    rho: kg/m^3
+    all lengths in mm
+    
+just independent material parameters are inputted in par, function transforms then into the required parameters suitable for the eqns. to be solved
+Notice beam.py accepts all dimensions in m
+    

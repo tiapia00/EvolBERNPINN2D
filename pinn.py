@@ -134,13 +134,18 @@ def df(output: torch.Tensor, inputs: list, var : int) -> torch.Tensor:
     return df_value
 
 class Loss:
+    """Loss:
+       z = T^2/(L*rho)
+       z[0] = mu*z
+       z[1] = lambda*z"""
+
     def __init__(
         self,
         x_domain: Tuple[float, float],
         y_domain: Tuple[float, float],
         t_domain: Tuple[float, float],
         n_points: int,
-        z : torch.tensor,
+        z: torch.Tensor,
         initial_condition: Callable,
         weight_b: float = 1.0,
         weight_i: float = 1.0,
@@ -153,8 +158,8 @@ class Loss:
         self.z = z
         self.initial_condition = initial_condition
         self.weights = [weight_i, weight_b]
-        
-    def residual_loss(self, pinn: PINN):
+
+    def residual_loss(self, pinn):
         x, y, t = get_interior_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         output = f(pinn, x, y, t)
         dux_tt = df(output, [t, t], 0)
@@ -166,11 +171,11 @@ class Loss:
         dux_xy = df(output, [x, y], 0)
         duy_xy = df(output, [x, y], 1)
 
-        loss1 = dux_tt - 2*self.z[0]*(dux_xx+1/2*(duy_xy+dux_xy)) - self.z[1]*(dux_xx+duy_xy)
-        loss2 = duy_tt - 2*self.z[0]*(1/2*(dux_xy+duy_xy)+duy_yy) - self.z[1]*(dux_xy+duy_yy)
+        loss1 = dux_tt - 2*self.z[0]*(dux_xx + 1/2*(duy_xy + dux_xy)) - self.z[1]*(dux_xx + duy_xy)
+        loss2 = duy_tt - 2*self.z[0]*(1/2*(dux_xy + duy_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
         return (loss1.pow(2).mean() + loss2.pow(2).mean())
 
-    def initial_loss(self, pinn: PINN):
+    def initial_loss(self, pinn):
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
@@ -178,85 +183,63 @@ class Loss:
         uy = output[:, 1]
         loss1 = ux - pinn_init_ux
         loss2 = uy - pinn_init_uy
-        return self.weights[0]*(loss1.pow(2).mean() + loss2.pow(2).mean())
+        return self.weights[0] * (loss1.pow(2).mean() + loss2.pow(2).mean())
 
-    def boundary_loss(self, pinn: PINN):
-        """For now,
-            - down, up: Dirichlet conditions
-            - left, right : Neumann conditions"""
-        # n (normal vector) assumed constant during deformation
-
+    def boundary_loss(self, pinn):
         down, up, left, right = get_boundary_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
-        x_down,  y_down,  t_down    = down
-        x_up,    y_up,    t_up      = up
-        x_left,  y_left,  t_left    = left
-        x_right, y_right, t_right   = right
+        x_down, y_down, t_down = down
+        x_up, y_up, t_up = up
+        x_left, y_left, t_left = left
+        x_right, y_right, t_right = right
 
-        # Dirichlet conditions on both functions
-        loss_down1 = f(pinn, x_down, y_down, t_down)[:,0]
-        loss_down2 = f(pinn, x_down, y_down, t_down)[:,1]
-        loss_up1 = f(pinn, x_up, y_up, t_up)[:,0]
-        loss_up2 = f(pinn, x_up, y_up, t_up)[:,1]
+        loss_down1 = f(pinn, x_down, y_down, t_down)[:, 0]
+        loss_down2 = f(pinn, x_down, y_down, t_down)[:, 1]
+        loss_up1 = f(pinn, x_up, y_up, t_up)[:, 0]
+        loss_up2 = f(pinn, x_up, y_up, t_up)[:, 1]
 
-        ux_left = f(pinn, x_left, y_left, t_left)[:,0]
-        uy_left = f(pinn, x_left, y_left, t_left)[:,1]
-
+        ux_left = f(pinn, x_left, y_left, t_left)[:, 0]
+        uy_left = f(pinn, x_left, y_left, t_left)[:, 1]
         left = torch.cat([ux_left[..., None], uy_left[..., None]], -1)
         duy_y_left = df(left, [y_left], 1)
         dux_y_left = df(left, [y_left], 0)
         duy_x_left = df(left, [x_left], 1)
         tr_left = df(left, [x_left], 0) + duy_y_left
 
-        ux_right = f(pinn, x_right, y_right, t_right)[:,0]
-        uy_right = f(pinn, x_right, y_right, t_right)[:,1]
-
+        ux_right = f(pinn, x_right, y_right, t_right)[:, 0]
+        uy_right = f(pinn, x_right, y_right, t_right)[:, 1]
         right = torch.cat([ux_right[..., None], uy_right[..., None]], -1)
         duy_y_right = df(right, [y_right], 1)
         dux_y_right = df(right, [y_right], 0)
         duy_x_right = df(right, [x_right], 1)
         tr_right = df(right, [x_right], 0) + duy_y_right
 
-        loss_left1  = 2*self.z[0]*(1/2*(dux_y_left+duy_x_left))
-        loss_left2 =  2*self.z[0]*duy_y_left+self.z[1]*tr_left
+        loss_left1 = 2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
+        loss_left2 = 2*self.z[0]*duy_y_left + self.z[1]*tr_left
 
-        loss_right1 = 2*self.z[0]*(1/2*(dux_y_right+duy_x_right))
-        loss_right2 = 2*self.z[0]*duy_y_right+self.z[1]*tr_right
+        loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
+        loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return self.weights[1]*(loss_left1.pow(2).mean()  + \
-            loss_left2.pow(2).mean()    + \
-            loss_right1.pow(2).mean()  + \
-            loss_right2.pow(2).mean()  + \
-            loss_down1.pow(2).mean()   + \
-            loss_down2.pow(2).mean()    + \
-            loss_up1.pow(2).mean()      + \
-            loss_up2.pow(2).mean())
+        return self.weights[1] * (
+            loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
+            loss_right1.pow(2).mean() + loss_right2.pow(2).mean() +
+            loss_down1.pow(2).mean() + loss_down2.pow(2).mean() +
+            loss_up1.pow(2).mean() + loss_up2.pow(2).mean()
+        )
 
-    def verbose(self, pinn: PINN):
-        """
-        Returns all parts of the loss function
-
-        Not used during training! Only for checking the results later.
-        """
+    def verbose(self, pinn):
         residual_loss = self.residual_loss(pinn)
         initial_loss = self.initial_loss(pinn)
         boundary_loss = self.boundary_loss(pinn)
 
-        final_loss = \
-            residual_loss + \
-            self.weights[0] * initial_loss + \
+        final_loss = (
+            residual_loss +
+            self.weights[0] * initial_loss +
             self.weights[1] * boundary_loss
+        )
 
         return final_loss, residual_loss, initial_loss, boundary_loss
 
-    def __call__(self, pinn: PINN):
-        """
-        Allows you to use instance of this class as if it was a function:
-
-        ```
-            >>> loss = Loss(*some_args)
-            >>> calculated_loss = loss(pinn)
-        ```
-        """
+    def __call__(self, pinn):
         return self.verbose(pinn)[0]
 
 from torch.utils.tensorboard import SummaryWriter
@@ -301,7 +284,7 @@ def train_model(
         loss_values.append(loss.item())
 
         # Log loss
-        pbar.set_description(f"Loss: {loss.item():.4e}")
+        pbar.set_description(f"Loss: {loss.item():.2f}")
 
         writer.add_scalar("Global loss", loss.item(), epoch)
         writer.add_scalar("Residual loss", residual_loss.item(), epoch)
