@@ -1,5 +1,11 @@
-# Ignore all folders except specific ones
-/*
-!/in_model
-!/logs
-!/model
+# Ignore all directories
+*/
+
+# Whitelist specific directories (unignore)
+!/
+!.gitignore  # Whitelist the .gitignore file itself
+
+# Whitelist specific directories you want to include
+!/im_model/
+!/logs/
+!/model/
