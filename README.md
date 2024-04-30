@@ -13,6 +13,7 @@ In this way, consistent initialization of both models, unique database
 - implement plot in time
 - ~material parameters definition directly in JSON file: improve consistency~
 - check consistency in terms of measurement units for both models
+- check df function for gradient calculation
 ### long term
 - comparison with closed-form analytical solutions
 - try to implement positional embeddings
