@@ -3,26 +3,16 @@ import torch
 from torch import nn
 from typing import Tuple
 import json
-
-def read_json(filename):
-    with open(filename, 'r') as file:
-        return json.load(file)
+from read_write import get_params_NN
 
 torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_file = "Initial_NN.torch"
 
-
 from beam import Beam, Prob_Solv_Modes, In_Cond
 
-par = read_json('par.json')
+Lx, t, n, num_hidden, dim_hidden, lr, epochs = get_params_NN('par_resolved.json')
 
-Lx = par['x']
-t = par['t']
-n = par['n']
-
-num_hidden = par['n_layers']
-dim_hidden = par['n_neurons']
 
 my_beam = Beam(Lx, 68e9, 2700, 8e-3, 40e-3, n)
 
@@ -104,15 +94,13 @@ y_val = torch.tensor(y_val).to(device).float()
 
 from nn import *
 
-nn = NN(num_hidden, dim_hidden, dim_input = 2, dim_output = 1).to(device)
+nn_init = NN(num_hidden, dim_hidden, dim_input = 2, dim_output = 1).to(device)
 
 
 from tqdm import tqdm
 from typing import Callable
 import pytz
 
-epochs = 8000
-lr = 0.002
 
 loss_fn = Loss(
     x,
@@ -122,13 +110,12 @@ loss_fn = Loss(
 
 
 nn_trained, loss_values = train_model(
-    nn, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, x_val=x_val, t_val=t_val, y_val=y_val)
-
+    nn_init, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, x_val=x_val, t_val=t_val, y_val=y_val)
 
 import os
 import pytz
 import datetime
-from write_logs import get_current_time
+from read_write import get_current_time
 
 folder = 'in_model'
 time = get_current_time(fmt='%m-%d %H:%M')

@@ -2,7 +2,6 @@
 */
 
 # Whitelist specific directories (unignore)
-!/
 !.gitignore  # Whitelist the .gitignore file itself
 
 # Whitelist specific directories you want to include
