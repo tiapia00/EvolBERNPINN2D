@@ -73,8 +73,8 @@ def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tra
     ax.set_ylim(0, 1)
     ax.set_zlim(0, 20)
     
+    t_raw = torch.unique(t, sorted=True)
     t_raw = t_raw.reshape(-1, 1)
-    t_raw = torch.unique(tensor, sorted=True)
     
     x_raw = x.reshape(n_train, n_train, n_train)
     y_raw = y.reshape(n_train, n_train, n_train)
@@ -93,19 +93,22 @@ def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tra
     x = x.reshape(n_train, n_train)
     y = y.reshape(n_train, n_train)
     
-    uy = output[:, 1].reshape(n_train, n_train, n_train)[:,:,0]
+    x_plot = x.cpu().detach().numpy()
+    y_plot = y.cpu().detach().numpy()
+    uy = output[:, 1].reshape(n_train, n_train).cpu().detach().numpy()
     
-    legend = f'$\\hat{t}={t[0]}$'
-    ax.plot_surface(x, y, uy, cmap='viridis', label=legend)
+    legend = fr'$\hat{{t}}={{{float(t[0]):.2f}}}$' 
+    ax.plot_surface(x_plot, y_plot, uy, cmap='viridis', label=legend)
     ax.legend()
     
     def update(frame):
         t = t_shaped*t_raw[frame]
         output = f(pinn, x, y, t)
         
-        uy = output[:, 1].reshape(n_train, n_train, n_train)[:,:,0]
+        uy = output[:, 1].reshape(n_train, n_train).cpu()
         
-        legend = f'$\\hat{t}={t[0]}$'
+        t_value = float(t[0])
+        legend = fr'$\hat{{t}}={{{t_value:.2f}}}$' 
         surf.set_array(uy)
         
         ax.legend()

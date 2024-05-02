@@ -11,7 +11,7 @@
     "t_end": 0.2,
     "n": 40,
     "hid_layers": 3,
-    "neurons_per_layer": 40
+    "neurons_per_layer": 35
   },
   "pinn": {
     "x_end": 0.2,
@@ -21,7 +21,7 @@
     "hid_layers": 3,
     "neurons_per_layer": 40,
     "lr": 0.002,
-    "epoch": 50000,
+    "epoch": 1500,
     "weight_in": 1,
     "weight_bound": 1
   },
