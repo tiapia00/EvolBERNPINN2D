@@ -3,31 +3,31 @@
     "rho": 2700,
     "E": 68e9,
     "nu": 0.26,
-    "h": 0.2
+    "h": 1
   },
   "params_nn_common": {
-    "x_end": 0.2,
-    "y_end": 0.2,
-    "t_end": 0.2,
+    "x_end": 1,
+    "y_end": 1,
+    "t_end": 1,
     "n": 40,
     "hid_layers": 3,
     "neurons_per_layer": 35
   },
   "pinn": {
-    "x_end": 0.2,
-    "y_end": 0.2,
-    "t_end": 0.2,
+    "x_end": 1,
+    "y_end": 1,
+    "t_end": 1,
     "n": 40,
     "hid_layers": 3,
     "neurons_per_layer": 40,
-    "lr": 0.002,
+    "lr": 0.004,
     "epoch": 1500,
     "weight_in": 1,
-    "weight_bound": 1
+    "weight_bound": 2
   },
   "nn": {
-    "x_end": 0.2,
-    "t_end": 0.2,
+    "x_end": 1,
+    "t_end": 1,
     "n": 40,
     "hid_layers": 3,
     "neurons_per_layer": 40,

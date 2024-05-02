@@ -5,6 +5,3 @@
 !.gitignore  # Whitelist the .gitignore file itself
 
 # Whitelist specific directories you want to include
-!/im_model/
-!/logs/
-!/model/

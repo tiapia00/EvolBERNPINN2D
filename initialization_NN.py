@@ -95,7 +95,6 @@ from nn import *
 
 nn_init = NN(num_hidden, dim_hidden, dim_input = 2, dim_output = 1).to(device)
 
-
 from tqdm import tqdm
 from typing import Callable
 import pytz

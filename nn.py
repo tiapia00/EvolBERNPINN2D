@@ -56,7 +56,7 @@ class Loss_NN:
         self.y_true = y_true
 
     def loss(self, nn: NN):
-        output = f(nn, self.X, self.T)
+        output = f_nn(nn, self.X, self.T)
         loss = output - self.y_true
         return loss.pow(2).mean()
 
@@ -89,7 +89,7 @@ def train_model_nn(
         loss_values.append(loss.item())
         pbar.set_description(f"Loss: {loss.item():.4f}")
 
-        output = f(nn_approximator, x_val, t_val)
+        output = f_nn(nn_approximator, x_val, t_val)
         loss_val = output - y_val
         writer.add_scalar("Global loss", loss.item(), epoch)
         writer.add_scalar("Validation loss", loss_val.pow(2).mean(), epoch)
@@ -100,7 +100,7 @@ def train_model_nn(
     pbar.close()
     return nn_approximator, np.array(loss_values)
 
-def f(nn: NN, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+def f_nn(nn: NN, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     """Compute the value of the approximate solution from the NN model
     Internally calling the forward method when calling the class as a function"""
     return nn(x, t)

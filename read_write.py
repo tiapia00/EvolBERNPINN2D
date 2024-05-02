@@ -46,9 +46,9 @@ def get_current_time(timezone_name='Europe/Paris', fmt='%Y-%m-%d %H:%M:%S'):
 def resolve_json(filename):
     
     parameters = {
-    "x_end": 0.2,
-    "y_end": 0.2,
-    "t_end": 0.2,
+    "x_end": 1,
+    "y_end": 1,
+    "t_end": 1,
     "n": 40,
     "hid_layers": 3,
     "neurons_per_layer": 40

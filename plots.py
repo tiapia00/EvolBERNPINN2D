@@ -109,7 +109,7 @@ def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tra
         
         output = f(pinn, x, y, t)
         
-        uy = output[:, 1].reshape(n_train, n_train).detach().numpy()
+        uy = output[:, 1].reshape(n_train, n_train).cpu().detach().numpy()
         
         t_value = float(t[0])
         
