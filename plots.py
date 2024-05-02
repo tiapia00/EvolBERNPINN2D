@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 import torch
-import matplotlib.animation as animation
+from matplotlib.animation import FuncAnimation
 from matplotlib import rc
 from pinn import PINN, f
 
@@ -61,43 +61,66 @@ def plot_initial_conditions(z: torch.tensor, y: torch.tensor, x: torch.tensor, n
 
     fig.suptitle(name)
     
-def plot_solution(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : int, figsize=(12, 8), dpi=100):
+def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : int, figsize=(12, 8), dpi=100):
 
     rc('animation', html='jshtml')
-
+    
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     
+    ax.set_title('$u_y$')
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_zlim(0, 20)
     
-    ax.set_xlabel('$\\hat{y}$')
-    ax.set_ylabel('$\\hat{x}$')
-    ax.set_title('$\\hat{u}_y(t)$')
-    ax.view_init(elev=30, azim=45)
-    t_raw = torch.unique(t)
+    t_raw = t_raw.reshape(-1, 1)
+    t_raw = torch.unique(tensor, sorted=True)
     
-    def animate(i):
-
-        if not i % 10 == 0:
-            ax.clear()
-            t_partial = torch.ones_like(x_raw) * t_raw[i]
-            f = f(pinn, x_raw, y_raw, t_partial)
-            uy_raw = f.detach().cpu().numpy()[:,1]
-            
-            x_raw = x.detach().cpu().numpy()
-            y_raw = y.detach().cpu().numpy()
-            
-            x_mesh = x_raw.reshape(n_train, n_train, n_train)
-            y_mesh = y_raw.reshape(n_train, n_train, n_train)
-            uy = uy_raw.reshape(n_train, n_train, n_train)
-            
-            ax.plot_surface(x_mesh[:,:,i], y_mesh[:,:,i], uy[:,:,i], label=f"Time {float(t_raw[i])}", cmap='viridis')
-            
-            return ax
+    x_raw = x.reshape(n_train, n_train, n_train)
+    y_raw = y.reshape(n_train, n_train, n_train)
+    
+    x = x_raw[:,:,0]
+    y = y_raw[:,:,0]
+    
+    x = x.reshape(-1,1)
+    y = y.reshape(-1,1)
+    
+    t_shaped = torch.ones_like(x)
+    t = t_shaped*t_raw[0]
+    
+    output = f(pinn, x, y, t)
+    
+    x = x.reshape(n_train, n_train)
+    y = y.reshape(n_train, n_train)
+    
+    uy = output[:, 1].reshape(n_train, n_train, n_train)[:,:,0]
+    
+    legend = f'$\\hat{t}={t[0]}$'
+    ax.plot_surface(x, y, uy, cmap='viridis', label=legend)
+    ax.legend()
+    
+    def update(frame):
+        t = t_shaped*t_raw[frame]
+        output = f(pinn, x, y, t)
         
-    n_frames = t_raw.shape[0]
-    return animation.FuncAnimation(fig, animate, frames=n_frames, blit=False, repeat=True)
+        uy = output[:, 1].reshape(n_train, n_train, n_train)[:,:,0]
+        
+        legend = f'$\\hat{t}={t[0]}$'
+        surf.set_array(uy)
+        
+        ax.legend()
+        
+        return surf
     
+    n_frames = len(t_raw)
+    ani = FuncAnimation(fig, update, frames=n_frames, interval=50, blit=True)
+    
+    ani.save('uy.mp4', writer='ffmpeg', fps=30)
+
+
+        
+        
+        
+        
+        
     
