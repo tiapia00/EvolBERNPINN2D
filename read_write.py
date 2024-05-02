@@ -5,6 +5,17 @@ import yaml
 import json
 from jinja2 import Template
 
+def pass_folder():
+    date = get_current_time(fmt='%m-%d')
+    time = get_current_time(fmt='%H:%M')
+    direct = f'/model/{date}/{time}'
+    if not os.path.exists(direct):
+        os.makedirs(direct)
+        print(f"Folder '{folder_name}' created successfully at '{os.path.abspath(path)}'.")
+    else:
+        print(f"Folder '{folder_name}' already exists at '{os.path.abspath(path)}'.")
+    return direct
+
 def create_folder_date(directory, folder_name):
     folder_path = os.path.join(directory, folder_name)
     if not os.path.exists(folder_path):

@@ -4,6 +4,7 @@ import torch
 from torch import nn
 from typing import Tuple
 import os
+from read_write import pass_folder, get_current_time
 
 torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -255,10 +256,6 @@ def train_model(
     max_epochs: int
 ) -> PINN:
     
-    folder_name = date.today().isoformat()
-    
-    create_folder_date('logs', folder_name)
-    
     optimizer = torch.optim.Adam(nn_approximator.parameters(), lr=learning_rate)
     loss_values = []
     loss: torch.Tensor = torch.inf
@@ -266,10 +263,11 @@ def train_model(
     # Logging
 
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
-    log_dir = f'logs/{folder_name}'
-
-    subfolder = '/' + get_current_time(fmt="%H:%M")
-    writer = SummaryWriter(log_dir=log_dir + f'/lr = {learning_rate}, max_e = {max_epochs}, hidden_n = {nn_approximator.dim_hidden}' + subfolder)
+    
+    path = pass_folder()
+    log_dir = f'{path}/logs'
+    
+    writer = SummaryWriter(log_dir=log_dir)
 
     for epoch in range(max_epochs):
         grads = []
