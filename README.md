@@ -19,3 +19,8 @@ In this way, consistent initialization of both models, unique database
 - try to implement positional embeddings
 ## File status:
 - Analytical_w works but it is obsolete
+# Structure
+- introuduction about mathematical problem
+-- equation type
+- generalities about PINN
+- comparison with known problems (validation)
