@@ -13,6 +13,7 @@ from nn import *
 from pinn import *
 from par import Parameters, get_params
 from initialization_NN import train_init_NN
+
 torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -36,23 +37,9 @@ t_domain = np.array([0.0, T])/T
 
 pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
 
-loss_fn = Loss(
-    x_domain,
-    y_domain,
-    t_domain,
-    n_train,
-    return_adim(x_domain, t_domain, rho, mu, lam),
-    initial_conditions,
-    weight_IN,
-    weight_BOUND
-)
-
-
 path = pass_folder()
 
 if retrain_PINN:
-    pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
-
     loss_fn = Loss(
         x_domain,
         y_domain,
@@ -89,7 +76,7 @@ else:
     filename = get_last_modified_file('model')
     pinn_trained.load_state_dict(torch.load(filename, map_location = device))
 
-
+    
 pinn_trained.eval()
 
 
