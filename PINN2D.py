@@ -13,15 +13,13 @@ from nn import *
 from pinn import *
 from par import Parameters, get_params
 from initialization_NN import train_init_NN
+torch.set_default_dtype(torch.float32)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 retrain_init = False
 retrain_PINN = True
 
-torch.set_default_dtype(torch.float32)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 par = Parameters()
-
 
 if retrain_init:
     train_init_NN(par, device)
