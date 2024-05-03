@@ -131,7 +131,7 @@ def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tra
     ani = FuncAnimation(fig, update, frames=n_frames, fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=50, blit=False)
     
     file = f'{path}/uy.gif'
-    ani.save('uy.gif', fps=30)
+    ani.save(file, fps=30)
 
 
         

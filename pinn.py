@@ -253,14 +253,14 @@ def train_model(
     nn_approximator: PINN,
     loss_fn: Callable,
     learning_rate: int,
-    max_epochs: int
+    max_epochs: int,
+    path: str
 ) -> PINN:
     
     optimizer = torch.optim.Adam(nn_approximator.parameters(), lr=learning_rate)
     loss_values = []
     loss: torch.Tensor = torch.inf
 
-    path = pass_folder()
     log_dir = f'{path}/logs'
     
     writer = SummaryWriter(log_dir=log_dir)
