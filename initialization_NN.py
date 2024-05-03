@@ -13,7 +13,7 @@ from typing import Callable
 import pytz
 from nn import *
 
-def train_init_NN(par: Parameters):
+def train_init_NN(par: Parameters, device: torch.device):
     Lx, t, n, num_hidden, dim_hidden, lr, epochs = get_params(par.nn_par)
     E, rho, _, h = get_params(par.mat_par)
     my_beam = Beam(Lx, E, rho, h/1000, 40e-3, n) # h: m

@@ -1,10 +1,18 @@
-import json
 import numpy as np
 import os
+import torch
+from torch import nn
+from typing import Tuple
+from beam import Beam, Prob_Solv_Modes, In_Cond
+import pytz
+import datetime
+from read_write import get_current_time, get_last_modified_file, pass_folder
+from tqdm import tqdm
+from typing import Callable
+from nn import *
 from pinn import *
-from nn import NN
-import numpy as np
-from read_write import get_last_modified_file, pass_folder
+from par import Parameters, get_params
+from initialization_NN import train_init_NN
 
 retrain_init = False
 retrain_PINN = True
@@ -12,32 +20,21 @@ retrain_PINN = True
 torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-get_ipython().run_line_magic('run', 'par.py')
+par = Parameters()
 
 
 if retrain_init:
-    get_ipython().run_line_magic('run', 'initialization_NN.py')
+    train_init_NN(par, device)
 
+E, rho, _ , nu = get_params(par.mat_par)
 
-# In[10]:
+lam, mu = par.to_matpar_PINN()
 
-
-from read_write import get_params
-from par import to_matpar_PINN
-
-E, rho, _ , nu = get_params(mat_par)
-
-lam, mu = to_matpar_PINN(E, nu)
-
-Lx, Ly, T, n_train, layers, dim_hidden, lr, epochs, weight_IN, weight_BOUND = get_params(pinn_par)
+Lx, Ly, T, n_train, layers, dim_hidden, lr, epochs, weight_IN, weight_BOUND = get_params(par.pinn_par)
 
 x_domain = np.array([0.0, Lx])/Lx
 y_domain = np.array([0.0, Ly])/Lx
 t_domain = np.array([0.0, T])/T
-
-
-# In[11]:
-
 
 pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
 
@@ -51,9 +48,6 @@ loss_fn = Loss(
     weight_IN,
     weight_BOUND
 )
-
-
-# In[12]:
 
 
 path = pass_folder()
@@ -98,15 +92,7 @@ else:
     pinn_trained.load_state_dict(torch.load(filename, map_location = device))
 
 
-# # Train new network with pretrained weights and biases in middle layers
-
-# In[ ]:
-
-
 pinn_trained.eval()
-
-
-# In[ ]:
 
 
 from plots import plot_initial_conditions, plot_uy
@@ -123,10 +109,6 @@ z_0 = torch.cat((ux_0, uy_0), dim=1)
 
 plot_initial_conditions(z_0, y, x, 'Initial conditions - analytical', n_train, from_pinn = 0)
 plot_initial_conditions(z, y, x, 'Initial conditions - NN', n_train)
-
-
-# In[ ]:
-
 
 x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train)
 plot_uy(pinn_trained, x, y, t, n_train, path)

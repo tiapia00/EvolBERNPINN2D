@@ -1,8 +1,8 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 2.
-        self.y_end = 1.
-        self.t_end = 1.
+        self.x_end = 0.2
+        self.y_end = 0.2
+        self.t_end = 0.2
         self.n = 40
         self.hid_layers = 3
         self.neurons_per_layer = 40
@@ -28,8 +28,8 @@ class Parameters:
             'epochs' : 800,
             }   
         self.mat_par = {
-            'E' : 68e9,
-            'rho' : 2700,
+            'E' : 68.0e9,
+            'rho' : 2700.,
             'h' : self.y_end,
             'nu' : 0.26
             }

@@ -13,7 +13,7 @@ from read_write import get_last_modified_file, get_current_time, create_folder_d
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     # description of displacements, so i don't have to add anything
     res_ux = torch.zeros_like(x)
-    res_uy = torch.sin(torch.pi*i/x[-1]*x)/Lx
+    res_uy = torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device = torch.device(device), requires_grad=True):

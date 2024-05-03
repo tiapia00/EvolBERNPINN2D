@@ -1,8 +1,10 @@
 # EvolBERNPINN2D
 Implementation of PINN for the solution of an evolutive hyperbolic problem of a Bernoulli beam
 ## Usage
-- all parameters of material nn_init and PINN should be defined in the par.j2 file
+- all parameters regarding the model (material, NN configurations) are defined in par.py
 In this way, consistent initialization of both models, unique database
+- there's one standard NN that is used to pretrain the PINN, controlled by retrain_init bool
+- main script: pinn2D.py
 ## Known problems
 - plots-> plot_solution not working
 - initial conditions do not converge
