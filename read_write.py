@@ -8,12 +8,12 @@ from jinja2 import Template
 def pass_folder():
     date = get_current_time(fmt='%m-%d')
     time = get_current_time(fmt='%H:%M')
-    direct = f'/model/{date}/{time}'
+    direct = f'model/{date}/{time}'
     if not os.path.exists(direct):
         os.makedirs(direct)
-        print(f"Folder '{folder_name}' created successfully at '{os.path.abspath(path)}'.")
+        print(f"Folder '{direct}' created successfully")
     else:
-        print(f"Folder '{folder_name}' already exists at '{os.path.abspath(path)}'.")
+        print(f"Folder '{direct}' already exists")
     return direct
 
 def create_folder_date(directory, folder_name):

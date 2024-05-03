@@ -61,7 +61,7 @@ def plot_initial_conditions(z: torch.tensor, y: torch.tensor, x: torch.tensor, n
 
     fig.suptitle(name)
     
-def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : int, figsize=(12, 8), dpi=100):
+def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : int, path : str, figsize=(12, 8), dpi=100):
     
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
@@ -130,6 +130,7 @@ def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tra
     n_frames = len(t_raw)
     ani = FuncAnimation(fig, update, frames=n_frames, fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=50, blit=False)
     
+    file = f'{path}/uy.gif'
     ani.save('uy.gif', fps=30)
 
 

@@ -260,14 +260,12 @@ def train_model(
     loss_values = []
     loss: torch.Tensor = torch.inf
 
-    # Logging
-
-    pbar = tqdm(total=max_epochs, desc="Training", position=0)
-    
     path = pass_folder()
     log_dir = f'{path}/logs'
     
     writer = SummaryWriter(log_dir=log_dir)
+    
+    pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
         grads = []
