@@ -18,7 +18,7 @@ torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 retrain_init = False
-retrain_PINN = True
+retrain_PINN = False
 
 par = Parameters()
 
@@ -37,9 +37,10 @@ t_domain = np.array([0.0, T])/T
 
 pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
 
-path = pass_folder()
-
 if retrain_PINN:
+    
+    path = pass_folder()
+    
     loss_fn = Loss(
         x_domain,
         y_domain,
@@ -73,8 +74,9 @@ if retrain_PINN:
     
 else:
     pinn_trained = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
-    filename = get_last_modified_file('model')
+    filename = get_last_modified_file('model', '.pth')
     pinn_trained.load_state_dict(torch.load(filename, map_location = device))
+    print(f'{filename} loaded.\n')
 
     
 pinn_trained.eval()
@@ -92,7 +94,7 @@ z = f(pinn_trained, x ,y, t)
 ux_0, uy_0 = initial_conditions(x, y, Lx, i = 1)
 z_0 = torch.cat((ux_0, uy_0), dim=1)
 
-plot_initial_conditions(z_0, x, y, 'Initial conditions - analytical', n_train, from_pinn = 0)
+plot_initial_conditions(z_0, x, y, 'Initial conditions - analytical', n_train)
 plot_initial_conditions(z, y, x, 'Initial conditions - NN', n_train)
 
 x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train)

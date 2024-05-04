@@ -21,29 +21,33 @@ def create_folder_date(directory, folder_name):
     else:
         print(f"Folder '{folder_name}' already exists.")
 
-def get_last_modified_file(folder_path):
-    # Ensure the provided path is a directory
+def get_last_modified_file(folder_path, file_extension):
     try:
-        # Get a list of all files in the specified directory
-        files = os.listdir(folder_path)
+        # List to store (file_path, modification_time) tuples
+        files = []
 
-        # Filter out directories and get a list of (file, modified_time) tuples
-        files = [(f, os.path.getmtime(os.path.join(folder_path, f))) for f in files if os.path.isfile(os.path.join(folder_path, f))]
+        # Walk through the directory tree (including subfolders)
+        for root, _, filenames in os.walk(folder_path):
+            for filename in filenames:
+                if filename.endswith(file_extension):
+                    file_path = os.path.join(root, filename)
+                    modification_time = os.path.getmtime(file_path)
+                    files.append((file_path, modification_time))
 
-        # Sort files based on modified time (second element of the tuple)
+        # Sort files based on modification time (most recent first)
         files.sort(key=lambda x: x[1], reverse=True)
 
         if files:
-            # Return the file with the latest modified time
-            return os.path.join(folder_path, files[0][0])
+            return files[0][0]  # Return the path of the most recently modified file
         else:
-            print(f"No files found in {folder_path}.")
+            print(f"No files with extension '{file_extension}' found in {folder_path} or its subfolders.")
             return None
 
     except OSError as e:
         print(f"Error: {e}")
         return None
 
+    
 def get_current_time(timezone_name='Europe/Paris', fmt='%Y-%m-%d %H:%M:%S'):
     current_time_utc = datetime.datetime.utcnow()
     target_timezone = pytz.timezone(timezone_name)

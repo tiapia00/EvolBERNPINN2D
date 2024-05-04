@@ -13,21 +13,21 @@ def plot_initial_conditions(z: torch.tensor, x: torch.tensor, y: torch.tensor, n
     x_raw = x.detach().cpu().numpy()
     y_raw = y.detach().cpu().numpy()
 
-    z = z.cpu().numpy()
+    z = z.cpu().detach().numpy()
    
-    X = x_raw.reshape(n_train, n_train)
-    Y = y_raw.reshape(n_train, n_train)
+    X = x_raw
+    Y = y_raw
 
     cmap = 'viridis'
     
-    norm = torch.norm(z, dim=1)
-    p1 = ax.plot(X+ux, Y+uy, c=norm, cmap=cmap)
-    ax.set_xlabel('$\\hat{y}$')
-    ax.set_ylabel('$\\hat{x}$')
+    norm = np.linalg.norm(z, axis=1)
+    plt.plot(X+z[:,0], Y+z[:,1])
+    plt.xlabel('$\\hat{y}$')
+    plt.ylabel('$\\hat{x}$')
 
-    fig.suptitle(name)
+    plt.title(name)
     
-    plt.show()
+    plt.savefig(f'{name}.png')
     
 def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : int, path : str, figsize=(12, 8), dpi=100):
     

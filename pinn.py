@@ -12,7 +12,7 @@ def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 
     res_uy = torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
 
-def get_initial_points(x_domain, y_domain, t_domain, n_points, device = torch.device(device), requires_grad=True):
+def get_initial_points(x_domain, y_domain, t_domain, n_points, device = torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):
     x_linspace = torch.linspace(x_domain[0], x_domain[1], n_points)
     y_linspace = torch.linspace(y_domain[0], y_domain[1], n_points)
     x_grid, y_grid = torch.meshgrid(x_linspace, y_linspace, indexing="ij")
@@ -23,7 +23,7 @@ def get_initial_points(x_domain, y_domain, t_domain, n_points, device = torch.de
     t0 = torch.full_like(x_grid, t_domain[0], requires_grad=requires_grad)
     return (x_grid, y_grid, t0)
 
-def get_boundary_points(x_domain, y_domain, t_domain, n_points, device = torch.device(device), requires_grad=True):
+def get_boundary_points(x_domain, y_domain, t_domain, n_points, device = torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):
     """
          .+------+
        .' |    .'|
@@ -61,7 +61,7 @@ def get_boundary_points(x_domain, y_domain, t_domain, n_points, device = torch.d
 
     return down, up, left, right
 
-def get_interior_points(x_domain, y_domain, t_domain, n_points, device = torch.device(device), requires_grad=True):
+def get_interior_points(x_domain, y_domain, t_domain, n_points, device = torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):
     x_raw = torch.linspace(x_domain[0], x_domain[1], steps=n_points, requires_grad=requires_grad)
     y_raw = torch.linspace(y_domain[0], y_domain[1], steps=n_points, requires_grad=requires_grad)
     t_raw = torch.linspace(t_domain[0], t_domain[1], steps=n_points, requires_grad=requires_grad)
