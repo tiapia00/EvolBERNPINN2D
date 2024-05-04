@@ -16,4 +16,3 @@ dependencies:
   - tqdm
   - pytz
   - scikit-learn
-  - Jinja2

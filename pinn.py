@@ -4,11 +4,7 @@ import torch
 from torch import nn
 from typing import Tuple
 import os
-from read_write import pass_folder, get_current_time
-
-torch.set_default_dtype(torch.float32)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-from read_write import get_last_modified_file, get_current_time, create_folder_date
+from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     # description of displacements, so i don't have to add anything

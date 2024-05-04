@@ -92,7 +92,7 @@ z = f(pinn_trained, x ,y, t)
 ux_0, uy_0 = initial_conditions(x, y, Lx, i = 1)
 z_0 = torch.cat((ux_0, uy_0), dim=1)
 
-plot_initial_conditions(z_0, y, x, 'Initial conditions - analytical', n_train, from_pinn = 0)
+plot_initial_conditions(z_0, x, y, 'Initial conditions - analytical', n_train, from_pinn = 0)
 plot_initial_conditions(z, y, x, 'Initial conditions - NN', n_train)
 
 x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train)
