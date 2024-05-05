@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation as animation
 
 class Beam:   
-  def __init__(self, length, E, rho, H, b, n_points = 1000):
+  def __init__(self, length, E, rho, H, b, n_points):
       self.length = length # m
       self.E = E # Nm^2
       self.J = H**3*b/12
@@ -16,7 +16,6 @@ class Beam:
       self.b = b
       self.A = self.H*self.b
       self.w : np.ndarray
-      self.__t : np.ndarray
       self.gamma : np.ndarray
       self.omega : np.ndarray
       self.xi = np.linspace(0, self.length, n_points)
@@ -69,7 +68,6 @@ class Beam:
     plt.show()
 
   def calculate_solution(self, A, B, t:np.ndarray):
-    self.__t = t
     self.w = np.zeros((self.phi.shape[0], len(t)))
     j = 0
     for t_s in t:
@@ -81,7 +79,7 @@ class Beam:
       self.w[:,j] = w
       j += 1
 
-  def plot_solution(self):
+  def plot_sol(self, path):
 
     fig = plt.figure()
     ax = plt.axes()
@@ -97,8 +95,10 @@ class Beam:
         ax.plot(self.xi, self.w[:, i], color='blue')
         return ax
 
-    anim = animation.FuncAnimation(fig, drawframe, frames=self.w.shape[1], blit=False, repeat=True)
-    return anim
+    ani = animation.FuncAnimation(fig, drawframe, frames=self.w.shape[1], blit=False, repeat=True)
+    
+    file = f'{path}/sol_analytic.gif'
+    ani.save(file, fps=60)
 
   class modal_appr:
     def __init__(self):
