@@ -29,7 +29,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     a_scatter = ax[0].scatter(X.reshape(-1)+z0[:,0], Y.reshape(-1)+z0[:,1], c=norm_z0, cmap=cmap)
     ax[0].set_xlabel('$\\hat{x}$')
     ax[0].set_ylabel('$\\hat{y}$')
-    ax[0].set_title('Analyitcal initial conditions')
+    ax[0].set_title('Analytical initial conditions')
     cbar1 = fig.colorbar(a_scatter, ax=ax[0], orientation='vertical')
     cbar1.set_label('$|\\mathbf{u}|$')
     
@@ -65,7 +65,8 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     x = x.reshape(-1,1)
     y = y.reshape(-1,1)
 
-    t = t_raw[0]
+    t_shaped = torch.ones_like(x)
+    t = t_shaped*t_raw[0]
     
     output = f(pinn, x, y, t)
     
@@ -88,14 +89,14 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
         pinn: PINN,
         ax):
         
-        t = t_raw[frame]
+        t = t_shaped*t_raw[frame]
         
         output = f(pinn, x, y, t)
         
         z = output.cpu().detach().numpy()
         norm = np.linalg.norm(z, axis=1).reshape(-1)
         
-        t_value = float(t)
+        t_value = float(t[0])
         
         ax.clear()
         
@@ -104,15 +105,15 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
         
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
-        ax.text(0, 0.5, s=fr'$\hat{{t}} = {t_value:.2f}$', fontsize=10, color='black', ha='center')
-        ax.scatter(x_plot+z[:,0], y_plot+z[:,0], cmap='viridis')
+        ax.text(0.3, 0.5, s=fr'$\hat{{t}} = {t_value:.2f}$', fontsize=10, color='black', ha='center')
+        ax.scatter(x_plot+z[:,0], y_plot+z[:,0], c=norm, cmap='viridis')
         
         return ax
     
     n_frames = len(t_raw)
-    ani = FuncAnimation(fig, update, frames=n_frames, fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=50, blit=False)
+    ani = FuncAnimation(fig, update, frames=n_frames, fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
     
-    file = f'{path}/uy.gif'
+    file = f'{path}/sol_time.gif'
     ani.save(file, fps=60)
 
 
