@@ -2,10 +2,10 @@ import os
 import datetime
 import pytz
 
-def pass_folder():
+def pass_folder(root: str):
     date = get_current_time(fmt='%m-%d')
     time = get_current_time(fmt='%H:%M')
-    direct = f'model/{date}/{time}'
+    direct = f'{root}/{date}/{time}'
     if not os.path.exists(direct):
         os.makedirs(direct)
         print(f"Folder '{direct}' created successfully")

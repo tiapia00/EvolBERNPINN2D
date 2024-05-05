@@ -71,14 +71,14 @@ def train_model_nn(
     x_val: torch.tensor,
     t_val: torch.tensor,
     y_val: torch.tensor,
+    path: str,
 ) -> NN:
     optimizer = torch.optim.Adam(nn_approximator.parameters(), lr=learning_rate)
     loss_values = []
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
-    log_dir = 'in_model/logs'
-
-    subfolder = '/' + get_current_time(fmt="%H:%M")
-    writer = SummaryWriter(log_dir=log_dir + subfolder)
+    log_dir = f'{path}/logs'
+    
+    writer = SummaryWriter(log_dir=log_dir)
 
     for epoch in range(max_epochs):
         loss = loss_fn(nn_approximator)

@@ -7,7 +7,7 @@ from par import Parameters, get_params
 import os
 import pytz
 import datetime
-from read_write import get_current_time
+from read_write import get_current_time, pass_folder
 from tqdm import tqdm
 from typing import Callable
 import pytz
@@ -19,7 +19,7 @@ def train_init_NN(par: Parameters, device: torch.device):
     my_beam = Beam(Lx, E, rho, h/1000, 40e-3, n) # h: m
 
     prob = Prob_Solv_Modes(my_beam)
-    gamma_max = 100 # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
+    gamma_max = 5 # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
 
     prob.pass_g_max(gamma_max)
     eig_gam = prob.find_eig()
@@ -32,8 +32,6 @@ def train_init_NN(par: Parameters, device: torch.device):
     prob.update_gamma(my_beam)
     phi = prob.return_modemat(F)
     my_beam.update_phi(phi)
-
-
     my_In_Cond = In_Cond(my_beam)
 
     w_0 = my_beam.phi[:,0]
@@ -45,8 +43,7 @@ def train_init_NN(par: Parameters, device: torch.device):
     t_lin = np.linspace(0, 1, n)
     my_beam.calculate_solution(A, B, t_lin)
     w = my_beam.w
-
-
+    
     def adimensionalize_sol(w: np.ndarray, w_ast: float):
         return w/w_ast
 
@@ -93,7 +90,11 @@ def train_init_NN(par: Parameters, device: torch.device):
     y_val = torch.tensor(y_val).to(device).float()
 
     nn_init = NN(num_hidden, dim_hidden, dim_input = 2, dim_output = 1).to(device)
-
+    
+    path = pass_folder('in_model')
+    model_name = 'init_NN.pth'
+    model_path = os.path.join(path, model_name)
+    
     loss_fn = Loss_NN(
         x,
         t,
@@ -101,14 +102,9 @@ def train_init_NN(par: Parameters, device: torch.device):
     )
 
     nn_trained, loss_values = train_model_nn(
-        nn_init, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, x_val=x_val, t_val=t_val, y_val=y_val)
-
-    folder = 'in_model'
-    time = get_current_time(fmt='%m-%d %H:%M')
-    model_name = f'{get_current_time()}.pth'
-
-    model_path = os.path.join(folder, model_name)
-    os.makedirs(folder, exist_ok=True)
+        nn_init, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, x_val=x_val, t_val=t_val, y_val=y_val, path=path)
+    
+    my_beam.plot_sol(path)
 
     torch.save(nn_trained.state_dict(), model_path)
 

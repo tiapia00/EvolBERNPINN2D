@@ -39,7 +39,7 @@ pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
 
 if retrain_PINN:
     
-    path = pass_folder()
+    path = pass_folder('model')
     
     loss_fn = Loss(
         x_domain,
@@ -52,7 +52,7 @@ if retrain_PINN:
         weight_BOUND
     )
     
-    filename_model = get_last_modified_file('in_model')
+    filename_model = get_last_modified_file('in_model', '.pth')
     pretrained_model_dict = torch.load(filename_model, map_location=torch.device(device))
 
     pretrained_model = NN(layers, dim_hidden, 2, 1)
