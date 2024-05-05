@@ -8,9 +8,9 @@ def pass_folder(root: str):
     direct = f'{root}/{date}/{time}'
     if not os.path.exists(direct):
         os.makedirs(direct)
-        print(f"Folder '{direct}' created successfully")
+        print(f"Folder '{direct}' created successfully.")
     else:
-        print(f"Folder '{direct}' already exists")
+        print(f"Folder '{direct}' already exists.")
     return direct
 
 def create_folder_date(directory, folder_name):

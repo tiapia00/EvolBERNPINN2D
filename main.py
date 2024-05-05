@@ -39,7 +39,8 @@ pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
 
 if retrain_PINN:
     
-    path = pass_folder('model')
+    dir_model = pass_folder('model')
+    dir_logs = pass_folder('model/logs')
     
     loss_fn = Loss(
         x_domain,
@@ -65,10 +66,10 @@ if retrain_PINN:
         pinn.middle_layers[i].bias.data.copy_(pretrained_model.middle_layers[i].bias)
 
     pinn_trained, loss_values = train_model(
-    pinn, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, path=path)
+    pinn, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, path_logs=dir_logs)
     
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
-    model_path = os.path.join(path, model_name)
+    model_path = os.path.join(dir_model, model_name)
     
     torch.save(pinn_trained.state_dict(), model_path)
     

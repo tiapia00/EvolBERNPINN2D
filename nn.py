@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
+from read_write import get_current_time, pass_folder
 from tqdm import tqdm
 import datetime
 import pytz
@@ -71,14 +72,13 @@ def train_model_nn(
     x_val: torch.tensor,
     t_val: torch.tensor,
     y_val: torch.tensor,
-    path: str,
+    path_logs: str
 ) -> NN:
     optimizer = torch.optim.Adam(nn_approximator.parameters(), lr=learning_rate)
     loss_values = []
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
-    log_dir = f'{path}/logs'
-    
-    writer = SummaryWriter(log_dir=log_dir)
+        
+    writer = SummaryWriter(log_dir=path_logs)
 
     for epoch in range(max_epochs):
         loss = loss_fn(nn_approximator)

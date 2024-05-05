@@ -250,16 +250,14 @@ def train_model(
     loss_fn: Callable,
     learning_rate: int,
     max_epochs: int,
-    path: str
+    path_logs: str,
 ) -> PINN:
     
     optimizer = torch.optim.Adam(nn_approximator.parameters(), lr=learning_rate)
     loss_values = []
     loss: torch.Tensor = torch.inf
-
-    log_dir = f'{path}/logs'
     
-    writer = SummaryWriter(log_dir=log_dir)
+    writer = SummaryWriter(log_dir=path_logs)
     
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 

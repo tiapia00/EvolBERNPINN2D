@@ -91,9 +91,10 @@ def train_init_NN(par: Parameters, device: torch.device):
 
     nn_init = NN(num_hidden, dim_hidden, dim_input = 2, dim_output = 1).to(device)
     
-    path = pass_folder('in_model')
+    dir_model = pass_folder('in_model')
+    dir_logs = pass_folder('in_model/logs')
     model_name = 'init_NN.pth'
-    model_path = os.path.join(path, model_name)
+    model_path = os.path.join(dir_model, model_name)
     
     loss_fn = Loss_NN(
         x,
@@ -102,9 +103,10 @@ def train_init_NN(par: Parameters, device: torch.device):
     )
 
     nn_trained, loss_values = train_model_nn(
-        nn_init, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, x_val=x_val, t_val=t_val, y_val=y_val, path=path)
+        nn_init, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, x_val=x_val, t_val=t_val, y_val=y_val, 
+        path_logs=dir_logs)
     
-    my_beam.plot_sol(path)
+    my_beam.plot_sol(dir_model)
 
     torch.save(nn_trained.state_dict(), model_path)
 
