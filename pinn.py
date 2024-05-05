@@ -192,11 +192,6 @@ class Loss:
         x_left, y_left, t_left = left
         x_right, y_right, t_right = right
 
-        loss_down1 = f(pinn, x_down, y_down, t_down)[:, 0]
-        loss_down2 = f(pinn, x_down, y_down, t_down)[:, 1]
-        loss_up1 = f(pinn, x_up, y_up, t_up)[:, 0]
-        loss_up2 = f(pinn, x_up, y_up, t_up)[:, 1]
-
         ux_left = f(pinn, x_left, y_left, t_left)[:, 0]
         uy_left = f(pinn, x_left, y_left, t_left)[:, 1]
         left = torch.cat([ux_left[..., None], uy_left[..., None]], -1)
@@ -221,9 +216,7 @@ class Loss:
 
         return self.weights[1] * (
             loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
-            loss_right1.pow(2).mean() + loss_right2.pow(2).mean() +
-            loss_down1.pow(2).mean() + loss_down2.pow(2).mean() +
-            loss_up1.pow(2).mean() + loss_up2.pow(2).mean()
+            loss_right1.pow(2).mean() + loss_right2.pow(2).mean()
         )
 
     def verbose(self, pinn):
