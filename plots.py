@@ -44,15 +44,14 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     
     plt.savefig(f'{path}/init.png')
     
-def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : int, path : str, figsize=(12, 8), dpi=100):
+def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : int, path : str, name: str, figsize=(12, 8)):
     
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(111, projection='3d')
+    fig, ax = plt.subplots(figsize=(10, 8))
     
-    ax.set_title('$u_y$')
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.set_zlim(0, 2)
+    ax.set_title(f'Time response - {name}')
+    
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
     
     t_raw = torch.unique(t, sorted=True)
     t_raw = t_raw.reshape(-1, 1)
@@ -65,17 +64,18 @@ def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tra
     
     x = x.reshape(-1,1)
     y = y.reshape(-1,1)
-    
-    t_shaped = torch.ones_like(x)
-    t = t_shaped*t_raw[0]
+
+    t = t_raw[0]
     
     output = f(pinn, x, y, t)
     
-    x_plot = x.cpu().detach().numpy().reshape(n_train, n_train)
-    y_plot = y.cpu().detach().numpy().reshape(n_train, n_train)
-    uy = output[:, 1].reshape(n_train, n_train).cpu().detach().numpy()
+    x_plot = x.cpu().detach().numpy().reshape(n_train, n_train).reshape(-1)
+    y_plot = y.cpu().detach().numpy().reshape(n_train, n_train).reshape(-1)
     
-    ax.plot_surface(x_plot, y_plot, uy, cmap='viridis')
+    z0 = output.cpu().detach().numpy()
+    norm = np.linalg.norm(z0, axis=1).reshape(-1)
+    
+    ax.scatter(x_plot+z0[:,0], y_plot+z0[:,1], c=norm, cmap='viridis')
     
     def update(
         frame,
@@ -88,25 +88,24 @@ def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tra
         pinn: PINN,
         ax):
         
-        t = t_shaped*t_raw[frame]
+        t = t_raw[frame]
         
         output = f(pinn, x, y, t)
         
-        uy = output[:, 1].reshape(n_train, n_train).cpu().detach().numpy()
+        z = output.cpu().detach().numpy()
+        norm = np.linalg.norm(z, axis=1).reshape(-1)
         
-        t_value = float(t[0])
+        t_value = float(t)
         
         ax.clear()
         
         ax.set_xlabel('$\\hat{x}$')
         ax.set_ylabel('$\\hat{y}$')
-        ax.set_zlabel('$\\hat{u}_y$')
         
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
-        ax.set_zlim(0, 0.5)
-        ax.text(0, 0.5, 0.8, s=fr'$\hat{{t}} = {t_value:.2f}$', fontsize=10, color='black', ha='center')
-        ax.plot_surface(x_plot, y_plot, uy, cmap='viridis')
+        ax.text(0, 0.5, s=fr'$\hat{{t}} = {t_value:.2f}$', fontsize=10, color='black', ha='center')
+        ax.scatter(x_plot+z[:,0], y_plot+z[:,0], cmap='viridis')
         
         return ax
     
@@ -114,7 +113,7 @@ def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tra
     ani = FuncAnimation(fig, update, frames=n_frames, fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=50, blit=False)
     
     file = f'{path}/uy.gif'
-    ani.save(file, fps=30)
+    ani.save(file, fps=60)
 
 
         

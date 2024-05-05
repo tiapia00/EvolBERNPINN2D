@@ -85,7 +85,7 @@ else:
 pinn_trained.eval()
 
 
-from plots import plot_initial_conditions, plot_uy
+from plots import plot_initial_conditions, plot_sol
 
 x, y, _ = get_initial_points(x_domain, y_domain, t_domain, n_train)
 t_value = 0.0
@@ -100,7 +100,7 @@ z0 = torch.cat((ux0, uy0), dim=1)
 plot_initial_conditions(z, z0, x, y, n_train, path)
 
 x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train)
-plot_uy(pinn_trained, x, y, t, n_train, path)
+plot_sol(pinn_trained, x, y, t, n_train, path, 'NN prediction')
 
 
 # # To be added
