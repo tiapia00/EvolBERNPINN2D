@@ -6,6 +6,7 @@ from typing import Tuple
 import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 
+
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     # description of displacements, so i don't have to add anything
     res_ux = torch.zeros_like(x)
@@ -111,7 +112,9 @@ class PINN(nn.Module):
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     """Compute the value of the approximate solution from the NN model
     Internally calling the forward method when calling the class as a function"""
-    return pinn(x, y, t)
+    hard_enc = torch.sin(x/np.pi)
+    hard_enc_both = hard_enc.expand(hard_enc.shape[0], 2)
+    return hard_enc_both*pinn(x, y, t)
 
 def df(output: torch.Tensor, inputs: list, var : int) -> torch.Tensor:
     """Compute neural network derivative with respect to input features using PyTorch autograd engine
