@@ -1,7 +1,7 @@
 class Parameters:
     def __init__(self):
         self.x_end = 2
-        self.y_end = 0.02
+        self.y_end = 0.2
         self.t_end = 0.2
         self.n = 40
         self.hid_layers = 3

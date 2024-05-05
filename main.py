@@ -17,8 +17,8 @@ from initialization_NN import train_init_NN
 torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-retrain_init = False
-retrain_PINN = False
+retrain_init = True
+retrain_PINN = True
 
 par = Parameters()
 
