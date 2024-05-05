@@ -16,6 +16,7 @@ In this way, consistent initialization of both models, unique database
 - ~material parameters definition directly in JSON file: improve consistency~
 - check consistency in terms of measurement units for both models
 - ~check df function for gradient calculation~
+- graphs as a function of time to compare analytical and PINN solution
 - implement shuffling of hyperparameters to select best combination
 ### long term
 - comparison with closed-form analytical solutions

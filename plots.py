@@ -23,16 +23,22 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
 
     cmap = 'viridis'
     
-    norm = np.linalg.norm(z, axis=1).reshape(-1)
-    ax[0].scatter(X.reshape(-1)+z0[:,0], Y.reshape(-1)+z0[:,1], c=norm, cmap=cmap)
-    ax[0].set_xlabel('$\\hat{y}$')
-    ax[0].set_ylabel('$\\hat{x}$')
-    ax[0].set_title('Analyitcal initial conditions')
+    norm_z0 = np.linalg.norm(z0, axis=1).reshape(-1)
+    norm_z = np.linalg.norm(z, axis=1).reshape(-1)
     
-    ax[1].scatter(X.reshape(-1)+z[:,0], Y.reshape(-1)+z[:,1], c=norm, cmap=cmap)
-    ax[1].set_xlabel('$\\hat{y}$')
-    ax[1].set_ylabel('$\\hat{x}$')
+    a_scatter = ax[0].scatter(X.reshape(-1)+z0[:,0], Y.reshape(-1)+z0[:,1], c=norm_z0, cmap=cmap)
+    ax[0].set_xlabel('$\\hat{x}$')
+    ax[0].set_ylabel('$\\hat{y}$')
+    ax[0].set_title('Analyitcal initial conditions')
+    cbar1 = fig.colorbar(a_scatter, ax=ax[0], orientation='vertical')
+    cbar1.set_label('$|\\mathbf{u}|$')
+    
+    p_scatter = ax[1].scatter(X.reshape(-1)+z[:,0], Y.reshape(-1)+z[:,1], c=norm_z, cmap=cmap)
+    ax[1].set_xlabel('$\\hat{x}$')
+    ax[1].set_ylabel('$\\hat{y}$')
     ax[1].set_title('Predicted initial conditions')
+    cbar2 = fig.colorbar(p_scatter, ax=ax[1], orientation='vertical')
+    cbar2.set_label('$|\\mathbf{u}|$')
     
     plt.tight_layout()
     
@@ -46,7 +52,7 @@ def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tra
     ax.set_title('$u_y$')
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-    ax.set_zlim(0, 20)
+    ax.set_zlim(0, 2)
     
     t_raw = torch.unique(t, sorted=True)
     t_raw = t_raw.reshape(-1, 1)
