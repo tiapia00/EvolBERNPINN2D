@@ -40,7 +40,7 @@ def train_init_NN(par: Parameters, device: torch.device):
     my_In_Cond.pass_init_cond(w_0, w_dot_0)
     A, B = my_In_Cond.compute_coeff()
 
-    t_lin = np.linspace(0, 1, n)
+    t_lin = np.linspace(0, t, n)
     my_beam.calculate_solution(A, B, t_lin)
     w = my_beam.w
     
@@ -58,8 +58,9 @@ def train_init_NN(par: Parameters, device: torch.device):
     # ## Define training dataset
 
     x_lin = np.linspace(0, 1, n)
-
-    x, t = np.meshgrid(x_lin, t_lin)
+    
+    t_hat = np.linspace(0, 1, len(t_lin))
+    x, t = np.meshgrid(x_lin, t_hat)
     x = x.reshape(-1)
     t = t.reshape(-1)
     X = np.stack((x, t), axis=1)

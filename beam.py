@@ -16,7 +16,6 @@ class Beam:
       self.b = b
       self.A = self.H*self.b
       self.w : np.ndarray
-      self.__t : np.ndarray
       self.gamma : np.ndarray
       self.omega : np.ndarray
       self.xi = np.linspace(0, self.length, n_points)
@@ -69,7 +68,6 @@ class Beam:
     plt.show()
 
   def calculate_solution(self, A, B, t:np.ndarray):
-    self.__t = t
     self.w = np.zeros((self.phi.shape[0], len(t)))
     j = 0
     for t_s in t:

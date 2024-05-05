@@ -98,10 +98,10 @@ z = f(pinn_trained, x ,y, t)
 ux0, uy0 = initial_conditions(x, y, Lx, i = 1)
 z0 = torch.cat((ux0, uy0), dim=1)
 
-plot_initial_conditions(z, z0, x, y, n_train, path)
+plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 
 x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train)
-plot_sol(pinn_trained, x, y, t, n_train, path, 'NN prediction')
+plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction')
 
 
 # # To be added

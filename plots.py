@@ -44,14 +44,12 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     
     plt.savefig(f'{path}/init.png')
     
-def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : int, path : str, name: str, figsize=(12, 8)):
+def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : 
+             int, path : str, name: str, figsize=(12, 8)):
     
     fig, ax = plt.subplots(figsize=(10, 8))
     
     ax.set_title(f'Time response - {name}')
-    
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(-1, 1)
     
     t_raw = torch.unique(t, sorted=True)
     t_raw = t_raw.reshape(-1, 1)
@@ -89,6 +87,8 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
         pinn: PINN,
         ax):
         
+        x_limts = np.array([0, 2])
+        y_limts = np.array([-1, 1])
         t = t_shaped*t_raw[frame]
         
         output = f(pinn, x, y, t)
@@ -103,15 +103,16 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
         ax.set_xlabel('$\\hat{x}$')
         ax.set_ylabel('$\\hat{y}$')
         
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
+        ax.set_xlim(np.min(x_limts), np.max(x_limts))
+        ax.set_ylim(np.min(y_limts), np.max(y_limts))
         ax.text(0.3, 0.5, s=fr'$\hat{{t}} = {t_value:.2f}$', fontsize=10, color='black', ha='center')
         ax.scatter(x_plot+z[:,0], y_plot+z[:,0], c=norm, cmap='viridis')
         
         return ax
     
     n_frames = len(t_raw)
-    ani = FuncAnimation(fig, update, frames=n_frames, fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
+    ani = FuncAnimation(fig, update, frames=n_frames, 
+                        fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
     
     file = f'{path}/sol_time.gif'
     ani.save(file, fps=60)

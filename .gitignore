@@ -1,7 +1,8 @@
+# Ignore single files
+thesis_structure.md
+
 # Ignore all directories
 */
 
 # Whitelist specific directories (unignore)
 !.gitignore  # Whitelist the .gitignore file itself
-
-# Whitelist specific directories you want to include
