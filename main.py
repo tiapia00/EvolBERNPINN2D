@@ -74,7 +74,10 @@ if retrain_PINN:
     
 else:
     pinn_trained = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
+    
     filename = get_last_modified_file('model', '.pth')
+    path = os.path.dirname(filename)
+    
     pinn_trained.load_state_dict(torch.load(filename, map_location = device))
     print(f'{filename} loaded.\n')
 
@@ -91,11 +94,10 @@ x = x.to(device)
 y = y.to(device)
 t = t.to(device)
 z = f(pinn_trained, x ,y, t)
-ux_0, uy_0 = initial_conditions(x, y, Lx, i = 1)
-z_0 = torch.cat((ux_0, uy_0), dim=1)
+ux0, uy0 = initial_conditions(x, y, Lx, i = 1)
+z0 = torch.cat((ux0, uy0), dim=1)
 
-plot_initial_conditions(z_0, x, y, 'Initial conditions - analytical', n_train)
-plot_initial_conditions(z, y, x, 'Initial conditions - NN', n_train)
+plot_initial_conditions(z, z0, x, y, n_train, path)
 
 x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train)
 plot_uy(pinn_trained, x, y, t, n_train, path)

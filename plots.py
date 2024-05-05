@@ -6,28 +6,37 @@ from matplotlib.animation import FuncAnimation
 from pinn import PINN, f
 import numpy as np
 
-def plot_initial_conditions(z: torch.tensor, x: torch.tensor, y: torch.tensor, name: str, n_train: int):
-    """Plot initial conditions."""
-    fig = plt.figure(figsize=(15, 8))
+def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, n_train: int, path: str):
+    """Plot initial conditions.
+    z0: tensor describing analytical initial conditions
+    z: tensor describing predicted initial conditions"""
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10, 8))
 
     x_raw = x.detach().cpu().numpy()
     y_raw = y.detach().cpu().numpy()
 
     z = z.cpu().detach().numpy()
+    z0 = z0.cpu().detach().numpy()
    
     X = x_raw
     Y = y_raw
 
     cmap = 'viridis'
     
-    norm = np.linalg.norm(z, axis=1)
-    plt.plot(X+z[:,0], Y+z[:,1])
-    plt.xlabel('$\\hat{y}$')
-    plt.ylabel('$\\hat{x}$')
-
-    plt.title(name)
+    norm = np.linalg.norm(z, axis=1).reshape(-1)
+    ax[0].scatter(X.reshape(-1)+z0[:,0], Y.reshape(-1)+z0[:,1], c=norm, cmap=cmap)
+    ax[0].set_xlabel('$\\hat{y}$')
+    ax[0].set_ylabel('$\\hat{x}$')
+    ax[0].set_title('Analyitcal initial conditions')
     
-    plt.savefig(f'{name}.png')
+    ax[1].scatter(X.reshape(-1)+z[:,0], Y.reshape(-1)+z[:,1], c=norm, cmap=cmap)
+    ax[1].set_xlabel('$\\hat{y}$')
+    ax[1].set_ylabel('$\\hat{x}$')
+    ax[1].set_title('Predicted initial conditions')
+    
+    plt.tight_layout()
+    
+    plt.savefig(f'{path}/init.png')
     
 def plot_uy(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : int, path : str, figsize=(12, 8), dpi=100):
     
