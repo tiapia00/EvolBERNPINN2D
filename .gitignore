@@ -1,3 +1,6 @@
+# Ignore single files
+thesis_structure.md
+
 # Ignore all directories
 */
 
