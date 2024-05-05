@@ -10,8 +10,9 @@
 - check consistency in terms of measurement units for both models
 - ~check df function for gradient calculation~
 - graphs as a function of time to compare analytical and PINN solution
-- implement shuffling of hyperparameters to select best combination
+- hard encode boundary conditions in the PINN architecture
 ## long term
+- implement shuffling of hyperparameters to select best combination
 - comparison with closed-form analytical solutions
 - try to implement positional embedding
 - simulation after initial not very realistic: penalize loss till current time step is resolved
