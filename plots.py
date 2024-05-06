@@ -74,7 +74,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     z0 = output.cpu().detach().numpy()
     norm = np.linalg.norm(z0, axis=1).reshape(-1)
     
-    ax.scatter(x_plot+z0[:,0], y_plot+z0[:,1], c=norm, cmap='viridis')
+    ax[0].scatter(x_plot+z0[:,0], y_plot+z0[:,1], c=norm, cmap='viridis')
     
     def update(
         frame,
@@ -106,7 +106,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
         ax.text(0.3, 0.5, s=fr'$\hat{{t}} = {t_value:.2f}$', fontsize=10, color='black', ha='center')
-        ax.scatter(x_plot+z[:,0], y_plot+z[:,0], c=norm, cmap='viridis')
+        ax.scatter(x_plot+z[:,0], y_plot+z[:,1], c=norm, cmap='viridis')
         
         return ax
     
