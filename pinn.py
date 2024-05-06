@@ -112,7 +112,7 @@ class PINN(nn.Module):
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     """Compute the value of the approximate solution from the NN model
     Internally calling the forward method when calling the class as a function"""
-    hard_enc = torch.sin(x/np.pi)
+    hard_enc = torch.sin(x*np.pi)
     hard_enc_both = hard_enc.expand(hard_enc.shape[0], 2)
     return hard_enc_both*pinn(x, y, t)
 
