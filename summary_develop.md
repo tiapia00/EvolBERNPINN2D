@@ -1,7 +1,7 @@
 # Known problems
 - plots-> plot_solution not working
 - initial conditions do not converge
-- quadrature rule not really defined
+- quadrature rule not really defined (current quadrature rule corresponds to mid-point integration)
 # To be implemented
 ## short term
 - ~separate curriculum training into its own function~
