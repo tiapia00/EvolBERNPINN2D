@@ -17,8 +17,8 @@ from initialization_NN import train_init_NN
 torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-retrain_init = True
-retrain_PINN = True
+retrain_init = False
+retrain_PINN = False
 
 par = Parameters()
 
@@ -77,7 +77,9 @@ else:
     pinn_trained = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
     
     filename = get_last_modified_file('model', '.pth')
-    path = os.path.dirname(filename)
+    
+    dir_model = os.path.dirname(filename)
+    print(f'Target: {dir_model}\n')
     
     pinn_trained.load_state_dict(torch.load(filename, map_location = device))
     print(f'{filename} loaded.\n')

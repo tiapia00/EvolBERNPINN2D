@@ -45,9 +45,9 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     plt.savefig(f'{path}/init.png')
     
 def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : 
-             int, path : str, name: str, figsize=(12, 8)):
+             int, path : str, name: str):
     
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
     
     ax.set_title(f'Time response - {name}')
     
@@ -74,7 +74,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     z0 = output.cpu().detach().numpy()
     norm = np.linalg.norm(z0, axis=1).reshape(-1)
     
-    ax[0].scatter(x_plot+z0[:,0], y_plot+z0[:,1], c=norm, cmap='viridis')
+    ax.scatter(x_plot+z0[:,0], y_plot+z0[:,1], c=norm, cmap='viridis')
     
     def update(
         frame,
@@ -117,8 +117,33 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     file = f'{path}/sol_time.gif'
     ani.save(file, fps=60)
 
+def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train : int, path : str):
+    
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,8))
+    fig.suptitle('Midpoint displacement')
+    
+    t_raw = torch.unique(t, sorted=True)
 
+    x = 0.5
+    y = 0.5
+    t = t_raw[0]
+    
+    output = f(pinn, x, y, t)
+    
+    ax[0].scatter(t.cpu().detach().numpy(), output[1].cpu().detach().numpy())
+    
+    def update(frame, pinn: PINN, x:float, y:float, t_raw: torch.tensor, ax):
         
+        t = t_raw[frame]
+        output = f(pinn, x, y, t)
+        
+        ax[0].scatter(t.cpu().detach().numpy(), output[1].cpu().detach().numpy())
+        
+        return ax
+    
+    n_frames = len(t_raw)
+    ani = FuncAnimation(fig, update, frames=n_frames, 
+                        fargs=(pinn, x, y, t_raw, ax), interval=100, blit=False)
         
         
         
