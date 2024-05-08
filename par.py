@@ -25,7 +25,7 @@ class Parameters:
             'hid_layers' : self.hid_layers,
             'neuron_per_layer' : self.neurons_per_layer,
             'lr' : 0.001,
-            'epochs' : 800,
+            'epochs' : 1000,
             }   
         self.mat_par = {
             'E' : 68.0e9,
