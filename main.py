@@ -17,8 +17,11 @@ from initialization_NN import train_init_NN
 torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-retrain_init = True
 retrain_PINN = True
+retrain_init = True
+
+if not retrain_PINN:
+    retrain_init = False
 
 par = Parameters()
 
@@ -55,6 +58,7 @@ if retrain_PINN:
     
     filename_model = get_last_modified_file('in_model', '.pth')
     pretrained_model_dict = torch.load(filename_model, map_location=torch.device(device))
+    print(f"{filename_model} loaded succesfully")
 
     pretrained_model = NN(layers, dim_hidden, 2, 1)
     pretrained_model.load_state_dict(pretrained_model_dict)
@@ -77,16 +81,20 @@ else:
     pinn_trained = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
     
     filename = get_last_modified_file('model', '.pth')
-    path = os.path.dirname(filename)
+    
+    dir_model = os.path.dirname(filename)
+    print(f'Target for outputs: {dir_model}\n')
     
     pinn_trained.load_state_dict(torch.load(filename, map_location = device))
     print(f'{filename} loaded.\n')
+
+print(pinn_trained)
 
     
 pinn_trained.eval()
 
 
-from plots import plot_initial_conditions, plot_sol
+from plots import plot_initial_conditions, plot_sol, plot_midpoint_displ
 
 x, y, _ = get_initial_points(x_domain, y_domain, t_domain, n_train)
 t_value = 0.0
@@ -102,6 +110,7 @@ plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 
 x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train)
 plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction')
+plot_midpoint_displ(pinn_trained, t, n_train, dir_model)
 
 
 # # To be added

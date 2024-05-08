@@ -45,9 +45,9 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     plt.savefig(f'{path}/init.png')
     
 def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : 
-             int, path : str, name: str, figsize=(12, 8)):
+             int, path : str, name: str):
     
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
     
     ax.set_title(f'Time response - {name}')
     
@@ -74,7 +74,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     z0 = output.cpu().detach().numpy()
     norm = np.linalg.norm(z0, axis=1).reshape(-1)
     
-    ax[0].scatter(x_plot+z0[:,0], y_plot+z0[:,1], c=norm, cmap='viridis')
+    ax.scatter(x_plot+z0[:,0], y_plot+z0[:,1], c=norm, cmap='viridis')
     
     def update(
         frame,
@@ -88,7 +88,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
         ax):
         
         x_limts = np.array([0, 2])
-        y_limts = np.array([-1, 1])
+        y_limts = np.array([-0.25, 0.25])
         t = t_shaped*t_raw[frame]
         
         output = f(pinn, x, y, t)
@@ -117,9 +117,42 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     file = f'{path}/sol_time.gif'
     ani.save(file, fps=60)
 
+def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train : int, path : str):
+    
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,8))
+    fig.suptitle('Midpoint displacement')
+    
+    t_raw = torch.unique(t, sorted=True)
 
+    x = torch.tensor([0.5])
+    y = torch.tensor([0.5])
+    t = torch.tensor([t_raw[0]])
+    
+    output = f(pinn, x, y, t)
+    
+    ax.scatter(t.cpu().detach().numpy(), output[0, 1].cpu().detach().numpy(), color='blue')
+    
+    def update(frame, pinn: PINN, x: torch.tensor, y: torch.tensor, t_raw: torch.tensor, ax):
         
+        ax.set_xlim(0, 1)
+        y_lim = 0.5
+        ax.set_ylim(-y_lim, y_lim)
         
+        ax.set_xlabel('$t$')
+        ax.set_ylabel('$u_y$')
+        t = torch.tensor([t_raw[frame]])
+        output = f(pinn, x, y, t)
+        
+        ax.scatter(t.cpu().detach().numpy(), output[0, 1].cpu().detach().numpy(), color='blue')
+        
+        return ax
+    
+    n_frames = len(t_raw)
+    ani = FuncAnimation(fig, update, frames=n_frames, 
+                        fargs=(pinn, x, y, t_raw, ax), interval=100, blit=False)
+    
+    file = f'{path}/midpoint_time.gif'
+    ani.save(file, fps=60)
         
         
         

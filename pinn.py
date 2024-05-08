@@ -97,8 +97,11 @@ class PINN(nn.Module):
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
     def forward(self, x, y, t):
-
-        x_stack = torch.cat([x, y, t], dim=1)
+        if x.dim() == 1:
+            x_stack = torch.cat([x, y, t], dim=0)
+            x_stack = x_stack.reshape(1,-1)
+        else:
+            x_stack = torch.cat([x, y, t], dim=1)
         out = self.act(self.layer_in(x_stack))
         for layer in self.middle_layers:
             out = self.act(layer(out))
@@ -113,6 +116,7 @@ def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Te
     """Compute the value of the approximate solution from the NN model
     Internally calling the forward method when calling the class as a function"""
     hard_enc = torch.sin(x*np.pi)
+    hard_enc = hard_enc.view(-1, 1)
     hard_enc_both = hard_enc.expand(hard_enc.shape[0], 2)
     return hard_enc_both*pinn(x, y, t)
 
@@ -167,12 +171,14 @@ class Loss:
 
         dux_xx = df(output, [x, x], 0)
         duy_yy = df(output, [y, y], 1)
-
+        duy_xx = df(output, [x, x], 1)
+        
+        dux_yy = df(output, [y, y], 0)
         dux_xy = df(output, [x, y], 0)
         duy_xy = df(output, [x, y], 1)
 
-        loss1 = dux_tt - 2*self.z[0]*(dux_xx + 1/2*(duy_xy + dux_xy)) - self.z[1]*(dux_xx + duy_xy)
-        loss2 = duy_tt - 2*self.z[0]*(1/2*(dux_xy + duy_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
+        loss1 = dux_tt - 2*self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy)
+        loss2 = duy_tt - 2*self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
         return (loss1.pow(2).mean() + loss2.pow(2).mean())
 
     def initial_loss(self, pinn):
