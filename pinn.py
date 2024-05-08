@@ -167,12 +167,14 @@ class Loss:
 
         dux_xx = df(output, [x, x], 0)
         duy_yy = df(output, [y, y], 1)
-
+        duy_xx = df(output, [x, x], 1)
+        
+        dux_yy = df(output, [y, y], 0)
         dux_xy = df(output, [x, y], 0)
         duy_xy = df(output, [x, y], 1)
 
-        loss1 = dux_tt - 2*self.z[0]*(dux_xx + 1/2*(duy_xy + dux_xy)) - self.z[1]*(dux_xx + duy_xy)
-        loss2 = duy_tt - 2*self.z[0]*(1/2*(dux_xy + duy_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
+        loss1 = dux_tt - 2*self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy)
+        loss2 = duy_tt - 2*self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
         return (loss1.pow(2).mean() + loss2.pow(2).mean())
 
     def initial_loss(self, pinn):
