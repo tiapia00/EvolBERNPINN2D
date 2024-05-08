@@ -88,7 +88,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
         ax):
         
         x_limts = np.array([0, 2])
-        y_limts = np.array([-1, 1])
+        y_limts = np.array([-0.25, 0.25])
         t = t_shaped*t_raw[frame]
         
         output = f(pinn, x, y, t)
@@ -124,27 +124,35 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train : int, path : str):
     
     t_raw = torch.unique(t, sorted=True)
 
-    x = 0.5
-    y = 0.5
-    t = t_raw[0]
+    x = torch.tensor([0.5])
+    y = torch.tensor([0.5])
+    t = torch.tensor([t_raw[0]])
     
     output = f(pinn, x, y, t)
     
-    ax[0].scatter(t.cpu().detach().numpy(), output[1].cpu().detach().numpy())
+    ax.scatter(t.cpu().detach().numpy(), output[0, 1].cpu().detach().numpy(), color='blue')
     
-    def update(frame, pinn: PINN, x:float, y:float, t_raw: torch.tensor, ax):
+    def update(frame, pinn: PINN, x: torch.tensor, y: torch.tensor, t_raw: torch.tensor, ax):
         
-        t = t_raw[frame]
+        ax.set_xlim(0, 1)
+        y_lim = 0.5
+        ax.set_ylim(-y_lim, y_lim)
+        
+        ax.set_xlabel('$t$')
+        ax.set_ylabel('$u_y$')
+        t = torch.tensor([t_raw[frame]])
         output = f(pinn, x, y, t)
         
-        ax[0].scatter(t.cpu().detach().numpy(), output[1].cpu().detach().numpy())
+        ax.scatter(t.cpu().detach().numpy(), output[0, 1].cpu().detach().numpy(), color='blue')
         
         return ax
     
     n_frames = len(t_raw)
     ani = FuncAnimation(fig, update, frames=n_frames, 
                         fargs=(pinn, x, y, t_raw, ax), interval=100, blit=False)
-        
+    
+    file = f'{path}/midpoint_time.gif'
+    ani.save(file, fps=60)
         
         
         

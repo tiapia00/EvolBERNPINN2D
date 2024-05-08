@@ -97,8 +97,11 @@ class PINN(nn.Module):
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
     def forward(self, x, y, t):
-
-        x_stack = torch.cat([x, y, t], dim=1)
+        if x.dim() == 1:
+            x_stack = torch.cat([x, y, t], dim=0)
+            x_stack = x_stack.reshape(1,-1)
+        else:
+            x_stack = torch.cat([x, y, t], dim=1)
         out = self.act(self.layer_in(x_stack))
         for layer in self.middle_layers:
             out = self.act(layer(out))
@@ -113,6 +116,7 @@ def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Te
     """Compute the value of the approximate solution from the NN model
     Internally calling the forward method when calling the class as a function"""
     hard_enc = torch.sin(x*np.pi)
+    hard_enc = hard_enc.view(-1, 1)
     hard_enc_both = hard_enc.expand(hard_enc.shape[0], 2)
     return hard_enc_both*pinn(x, y, t)
 
