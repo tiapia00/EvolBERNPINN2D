@@ -240,8 +240,8 @@ class Loss:
         loss_down2 = uy_down
 
         return self.weights[1] * (
-            loss_down1.pow(2).mean + loss_down2.pow(2).mean +
-            loss_up1.pow(2).mean + loss_up2.pow(2).mean +
+            loss_down1.pow(2).mean() + loss_down2.pow(2).mean() +
+            loss_up1.pow(2).mean() + loss_up2.pow(2).mean() +
             loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
             loss_right1.pow(2).mean() + loss_right2.pow(2).mean()
         )

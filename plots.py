@@ -128,18 +128,22 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train : int, path : str, 
     y = torch.tensor([0.5]).to(device)
     t = torch.tensor([t_raw[0]]).to(device)
     
+    ax.set_xlim(0, 1.5)
+    y_lim = 2
+    ax.set_ylim(-y_lim, y_lim)
+    
     output = f(pinn, x, y, t)
     
     ax.scatter(t.cpu().detach().numpy(), output[0, 1].cpu().detach().numpy(), color='blue')
     
-    def update(frame, pinn: PINN, x: torch.tensor, y: torch.tensor, t_raw: torch.tensor, ax):
+    def update(frame, pinn: PINN, x: torch.tensor, y: torch.tensor, t_raw: torch.tensor, y_lim: float, ax):
         
-        ax.set_xlim(0, 1)
-        y_lim = 0.5
+        ax.set_xlim(0, 1.5)
+        y_lim = 2
         ax.set_ylim(-y_lim, y_lim)
         
-        ax.set_xlabel('$t$')
-        ax.set_ylabel('$u_y$')
+        ax.set_xlabel('$\\hat{t}$')
+        ax.set_ylabel('$\\hat{u_y}$')
         t = torch.tensor([t_raw[frame]]).to(device)
         output = f(pinn, x, y, t)
         
@@ -149,7 +153,7 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train : int, path : str, 
     
     n_frames = len(t_raw)
     ani = FuncAnimation(fig, update, frames=n_frames, 
-                        fargs=(pinn, x, y, t_raw, ax), interval=100, blit=False)
+                        fargs=(pinn, x, y, t_raw, y_lim, ax), interval=100, blit=False)
     
     file = f'{path}/midpoint_time.gif'
     ani.save(file, fps=60)
