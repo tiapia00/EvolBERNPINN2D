@@ -2,8 +2,8 @@ class Parameters:
     def __init__(self):
         self.x_end = 2
         self.y_end = 0.2
-        self.t_end = 7
-        self.n = 61
+        self.t_end = 2
+        self.n = 11
         self.hid_layers = 3
         self.neurons_per_layer = 40
         self.pinn_par = {
@@ -14,7 +14,7 @@ class Parameters:
             'hid_layers' : self.hid_layers,
             'neuron_per_layer' : self.neurons_per_layer,
             'lr' : 0.01,
-            'epochs' : 800,
+            'epochs' : 200,
             'weight_in' : 1,
             'weight_bound' : 1
             }

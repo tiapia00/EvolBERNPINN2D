@@ -9,8 +9,8 @@ from integrator import Simps_Cub
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     # description of displacements, so i don't have to add anything
-    res_ux = torch.zeros_like(x)
-    res_uy = torch.sin(torch.pi*i/x[-1]*x)
+    res_ux = torch.zeros_like(x).reshape(-1)
+    res_uy = torch.sin(torch.pi*i/x[-1]*x).reshape(-1)
     return res_ux, res_uy
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device = torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):
@@ -115,10 +115,7 @@ class PINN(nn.Module):
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     """Compute the value of the approximate solution from the NN model
     Internally calling the forward method when calling the class as a function"""
-    hard_enc = torch.sin(x*np.pi)
-    hard_enc = hard_enc.view(-1, 1)
-    hard_enc_both = hard_enc.expand(hard_enc.shape[0], 2)
-    return hard_enc_both*pinn(x, y, t)
+    return pinn(x, y, t)
 
 def df(output: torch.Tensor, inputs: list, var : int) -> torch.Tensor:
     """Compute neural network derivative with respect to input features using PyTorch autograd engine
@@ -181,8 +178,8 @@ class Loss:
         loss1 = dux_tt - 2*self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy)
         loss2 = duy_tt - 2*self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
         
-        int1 = self.cubature.integrate(loss1)
-        int2 = self.cubature.integrate(loss2)
+        int1 = self.cubature.integrate3D(loss1)
+        int2 = self.cubature.integrate3D(loss2)
         
         return int1+int2
 
@@ -190,11 +187,16 @@ class Loss:
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
-        ux = output[:, 0]
-        uy = output[:, 1]
+        ux = output[:, 0].reshape(-1)
+        uy = output[:, 1].reshape(-1)
+        
         loss1 = ux - pinn_init_ux
         loss2 = uy - pinn_init_uy
-        return self.weights[0] * (loss1.pow(2).mean() + loss2.pow(2).mean())
+        
+        int1 = self.cubature.integrate2D(loss1)
+        int2 = self.cubature.integrate2D(loss2)
+        
+        return self.weights[0] * (int1+int2)
 
     def boundary_loss(self, pinn):
         down, up, left, right = get_boundary_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())

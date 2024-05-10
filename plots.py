@@ -117,16 +117,16 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     file = f'{path}/sol_time.gif'
     ani.save(file, fps=60)
 
-def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train : int, path : str):
+def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train : int, path : str, device = torch.device("cuda" if torch.cuda.is_available() else "cpu")):
     
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,8))
     fig.suptitle('Midpoint displacement')
     
     t_raw = torch.unique(t, sorted=True)
 
-    x = torch.tensor([0.5])
-    y = torch.tensor([0.5])
-    t = torch.tensor([t_raw[0]])
+    x = torch.tensor([0.5]).to(device)
+    y = torch.tensor([0.5]).to(device)
+    t = torch.tensor([t_raw[0]]).to(device)
     
     output = f(pinn, x, y, t)
     
@@ -140,7 +140,7 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train : int, path : str):
         
         ax.set_xlabel('$t$')
         ax.set_ylabel('$u_y$')
-        t = torch.tensor([t_raw[frame]])
+        t = torch.tensor([t_raw[frame]]).to(device)
         output = f(pinn, x, y, t)
         
         ax.scatter(t.cpu().detach().numpy(), output[0, 1].cpu().detach().numpy(), color='blue')

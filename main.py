@@ -17,7 +17,7 @@ from initialization_NN import train_init_NN
 torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-retrain_PINN = True
+retrain_PINN = False
 retrain_init = True
 
 if not retrain_PINN:
@@ -104,7 +104,7 @@ y = y.to(device)
 t = t.to(device)
 z = f(pinn_trained, x ,y, t)
 ux0, uy0 = initial_conditions(x, y, Lx, i = 1)
-z0 = torch.cat((ux0, uy0), dim=1)
+z0 = torch.stack((ux0, uy0), dim=1)
 
 plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 
