@@ -104,7 +104,7 @@ y = y.to(device)
 t = t.to(device)
 z = f(pinn_trained, x ,y, t)
 ux0, uy0 = initial_conditions(x, y, Lx, i = 1)
-z0 = torch.cat((ux0, uy0), dim=1)
+z0 = torch.stack((ux0, uy0), dim=1)
 
 plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 

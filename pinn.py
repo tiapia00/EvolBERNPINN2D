@@ -9,8 +9,8 @@ from read_write import pass_folder, get_current_time, get_last_modified_file, ge
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     # description of displacements, so i don't have to add anything
-    res_ux = torch.zeros_like(x)
-    res_uy = torch.sin(torch.pi*i/x[-1]*x)
+    res_ux = torch.zeros_like(x).reshape(-1)
+    res_uy = torch.sin(torch.pi*i/x[-1]*x).reshape(-1)
     return res_ux, res_uy
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device = torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):
@@ -185,10 +185,13 @@ class Loss:
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
-        ux = output[:, 0]
-        uy = output[:, 1]
+        
+        ux = output[:, 0].reshape(-1)
+        uy = output[:, 1].reshape(-1)
+        
         loss1 = ux - pinn_init_ux
         loss2 = uy - pinn_init_uy
+        
         return self.weights[0] * (loss1.pow(2).mean() + loss2.pow(2).mean())
 
     def boundary_loss(self, pinn):
