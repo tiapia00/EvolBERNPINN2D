@@ -183,6 +183,8 @@ class Loss:
         
         int1 = self.cubature.integrate(loss1)
         int2 = self.cubature.integrate(loss2)
+        
+        return int1+int2
 
     def initial_loss(self, pinn):
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())

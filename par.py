@@ -3,9 +3,9 @@ class Parameters:
         self.x_end = 2
         self.y_end = 0.2
         self.t_end = 7
-        self.n = 60
-        self.hid_layers = 2
-        self.neurons_per_layer = 70
+        self.n = 61
+        self.hid_layers = 3
+        self.neurons_per_layer = 40
         self.pinn_par = {
             'x_end' : self.x_end,
             'y_end' : self.y_end,
