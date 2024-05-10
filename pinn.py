@@ -5,7 +5,7 @@ from torch import nn
 from typing import Tuple
 import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
-
+from integrator import Simps_Cub
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     # description of displacements, so i don't have to add anything
@@ -162,6 +162,7 @@ class Loss:
         self.z = z
         self.initial_condition = initial_condition
         self.weights = [weight_i, weight_b]
+        self.cubature = Simps_Cub(self.n_points, 1/n_points)
 
     def residual_loss(self, pinn):
         x, y, t = get_interior_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -179,7 +180,9 @@ class Loss:
 
         loss1 = dux_tt - 2*self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy)
         loss2 = duy_tt - 2*self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
-        return (loss1.pow(2).mean() + loss2.pow(2).mean())
+        
+        int1 = self.cubature.integrate(loss1)
+        int2 = self.cubature.integrate(loss2)
 
     def initial_loss(self, pinn):
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
