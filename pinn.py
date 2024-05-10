@@ -204,7 +204,13 @@ class Loss:
         x_up, y_up, t_up = up
         x_left, y_left, t_left = left
         x_right, y_right, t_right = right
-
+        
+        ux_down = f(pinn, x_down, y_down, t_down)[:, 0]
+        uy_down = f(pinn, x_down, y_down, t_down)[:, 1]
+        
+        ux_up = f(pinn, x_up, y_up, t_up)[:, 0]
+        uy_up = f(pinn, x_up, y_up, t_up)[:, 1]
+        
         ux_left = f(pinn, x_left, y_left, t_left)[:, 0]
         uy_left = f(pinn, x_left, y_left, t_left)[:, 1]
         left = torch.cat([ux_left[..., None], uy_left[..., None]], -1)
@@ -226,8 +232,16 @@ class Loss:
 
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
+        
+        loss_up1 = ux_up
+        loss_up2 = uy_up
+        
+        loss_down1 = ux_down
+        loss_down2 = uy_down
 
         return self.weights[1] * (
+            loss_down1.pow(2).mean + loss_down2.pow(2).mean +
+            loss_up1.pow(2).mean + loss_up2.pow(2).mean +
             loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
             loss_right1.pow(2).mean() + loss_right2.pow(2).mean()
         )
