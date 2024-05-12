@@ -1,6 +1,5 @@
 # Ignore single files
 thesis_structure.md
-par.py
 
 # Ignore all directories
 */
