@@ -168,6 +168,7 @@ class Loss:
     def residual_loss(self, pinn):
         x, y, t = get_interior_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         output = f(pinn, x, y, t)
+        
         dux_tt = df(output, [t], 2)
         duy_tt = df(output, [t], 3)
 
