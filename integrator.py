@@ -21,11 +21,8 @@ class Simps_Cub:
                     w[i] = 4/3
 
             w_mesh = torch.zeros((self.n_train, self.n_train, self.n_train))
-            for k in range(w_mesh.size(2)):
-                for j in range(w_mesh.size(1)):
-                    for i in range(w_mesh.size(0)):
-                        w_mesh[i, j, k] = w[i]*w[j]*w[k]
-                        
+            w_mesh = w.view(-1, 1, 1) * w.view(1, -1, 1) * w.view(1, 1, -1)
+              
             if self.n_train % 2 == 0:
                 raise ValueError("Even number of points")
                 
@@ -67,9 +64,7 @@ class Simps_Cub:
                     w[i] = 4/3
 
             w_mesh = torch.zeros((self.n_train, self.n_train))
-            for j in range(w_mesh.size(1)):
-                for i in range(w_mesh.size(0)):
-                    w_mesh[i, j] = w[i]*w[j]
+            w_mesh = w.view(-1, 1) * w.view(1, -1)
                         
             if self.n_train % 2 == 0:
                 raise ValueError("Even number of points")
