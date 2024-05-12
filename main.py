@@ -24,6 +24,7 @@ delete_old = True
 if delete_old:
     delete_old_files("model")
     delete_old_files("in_model")
+    
 if not retrain_PINN:
     retrain_init = False
 
