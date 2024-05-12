@@ -202,7 +202,7 @@ class Loss:
         loss3 = vx
         loss4 = vy
         
-        return self.weights[0] * (loss1.pow(2).mean() + loss2.pow(2).mean()+loss3.pow(2).mean() + loss4.pow(2).mean())
+        return self.weights[0] * (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def boundary_loss(self, pinn):
         down, up, left, right = get_boundary_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
