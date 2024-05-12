@@ -88,7 +88,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
         ax):
         
         x_limts = np.array([0, 2])
-        y_limts = np.array([-0.25, 0.25])
+        y_limts = np.array([-1, 1])
         t = t_shaped*t_raw[frame]
         
         output = f(pinn, x, y, t)
