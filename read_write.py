@@ -67,7 +67,7 @@ def get_current_time(timezone_name='Europe/Paris', fmt='%Y-%m-%d %H:%M:%S'):
     return time_str
 
 def delete_old_files(folder_path):
-    cutoff_date = datetime.datetime.now() - datetime.timedelta(days=7)
+    cutoff_date = datetime.datetime.now() - datetime.timedelta(days=3)
     
     for root, dirs, files in os.walk(folder_path):
         for file_name in files:
