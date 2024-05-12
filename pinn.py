@@ -80,7 +80,7 @@ class PINN(nn.Module):
     In the context of PINNs, the neural network is used as universal function approximator
     to approximate the solution of the differential equation
     """
-    def __init__(self, num_hidden: int, dim_hidden: int, dim_input : int = 3, dim_output : int = 2, act=nn.Tanh()):
+    def __init__(self, num_hidden: int, dim_hidden: int, dim_input : int = 3, dim_output : int = 4, act=nn.Tanh()):
 
         super().__init__()
         self.dim_hidden = dim_hidden
@@ -117,13 +117,15 @@ def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Te
     Internally calling the forward method when calling the class as a function"""
     hard_enc = torch.sin(x*np.pi)
     hard_enc = hard_enc.view(-1, 1)
-    hard_enc_both = hard_enc.expand(hard_enc.shape[0], 2)
+    hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
     return hard_enc_both*pinn(x, y, t)
 
 def df(output: torch.Tensor, inputs: list, var : int) -> torch.Tensor:
     """Compute neural network derivative with respect to input features using PyTorch autograd engine
     var = 0 : dux
     var = 1 : duy
+    var = 2 : dux_t
+    var = 3 : duy_t
     """
     df_value = output[:, var].unsqueeze(1)
     for _ in np.arange(len(inputs)):
@@ -166,8 +168,8 @@ class Loss:
     def residual_loss(self, pinn):
         x, y, t = get_interior_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         output = f(pinn, x, y, t)
-        dux_tt = df(output, [t, t], 0)
-        duy_tt = df(output, [t, t], 1)
+        dux_tt = df(output, [t], 2)
+        duy_tt = df(output, [t], 3)
 
         dux_xx = df(output, [x, x], 0)
         duy_yy = df(output, [y, y], 1)
@@ -179,6 +181,7 @@ class Loss:
 
         loss1 = dux_tt - 2*self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy)
         loss2 = duy_tt - 2*self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
+        
         return (loss1.pow(2).mean() + loss2.pow(2).mean())
 
     def initial_loss(self, pinn):
@@ -189,10 +192,16 @@ class Loss:
         ux = output[:, 0].reshape(-1)
         uy = output[:, 1].reshape(-1)
         
+        vx = output[:, 2].reshape(-1)
+        vy = output[:, 3].reshape(-1)
+        
         loss1 = ux - pinn_init_ux
         loss2 = uy - pinn_init_uy
         
-        return self.weights[0] * (loss1.pow(2).mean() + loss2.pow(2).mean())
+        loss3 = vx
+        loss4 = vy
+        
+        return self.weights[0] * (loss1.pow(2).mean() + loss2.pow(2).mean()+loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def boundary_loss(self, pinn):
         down, up, left, right = get_boundary_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
