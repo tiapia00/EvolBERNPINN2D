@@ -6,7 +6,7 @@ from typing import Tuple
 from beam import Beam, Prob_Solv_Modes, In_Cond
 import pytz
 import datetime
-from read_write import get_current_time, get_last_modified_file, pass_folder
+from read_write import get_current_time, get_last_modified_file, pass_folder, delete_old_files
 from tqdm import tqdm
 from typing import Callable
 from nn import *
@@ -19,7 +19,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 retrain_PINN = True
 retrain_init = True
+delete_old = True
 
+if delete_old:
+    delete_old_files("model")
+    delete_old_files("in_model")
 if not retrain_PINN:
     retrain_init = False
 

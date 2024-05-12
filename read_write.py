@@ -58,7 +58,6 @@ def get_last_modified_file(folder_path, file_extension):
     except OSError as e:
         print(f"Error: {e}")
         return None
-
     
 def get_current_time(timezone_name='Europe/Paris', fmt='%Y-%m-%d %H:%M:%S'):
     current_time_utc = datetime.datetime.utcnow()
@@ -66,3 +65,17 @@ def get_current_time(timezone_name='Europe/Paris', fmt='%Y-%m-%d %H:%M:%S'):
     current_time_local = current_time_utc.astimezone(target_timezone)
     time_str = current_time_local.strftime(fmt)
     return time_str
+
+def delete_old_files(folder_path):
+    cutoff_date = datetime.datetime.now() - datetime.timedelta(days=7)
+    
+    for root, dirs, files in os.walk(folder_path):
+        for file_name in files:
+            file_path = os.path.join(root, file_name)
+            file_stat = os.stat(file_path)
+            file_mtime = datetime.datetime.fromtimestamp(file_stat.st_mtime)
+
+            if file_mtime < cutoff_date:
+                # Delete the file
+                os.remove(file_path)
+                print(f"Deleted: {file_path}")
