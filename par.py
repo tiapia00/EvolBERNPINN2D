@@ -13,7 +13,7 @@ class Parameters:
             'n' : self.n,
             'hid_layers' : self.hid_layers,
             'neuron_per_layer' : self.neurons_per_layer,
-            'lr' : 0.01,
+            'lr' : 0.001,
             'epochs' : 1000,
             'weight_in' : 3,
             'weight_bound' : 1

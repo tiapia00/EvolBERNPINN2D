@@ -192,7 +192,7 @@ class Loss:
         loss1 = ux - pinn_init_ux
         loss2 = uy - pinn_init_uy
         
-        return self.weights[0] * (loss1.abs().mean() + loss2.abs().mean())
+        return loss1.abs().mean() + self.weights[0]*loss2.abs().mean()
 
     def boundary_loss(self, pinn):
         down, up, left, right = get_boundary_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
