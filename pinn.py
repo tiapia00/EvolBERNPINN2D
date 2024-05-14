@@ -8,9 +8,8 @@ from read_write import pass_folder, get_current_time, get_last_modified_file, ge
 
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
-    # description of displacements, so i don't have to add anything
-    res_ux = torch.zeros_like(x).reshape(-1)
-    res_uy = torch.sin(torch.pi*i/x[-1]*x).reshape(-1)
+    res_ux = torch.zeros_like(x)
+    res_uy = torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device = torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):
@@ -190,11 +189,11 @@ class Loss:
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
         
-        ux = output[:, 0].reshape(-1)
-        uy = output[:, 1].reshape(-1)
+        ux = output[:, 0].reshape(-1,1)
+        uy = output[:, 1].reshape(-1,1)
         
-        vx = output[:, 2].reshape(-1)
-        vy = output[:, 3].reshape(-1)
+        vx = output[:, 2].reshape(-1,1)
+        vy = output[:, 3].reshape(-1,1)
         
         loss1 = ux - pinn_init_ux
         loss2 = uy - pinn_init_uy
