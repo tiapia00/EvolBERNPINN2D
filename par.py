@@ -15,7 +15,7 @@ class Parameters:
             'neuron_per_layer' : self.neurons_per_layer,
             'lr' : 0.001,
             'epochs' : 2000,
-            'weight_in' : 3,
+            'weight_in' : 10,
             'weight_bound' : 1
             }
         self.nn_par = {

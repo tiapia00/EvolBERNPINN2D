@@ -193,13 +193,13 @@ class Loss:
                         y.cpu().detach().numpy()+pinn_init_uy.cpu().detach().numpy())
             plt.savefig('initial_cond.png')
                         
-        ux = output[:, 0].reshape(-1)
-        uy = output[:, 1].reshape(-1)
+        ux = output[:, 0].reshape(-1,1)
+        uy = output[:, 1].reshape(-1,1)
         
         loss1 = ux - pinn_init_ux
         loss2 = uy - pinn_init_uy
         
-        return loss1.abs().mean() + self.weights[0]*loss2.abs().mean()
+        return loss1.pow(2).mean() + self.weights[0]*loss2.pow(2).mean()
 
     def boundary_loss(self, pinn):
         down, up, left, right = get_boundary_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -207,6 +207,12 @@ class Loss:
         x_up, y_up, t_up = up
         x_left, y_left, t_left = left
         x_right, y_right, t_right = right
+        
+        ux_down = f(pinn, x_down, y_down, t_down)[:, 0]
+        uy_down = f(pinn, x_down, y_down, t_down)[:, 1]
+        
+        ux_up = f(pinn, x_up, y_up, t_up)[:, 0]
+        uy_up = f(pinn, x_up, y_up, t_up)[:, 1]
 
         ux_left = f(pinn, x_left, y_left, t_left)[:, 0]
         uy_left = f(pinn, x_left, y_left, t_left)[:, 1]
@@ -230,10 +236,9 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return self.weights[1] * (
+        return self.weights[1]*(
             loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
-            loss_right1.pow(2).mean() + loss_right2.pow(2).mean()
-        )
+            loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
     def verbose(self, pinn, epoch):
         residual_loss = self.residual_loss(pinn)
