@@ -5,6 +5,7 @@ from torch import nn
 from typing import Tuple
 import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
+import matplotlib.pyplot as plt
 
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
@@ -181,11 +182,17 @@ class Loss:
         loss2 = duy_tt - 2*self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
         return (loss1.pow(2).mean() + loss2.pow(2).mean())
 
-    def initial_loss(self, pinn):
+    def initial_loss(self, pinn, epochs):
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
         
+        if epochs == 0:
+            fig = plt.figure()
+            plt.scatter(pinn_init_ux.cpu().detach().numpy(), 
+                        pinn_init_uy.cpu().detach().numpy())
+            plt.savefig('initial_cond.png')
+                        
         ux = output[:, 0].reshape(-1)
         uy = output[:, 1].reshape(-1)
         
@@ -228,9 +235,9 @@ class Loss:
             loss_right1.pow(2).mean() + loss_right2.pow(2).mean()
         )
 
-    def verbose(self, pinn):
+    def verbose(self, pinn, epoch):
         residual_loss = self.residual_loss(pinn)
-        initial_loss = self.initial_loss(pinn)
+        initial_loss = self.initial_loss(pinn, epoch)
         boundary_loss = self.boundary_loss(pinn)
 
         final_loss = (
@@ -241,8 +248,8 @@ class Loss:
 
         return final_loss, residual_loss, initial_loss, boundary_loss
 
-    def __call__(self, pinn):
-        return self.verbose(pinn)[0]
+    def __call__(self, pinn, epoch):
+        return self.verbose(pinn, epoch)[0]
 
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -270,9 +277,9 @@ def train_model(
         grads = []
         
         optimizer.zero_grad()
-        _, residual_loss, initial_loss, boundary_loss = loss_fn.verbose(nn_approximator)
-        loss: torch.Tensor = loss_fn(nn_approximator)
-        
+        _, residual_loss, initial_loss, boundary_loss = loss_fn.verbose(nn_approximator, epoch)
+        loss: torch.Tensor = loss_fn(nn_approximator, epoch)
+            
         loss.backward()
         optimizer.step()
         
