@@ -18,8 +18,8 @@ torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 retrain_PINN = True
-retrain_init = True
-delete_old = True
+retrain_init = False
+delete_old = False
 
 if delete_old:
     delete_old_files("model")
@@ -40,7 +40,7 @@ lam, mu = par.to_matpar_PINN()
 Lx, Ly, T, n_train, layers, dim_hidden, lr, epochs, weight_IN, weight_BOUND = get_params(par.pinn_par)
 
 x_domain = np.array([0.0, Lx])/Lx
-y_domain = np.array([0.0, Ly])/Lx
+y_domain = np.array([0.0, Ly])/Ly
 t_domain = np.array([0.0, T])/T
 
 pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)

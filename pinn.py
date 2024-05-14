@@ -189,8 +189,8 @@ class Loss:
         
         if epochs == 0:
             fig = plt.figure()
-            plt.scatter(pinn_init_ux.cpu().detach().numpy(), 
-                        pinn_init_uy.cpu().detach().numpy())
+            plt.scatter(x.cpu().detach().numpy()+pinn_init_ux.cpu().detach().numpy(), 
+                        y.cpu().detach().numpy()+pinn_init_ux.cpu().detach().numpy())
             plt.savefig('initial_cond.png')
                         
         ux = output[:, 0].reshape(-1)
