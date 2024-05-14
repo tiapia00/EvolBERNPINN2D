@@ -12,6 +12,7 @@
 - graphs as a function of time to compare analytical and PINN solution
 - implement shuffling of hyperparameters to select best combination
 - add energy term in the loss function
+- try positional embeddings
 ## long term
 - comparison with closed-form analytical solutions
 - try to implement positional embedding
