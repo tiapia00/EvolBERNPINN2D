@@ -168,8 +168,8 @@ class Loss:
         x, y, t = get_interior_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         output = f(pinn, x, y, t)
         
-        dux_tt = df(output, [t], 2)
-        duy_tt = df(output, [t], 3)
+        dvx_t = df(output, [t], 2)
+        dvy_t = df(output, [t], 3)
 
         dux_xx = df(output, [x, x], 0)
         duy_yy = df(output, [y, y], 1)
@@ -179,10 +179,12 @@ class Loss:
         dux_xy = df(output, [x, y], 0)
         duy_xy = df(output, [x, y], 1)
 
-        loss1 = dux_tt - 2*self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy)
-        loss2 = duy_tt - 2*self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
+        loss1 = dvx_t - 2*self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy)
+        loss2 = dvy_t - 2*self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
+        loss3 = dvx_t - df(output, [t,t], 0)
+        loss4 = dvy_t - df(output, [t,t], 1)
         
-        return (loss1.pow(2).mean() + loss2.pow(2).mean())
+        return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def initial_loss(self, pinn):
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
