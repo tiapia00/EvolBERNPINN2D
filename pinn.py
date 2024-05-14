@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     # description of displacements, so i don't have to add anything
-    res_ux = torch.zeros_like(x).reshape(-1)
-    res_uy = torch.sin(torch.pi*i/x[-1]*x).reshape(-1)
+    res_ux = torch.zeros_like(x)
+    res_uy = torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device = torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):
@@ -190,7 +190,7 @@ class Loss:
         if epochs == 0:
             fig = plt.figure()
             plt.scatter(x.cpu().detach().numpy()+pinn_init_ux.cpu().detach().numpy(), 
-                        y.cpu().detach().numpy()+pinn_init_ux.cpu().detach().numpy())
+                        y.cpu().detach().numpy()+pinn_init_uy.cpu().detach().numpy())
             plt.savefig('initial_cond.png')
                         
         ux = output[:, 0].reshape(-1)

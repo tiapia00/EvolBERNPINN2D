@@ -40,7 +40,7 @@ lam, mu = par.to_matpar_PINN()
 Lx, Ly, T, n_train, layers, dim_hidden, lr, epochs, weight_IN, weight_BOUND = get_params(par.pinn_par)
 
 x_domain = np.array([0.0, Lx])/Lx
-y_domain = np.array([0.0, Ly])/Ly
+y_domain = np.array([0.0, Ly])/Lx
 t_domain = np.array([0.0, T])/T
 
 pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
