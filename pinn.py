@@ -293,10 +293,10 @@ def train_model(
         # Log loss
         pbar.set_description(f"Loss: {loss.item():.2f}")
 
-        writer.add_scalar("Global loss", loss.item(), epoch)
-        writer.add_scalar("Residual loss", residual_loss.item(), epoch)
-        writer.add_scalar("Initial loss", initial_loss.item(), epoch)
-        writer.add_scalar("Boundary loss", boundary_loss.item(), epoch)
+        writer.add_scalar("Global/Global loss", loss.item(), epoch)
+        writer.add_scalar("Residual/Residual loss", residual_loss.item(), epoch)
+        writer.add_scalar("Initial/Initial loss", initial_loss.item(), epoch)
+        writer.add_scalar("Boundary/Boundary loss", boundary_loss.item(), epoch)
 
         pbar.update(1)
 
