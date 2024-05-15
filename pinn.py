@@ -274,8 +274,8 @@ def train_model(
     loss: torch.Tensor = torch.inf
     
     writer = SummaryWriter(log_dir=path_logs)
-    
-    pbar = tqdm(total=max_epochs, desc="Training", position=0)
+    pbar_global = tqdm(total=max_epochs, desc="Training", position=0)
+    pbar_initial = tqdm(total=max_epochs, desc="Training", position=1)
 
     for epoch in range(max_epochs):
         grads = []
@@ -289,19 +289,24 @@ def train_model(
         
         loss_values.append(loss.item())
 
-        # Log loss
-        pbar.set_description(f"Loss: {loss.item():.2f}")
+        pbar_global.set_description(f"Global loss: {loss.item():.2f}")
+        pbar_initial.set_description(f"Initial loss: {initial_loss.item():.2f}")
 
-        writer.add_scalar("Global/Global loss", loss.item(), epoch)
-        writer.add_scalar("Residual/Residual loss", residual_loss.item(), epoch)
-        writer.add_scalar("Initial/Initial loss", initial_loss.item(), epoch)
-        writer.add_scalar("Boundary/Boundary loss", boundary_loss.item(), epoch)
+        writer.add_scalar('Loss/global', loss.item(), epoch)
+        writer.add_scalar('Loss/residual', residual_loss.item(), epoch)
+        writer.add_scalar('Loss/initial', initial_loss.item(), epoch)
+        writer.add_scalar('Loss/boundary', boundary_loss.item(), epoch)
+        
+        pbar_global.update(1)
+        pbar_initial.update(1)
 
-        pbar.update(1)
-
-    pbar.update(1)
-    pbar.close()
+    pbar_global.update(1)
+    pbar_initial.update(1)
+    pbar_global.close()
+    pbar_initial.close()
+    
     writer.close()
+    
     return nn_approximator, np.array(loss_values)
 
 def return_adim(x_dom : np.ndarray, t_dom:np.ndarray, rho: float, mu : float, lam : float):
