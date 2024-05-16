@@ -6,3 +6,10 @@ Implementation of PINN for the solution of an evolutive hyperbolic problem of a 
 - retrain both NNs every time parameters in par.py are changed
 - script just write pictures in the various folders; don't expect to pop up during execution!
 - main script to run: main.py
+## Logging
+- logs and plots are automatically created in the folder of the respective run (no popups)
+- tensorboard can be used to open the logs created in model/logs
+## Branches
+- self_adapt: adaptive weighting of the various loss terms (most updated)
+- main: hard encoding still present
+- integrat: implementation of Simpson rule
