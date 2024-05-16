@@ -158,7 +158,6 @@ class Loss:
         n_points: int,
         z: torch.Tensor,
         initial_condition: Callable,
-        masked : torch.tensor
         verbose: bool = False,
     ):
         self.x_domain = x_domain
@@ -167,7 +166,6 @@ class Loss:
         self.n_points = n_points
         self.z = z
         self.initial_condition = initial_condition
-        self.masked = masked
 
     def residual_loss(self, pinn):
         x, y, t = get_interior_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -259,7 +257,7 @@ class Loss:
         initial_loss = self.initial_loss(pinn, epoch)
         boundary_loss = self.boundary_loss(pinn)
 
-        masked = pinn.forward_mask(pinn.weights)
+        masked = pinn.forward_mask()
 
         loss_cat = torch.stack((residual_loss, initial_loss, boundary_loss))
         final_loss = torch.dot(loss_cat, masked)
