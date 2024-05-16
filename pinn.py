@@ -167,14 +167,14 @@ class Loss:
     def residual_loss(self, pinn):
         x, y, t = get_interior_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         output = f(pinn, x, y, t)
-        
+
         dvx_t = df(output, [t], 2)
         dvy_t = df(output, [t], 3)
 
         dux_xx = df(output, [x, x], 0)
         duy_yy = df(output, [y, y], 1)
         duy_xx = df(output, [x, x], 1)
-        
+
         dux_yy = df(output, [y, y], 0)
         dux_xy = df(output, [x, y], 0)
         duy_xy = df(output, [x, y], 1)
@@ -183,26 +183,26 @@ class Loss:
         loss2 = dvy_t - 2*self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy)
         loss3 = dvx_t - df(output, [t,t], 0)
         loss4 = dvy_t - df(output, [t,t], 1)
-        
+
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def initial_loss(self, pinn):
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
-        
+
         ux = output[:, 0].reshape(-1,1)
         uy = output[:, 1].reshape(-1,1)
-        
+
         vx = output[:, 2].reshape(-1,1)
         vy = output[:, 3].reshape(-1,1)
-        
+
         loss1 = ux - pinn_init_ux
         loss2 = uy - pinn_init_uy
-        
+
         loss3 = vx
         loss4 = vy
-        
+
         return self.weights[0] * (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def boundary_loss(self, pinn):
@@ -268,45 +268,47 @@ def train_model(
     max_epochs: int,
     path_logs: str,
 ) -> PINN:
-    
+
     optimizer = torch.optim.Adam(nn_approximator.parameters(), lr=learning_rate)
     loss_values = []
     loss: torch.Tensor = torch.inf
-    
-    writer = SummaryWriter(log_dir=path_logs)
-    pbar_global = tqdm(total=max_epochs, desc="Training", position=0)
-    pbar_initial = tqdm(total=max_epochs, desc="Training", position=1)
+    layout = {
+        "run": {
+        "loss": ["Multiline", ["loss/global", "loss/residual", "loss/initial",
+                               "loss/boundary"]],
+    },
+}
+
+    writer = SummaryWriter(log_dir=path)
+    writer.add_custom_scalars(layout)
+    pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
         grads = []
-        
+
         optimizer.zero_grad()
         _, residual_loss, initial_loss, boundary_loss = loss_fn.verbose(nn_approximator)
         loss: torch.Tensor = loss_fn(nn_approximator)
-        
+
         loss.backward()
         optimizer.step()
-        
+
         loss_values.append(loss.item())
 
-        pbar_global.set_description(f"Global loss: {loss.item():.2f}")
-        pbar_initial.set_description(f"Initial loss: {initial_loss.item():.2f}")
+        pbar.set_description(f"Global loss: {loss.item():.2f}")
 
         writer.add_scalar('Loss/global', loss.item(), epoch)
         writer.add_scalar('Loss/residual', residual_loss.item(), epoch)
         writer.add_scalar('Loss/initial', initial_loss.item(), epoch)
         writer.add_scalar('Loss/boundary', boundary_loss.item(), epoch)
-        
-        pbar_global.update(1)
-        pbar_initial.update(1)
 
-    pbar_global.update(1)
-    pbar_initial.update(1)
-    pbar_global.close()
-    pbar_initial.close()
-    
+        pbar.update(1)
+
+    pbar.update(1)
+    pbar.close()
+
     writer.close()
-    
+
     return nn_approximator, np.array(loss_values)
 
 def return_adim(x_dom : np.ndarray, t_dom:np.ndarray, rho: float, mu : float, lam : float):
