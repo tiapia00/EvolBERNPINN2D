@@ -96,9 +96,7 @@ class PINN(nn.Module):
 
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
-        self.weight_res = nn.Parameter(torch.tensor([1.]))
-        self.weight_in = nn.Parameter(torch.tensor([3.]))
-        self.weight_bound = nn.Parameter(torch.tensor([1.]))
+        self.weights = nn.Parameter(torch.tensor([1., 3., 1.]))
 
     def forward(self, x, y, t):
         if x.dim() == 1:
@@ -110,8 +108,11 @@ class PINN(nn.Module):
         for layer in self.middle_layers:
             out = self.act(layer(out))
         logits = self.layer_out(out)
-
         return logits
+
+    def forward_mask(self):
+        masked = torch.sigmoid(self.weights)
+        return masked
 
     def device(self):
         return next(self.parameters()).device
@@ -157,6 +158,7 @@ class Loss:
         n_points: int,
         z: torch.Tensor,
         initial_condition: Callable,
+        masked : torch.tensor
         verbose: bool = False,
     ):
         self.x_domain = x_domain
@@ -165,6 +167,7 @@ class Loss:
         self.n_points = n_points
         self.z = z
         self.initial_condition = initial_condition
+        self.masked = masked
 
     def residual_loss(self, pinn):
         x, y, t = get_interior_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -186,7 +189,7 @@ class Loss:
         loss3 = dvx_t - df(output, [t,t], 0)
         loss4 = dvy_t - df(output, [t,t], 1)
 
-        return pinn.weight_res*(loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
+        return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def initial_loss(self, pinn, epochs):
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -211,7 +214,7 @@ class Loss:
         loss3 = vx
         loss4 = vy
 
-        return pinn.weight_in*(loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
+        return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def boundary_loss(self, pinn):
         down, up, left, right = get_boundary_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -248,20 +251,18 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return pinn.weight_bound*(
-            loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
-            loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
+        return (loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
+                loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
     def verbose(self, pinn, epoch):
         residual_loss = self.residual_loss(pinn)
         initial_loss = self.initial_loss(pinn, epoch)
         boundary_loss = self.boundary_loss(pinn)
 
-        final_loss = (
-            residual_loss +
-            initial_loss +
-            boundary_loss
-        )
+        masked = pinn.forward_mask(pinn.weights)
+
+        loss_cat = torch.stack((residual_loss, initial_loss, boundary_loss))
+        final_loss = torch.dot(loss_cat, masked)
 
         return final_loss, residual_loss, initial_loss, boundary_loss
 
@@ -284,11 +285,9 @@ def train_model(
 
     optimizer = optim.Adam([
                         {'params': nn_approximator.layer_in.parameters()},
-                        {'params': nn_approximator.middle_layers.parameters()}, 
+                        {'params': nn_approximator.middle_layers.parameters()},
                         {'params': nn_approximator.layer_out.parameters()},
-                        {'params': nn_approximator.weight_res, 'lr': -0.01},
-                        {'params': nn_approximator.weight_in, 'lr': -0.01},
-                        {'params': nn_approximator.weight_bound, 'lr': -0.01}
+                        {'params': nn_approximator.weights, 'lr': -0.01},
                         ], lr=0.001)
     loss_values = []
     loss: torch.Tensor = torch.inf
