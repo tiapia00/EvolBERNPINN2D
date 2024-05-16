@@ -14,3 +14,4 @@ Implementation of PINN for the solution of an evolutive hyperbolic problem of a 
 - main: hard encoding still present
 - integrat: implementation of Simpson rule
 - implement_batch: at some point, try to implement batching
+- pos_emb: still not implemented, template branch
