@@ -9,6 +9,10 @@ import matplotlib.pyplot as plt
 
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
+<<<<<<< HEAD
+    # description of displacements, so i don't have to add anything
+=======
+>>>>>>> velocity
     res_ux = torch.zeros_like(x)
     res_uy = torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
@@ -85,7 +89,7 @@ class PINN(nn.Module):
         super().__init__()
         self.dim_hidden = dim_hidden
         self.layer_in = nn.Linear(dim_input, self.dim_hidden)
-
+        
         self.num_middle = num_hidden - 1
         self.middle_layers = nn.ModuleList()
 
@@ -191,12 +195,22 @@ class Loss:
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
-
+<<<<<<< HEAD
+        
         if epochs == 0:
             fig = plt.figure()
-            plt.scatter(x.cpu().detach().numpy()+pinn_init_ux.cpu().detach().numpy(),
+            plt.scatter(x.cpu().detach().numpy()+pinn_init_ux.cpu().detach().numpy(), 
                         y.cpu().detach().numpy()+pinn_init_uy.cpu().detach().numpy())
             plt.savefig('initial_cond.png')
+                        
+        ux = output[:, 0].reshape(-1,1)
+        uy = output[:, 1].reshape(-1,1)
+        
+        loss1 = ux - pinn_init_ux
+        loss2 = uy - pinn_init_uy
+        
+        return loss1.pow(2).mean() + self.weights[0]*loss2.pow(2).mean()
+=======
 
         ux = output[:, 0].reshape(-1,1)
         uy = output[:, 1].reshape(-1,1)
@@ -211,6 +225,7 @@ class Loss:
         loss4 = vy
 
         return self.weights[0] * (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
+>>>>>>> velocity
 
     def boundary_loss(self, pinn):
         down, up, left, right = get_boundary_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -218,10 +233,10 @@ class Loss:
         x_up, y_up, t_up = up
         x_left, y_left, t_left = left
         x_right, y_right, t_right = right
-
+        
         ux_down = f(pinn, x_down, y_down, t_down)[:, 0]
         uy_down = f(pinn, x_down, y_down, t_down)[:, 1]
-
+        
         ux_up = f(pinn, x_up, y_up, t_up)[:, 0]
         uy_up = f(pinn, x_up, y_up, t_up)[:, 1]
 
@@ -286,29 +301,45 @@ def train_model(
     loss: torch.Tensor = torch.inf
 
     writer = SummaryWriter(log_dir=path_logs)
-
+   
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
         grads = []
 
         optimizer.zero_grad()
+<<<<<<< HEAD
         _, residual_loss, initial_loss, boundary_loss = loss_fn.verbose(nn_approximator, epoch)
         loss: torch.Tensor = loss_fn(nn_approximator, epoch)
+            
+=======
+        _, residual_loss, initial_loss, boundary_loss = loss_fn.verbose(nn_approximator)
+        loss: torch.Tensor = loss_fn(nn_approximator)
 
+>>>>>>> velocity
         loss.backward()
         optimizer.step()
 
         loss_values.append(loss.item())
 
-        pbar.set_description(f"Global loss: {loss.item():.2f}")
+<<<<<<< HEAD
+        # Log loss
+        pbar.set_description(f"Loss: {loss.item():.2f}")
 
+        writer.add_scalar("Global/Global loss", loss.item(), epoch)
+        writer.add_scalar("Residual/Residual loss", residual_loss.item(), epoch)
+        writer.add_scalar("Initial/Initial loss", initial_loss.item(), epoch)
+        writer.add_scalar("Boundary/Boundary loss", boundary_loss.item(), epoch)
+=======
+        pbar.set_description(f"Global loss: {loss.item():.2f}")
+        
         writer.add_scalars(f'Loss', {
                                     'global': loss.item(),
                                     'residual': residual_loss.item(),
                                     'initial': initial_loss.item(),
                                     'boundary': boundary_loss.item(),
                                     }, epoch)
+>>>>>>> velocity
 
         pbar.update(1)
 

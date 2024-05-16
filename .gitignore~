@@ -1,5 +1,7 @@
 # Ignore single files
 thesis_structure.md
+par.py
+tensorboard_link.txt
 
 # Ignore all directories
 */

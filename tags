@@ -1,0 +1,209 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+Axes3D	.\beam.py	/^from mpl_toolkits.mplot3d import Axes3D$/;"	i
+Axes3D	.\plots.py	/^from mpl_toolkits.mplot3d import Axes3D$/;"	i
+Beam	.\beam.py	/^class Beam:   $/;"	c
+Beam	.\initialization_NN.py	/^from beam import Beam, Prob_Solv_Modes, In_Cond$/;"	i
+Beam	.\main.py	/^from beam import Beam, Prob_Solv_Modes, In_Cond$/;"	i
+Callable	.\initialization_NN.py	/^from typing import Callable$/;"	i
+Callable	.\main.py	/^from typing import Callable$/;"	i
+Callable	.\nn.py	/^from typing import Callable$/;"	i
+Callable	pinn.py	/^from typing import Callable$/;"	i
+FuncAnimation	.\plots.py	/^from matplotlib.animation import FuncAnimation$/;"	i
+FuncFormatter	.\plots.py	/^from matplotlib.ticker import MaxNLocator, FuncFormatter$/;"	i
+In_Cond	.\beam.py	/^class In_Cond:$/;"	c
+In_Cond	.\initialization_NN.py	/^from beam import Beam, Prob_Solv_Modes, In_Cond$/;"	i
+In_Cond	.\main.py	/^from beam import Beam, Prob_Solv_Modes, In_Cond$/;"	i
+Loss	pinn.py	/^class Loss:$/;"	c
+Loss_NN	.\nn.py	/^class Loss_NN:$/;"	c
+MaxNLocator	.\plots.py	/^from matplotlib.ticker import MaxNLocator, FuncFormatter$/;"	i
+NN	.\nn.py	/^class NN(nn.Module):$/;"	c
+PINN	.\plots.py	/^from pinn import PINN, f$/;"	i
+PINN	pinn.py	/^class PINN(nn.Module):$/;"	c
+Parameters	.\initialization_NN.py	/^from par import Parameters, get_params$/;"	i
+Parameters	.\main.py	/^from par import Parameters, get_params$/;"	i
+Parameters	par.py	/^class Parameters:$/;"	c
+Prob_Solv_Modes	.\beam.py	/^class Prob_Solv_Modes:$/;"	c
+Prob_Solv_Modes	.\initialization_NN.py	/^from beam import Beam, Prob_Solv_Modes, In_Cond$/;"	i
+Prob_Solv_Modes	.\main.py	/^from beam import Beam, Prob_Solv_Modes, In_Cond$/;"	i
+SummaryWriter	.\nn.py	/^from torch.utils.tensorboard import SummaryWriter$/;"	i
+SummaryWriter	pinn.py	/^from torch.utils.tensorboard import SummaryWriter$/;"	i
+Tuple	.\initialization_NN.py	/^from typing import Tuple$/;"	i
+Tuple	.\main.py	/^from typing import Tuple$/;"	i
+Tuple	pinn.py	/^from typing import Tuple$/;"	i
+__call__	.\nn.py	/^    def __call__(self, nn: NN):$/;"	m	class:Loss_NN	file:
+__call__	pinn.py	/^    def __call__(self, pinn, epoch):$/;"	m	class:Loss	file:
+__init__	.\beam.py	/^    def __init__(self):$/;"	m	class:Beam.modal_appr
+__init__	.\beam.py	/^  def __init__(self, length, E, rho, H, b, n_points):$/;"	m	class:Beam
+__init__	.\beam.py	/^  def __init__(self, my_beam : Beam):$/;"	m	class:In_Cond
+__init__	.\beam.py	/^  def __init__(self, my_beam : Beam):$/;"	m	class:Prob_Solv_Modes
+__init__	.\nn.py	/^    def __init__($/;"	m	class:Loss_NN
+__init__	.\nn.py	/^    def __init__(self, num_hidden: int, dim_hidden: int, dim_input: int = 3, dim_output: int = 2, act=nn.Tanh()):$/;"	m	class:NN
+__init__	par.py	/^    def __init__(self):$/;"	m	class:Parameters
+__init__	pinn.py	/^    def __init__($/;"	m	class:Loss
+__init__	pinn.py	/^    def __init__(self, num_hidden: int, dim_hidden: int, dim_input : int = 3, dim_output : int = 4, act=nn.Tanh()):$/;"	m	class:PINN
+adimensionalize_sol	.\initialization_NN.py	/^    def adimensionalize_sol(w: np.ndarray, w_ast: float):$/;"	f	function:train_init_NN
+animation	.\beam.py	/^import matplotlib.animation as animation$/;"	i
+boundary_loss	pinn.py	/^    def boundary_loss(self, pinn):$/;"	m	class:Loss
+calculate_Q	.\beam.py	/^    def calculate_Q(self):$/;"	m	class:Beam.modal_appr
+calculate_beam_mat	.\beam.py	/^    def calculate_beam_mat(self):$/;"	m	class:Beam.modal_appr
+calculate_k	.\beam.py	/^      def calculate_k(self):$/;"	f	function:Beam.modal_appr.calculate_beam_mat
+calculate_m	.\beam.py	/^      def calculate_m(self):$/;"	f	function:Beam.modal_appr.calculate_beam_mat
+calculate_solution	.\beam.py	/^  def calculate_solution(self, A, B, t:np.ndarray):$/;"	m	class:Beam
+compute_coeff	.\beam.py	/^  def compute_coeff(self):$/;"	m	class:In_Cond
+create_folder_date	.\read_write.py	/^def create_folder_date(directory, folder_name):$/;"	f
+create_folder_date	pinn.py	/^from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date$/;"	i
+date	pinn.py	/^from datetime import date$/;"	i
+datetime	.\initialization_NN.py	/^import datetime$/;"	i
+datetime	.\main.py	/^import datetime$/;"	i
+datetime	.\nn.py	/^import datetime$/;"	i
+datetime	.\read_write.py	/^import datetime$/;"	i
+datetime	pinn.py	/^import datetime$/;"	i
+def_load	.\beam.py	/^    def def_load(self, xi, F, omega):$/;"	m	class:Beam.modal_appr
+delete_old	.\main.py	/^delete_old = False$/;"	v
+delete_old_files	.\main.py	/^from read_write import get_current_time, get_last_modified_file, pass_folder, delete_old_files$/;"	i
+delete_old_files	.\read_write.py	/^def delete_old_files(folder_path):$/;"	f
+delete_old_subfolders	.\read_write.py	/^def delete_old_subfolders(root_folder):$/;"	f
+device	.\main.py	/^device = torch.device("cuda" if torch.cuda.is_available() else "cpu")$/;"	v
+device	.\nn.py	/^    def device(self):$/;"	m	class:NN
+device	pinn.py	/^    def device(self):$/;"	m	class:PINN
+df	pinn.py	/^def df(output: torch.Tensor, inputs: list, var : int) -> torch.Tensor:$/;"	f
+dir_logs	.\main.py	/^    dir_logs = pass_folder('model\/logs')$/;"	v
+dir_model	.\main.py	/^    dir_model = os.path.dirname(filename)$/;"	v
+dir_model	.\main.py	/^    dir_model = pass_folder('model')$/;"	v
+drawframe	.\beam.py	/^    def drawframe(i):$/;"	f	function:Beam.plot_sol
+f	.\plots.py	/^from pinn import PINN, f$/;"	i
+f	pinn.py	/^def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:$/;"	f
+f_nn	.\nn.py	/^def f_nn(nn: NN, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:$/;"	f
+filename	.\main.py	/^    filename = get_last_modified_file('model', '.pth')$/;"	v
+filename_model	.\main.py	/^    filename_model = get_last_modified_file('in_model', '.pth')$/;"	v
+find_F_eig	.\beam.py	/^  def find_F_eig(self, H):$/;"	m	class:Prob_Solv_Modes
+find_all_F	.\beam.py	/^  def find_all_F(self, my_beam : Beam):$/;"	m	class:Prob_Solv_Modes
+find_eig	.\beam.py	/^  def find_eig(self):$/;"	m	class:Prob_Solv_Modes
+forward	.\nn.py	/^    def forward(self, x, t):$/;"	m	class:NN
+forward	pinn.py	/^    def forward(self, x, y, t):$/;"	m	class:PINN
+get_boundary_points	pinn.py	/^def get_boundary_points(x_domain, y_domain, t_domain, n_points, device = torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):$/;"	f
+get_current_time	.\initialization_NN.py	/^from read_write import get_current_time, pass_folder$/;"	i
+get_current_time	.\main.py	/^from read_write import get_current_time, get_last_modified_file, pass_folder, delete_old_files$/;"	i
+get_current_time	.\nn.py	/^def get_current_time(fmt="%H:%M") -> str:$/;"	f
+get_current_time	.\nn.py	/^from read_write import get_current_time, pass_folder$/;"	i
+get_current_time	.\read_write.py	/^def get_current_time(timezone_name='Europe\/Paris', fmt='%Y-%m-%d %H:%M:%S'):$/;"	f
+get_current_time	pinn.py	/^from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date$/;"	i
+get_initial_points	pinn.py	/^def get_initial_points(x_domain, y_domain, t_domain, n_points, device = torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):$/;"	f
+get_interior_points	pinn.py	/^def get_interior_points(x_domain, y_domain, t_domain, n_points, device = torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):$/;"	f
+get_last_modified_file	.\main.py	/^from read_write import get_current_time, get_last_modified_file, pass_folder, delete_old_files$/;"	i
+get_last_modified_file	.\read_write.py	/^def get_last_modified_file(folder_path, file_extension):$/;"	f
+get_last_modified_file	pinn.py	/^from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date$/;"	i
+get_params	.\initialization_NN.py	/^from par import Parameters, get_params$/;"	i
+get_params	.\main.py	/^from par import Parameters, get_params$/;"	i
+get_params	par.py	/^def get_params(par_nn : dict) -> tuple:$/;"	f
+initial_cond_to_q	.\beam.py	/^      def initial_cond_to_q(self):$/;"	f	function:Beam.modal_appr.solve
+initial_conditions	pinn.py	/^def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:$/;"	f
+initial_loss	pinn.py	/^    def initial_loss(self, pinn, epochs):$/;"	m	class:Loss
+integrate	.\beam.py	/^from scipy import integrate$/;"	i
+loss	.\nn.py	/^    def loss(self, nn: NN):$/;"	m	class:Loss_NN
+loss_fn	.\main.py	/^    loss_fn = Loss($/;"	v
+matplotlib	.\beam.py	/^import matplotlib.animation as animation$/;"	i
+matplotlib	.\beam.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	.\beam.py	/^import matplotlib.ticker as ticker$/;"	i
+matplotlib	.\plots.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	pinn.py	/^import matplotlib.pyplot as plt$/;"	i
+modal_appr	.\beam.py	/^  class modal_appr:$/;"	c	class:Beam
+model_name	.\main.py	/^    model_name = f'{lr}_{epochs}_{dim_hidden}.pth'$/;"	v
+model_path	.\main.py	/^    model_path = os.path.join(dir_model, model_name)$/;"	v
+nn	.\initialization_NN.py	/^from torch import nn$/;"	i
+nn	.\main.py	/^from torch import nn$/;"	i
+nn	.\nn.py	/^import torch.nn as nn$/;"	i
+nn	pinn.py	/^from torch import nn$/;"	i
+normalize_modeshapes	.\beam.py	/^  def normalize_modeshapes(self):$/;"	m	class:Beam
+np	.\beam.py	/^import numpy as np$/;"	i
+np	.\initialization_NN.py	/^import numpy as np$/;"	i
+np	.\main.py	/^import numpy as np$/;"	i
+np	.\nn.py	/^import numpy as np$/;"	i
+np	.\plots.py	/^import numpy as np$/;"	i
+np	pinn.py	/^import numpy as np$/;"	i
+os	.\initialization_NN.py	/^import os$/;"	i
+os	.\main.py	/^import os$/;"	i
+os	.\read_write.py	/^import os$/;"	i
+os	pinn.py	/^import os$/;"	i
+par	.\main.py	/^par = Parameters()$/;"	v
+pass_folder	.\initialization_NN.py	/^from read_write import get_current_time, pass_folder$/;"	i
+pass_folder	.\main.py	/^from read_write import get_current_time, get_last_modified_file, pass_folder, delete_old_files$/;"	i
+pass_folder	.\nn.py	/^from read_write import get_current_time, pass_folder$/;"	i
+pass_folder	.\read_write.py	/^def pass_folder(root: str):$/;"	f
+pass_folder	pinn.py	/^from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date$/;"	i
+pass_g_max	.\beam.py	/^  def pass_g_max(self, gm):$/;"	m	class:Prob_Solv_Modes
+pass_init_cond	.\beam.py	/^  def pass_init_cond(self, w_0, w_dot_0):$/;"	m	class:In_Cond
+pinn	.\main.py	/^pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)$/;"	v
+pinn_layer	.\main.py	/^        pinn_layer = pinn.middle_layers[i]$/;"	v
+pinn_trained	.\main.py	/^    pinn_trained = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)$/;"	v
+plot_initial_conditions	.\main.py	/^from plots import plot_initial_conditions, plot_sol, plot_midpoint_displ$/;"	i
+plot_initial_conditions	.\plots.py	/^def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, n_train: int, path: str):$/;"	f
+plot_midpoint_displ	.\main.py	/^from plots import plot_initial_conditions, plot_sol, plot_midpoint_displ$/;"	i
+plot_midpoint_displ	.\plots.py	/^def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train : int, path : str, device = torch.device("cuda" if torch.cuda.is_available() else "cpu")):$/;"	f
+plot_modes	.\beam.py	/^  def plot_modes(self):$/;"	m	class:Beam
+plot_sol	.\beam.py	/^  def plot_sol(self, path):$/;"	m	class:Beam
+plot_sol	.\main.py	/^from plots import plot_initial_conditions, plot_sol, plot_midpoint_displ$/;"	i
+plot_sol	.\plots.py	/^def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train : $/;"	f
+plot_strains	.\beam.py	/^  def plot_strains(self):$/;"	m	class:Beam
+plt	.\beam.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	.\plots.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	pinn.py	/^import matplotlib.pyplot as plt$/;"	i
+pretrained_layer	.\main.py	/^        pretrained_layer = pretrained_model.middle_layers[i]$/;"	v
+pretrained_model	.\main.py	/^    pretrained_model = NN(layers, dim_hidden, 2, 1)$/;"	v
+pretrained_model_dict	.\main.py	/^    pretrained_model_dict = torch.load(filename_model, map_location=torch.device(device))$/;"	v
+pytz	.\initialization_NN.py	/^import pytz$/;"	i
+pytz	.\main.py	/^import pytz$/;"	i
+pytz	.\nn.py	/^import pytz$/;"	i
+pytz	.\read_write.py	/^import pytz$/;"	i
+pytz	pinn.py	/^import pytz$/;"	i
+residual_loss	pinn.py	/^    def residual_loss(self, pinn):$/;"	m	class:Loss
+retrain_PINN	.\main.py	/^retrain_PINN = True$/;"	v
+retrain_init	.\main.py	/^    retrain_init = False$/;"	v
+retrain_init	.\main.py	/^retrain_init = True$/;"	v
+return_H	.\beam.py	/^  def return_H(self, gm):$/;"	m	class:Prob_Solv_Modes
+return_adim	pinn.py	/^def return_adim(x_dom : np.ndarray, t_dom:np.ndarray, rho: float, mu : float, lam : float):$/;"	f
+return_det	.\beam.py	/^  def return_det(self, H):$/;"	m	class:Prob_Solv_Modes
+return_modemat	.\beam.py	/^  def return_modemat(self):$/;"	m	class:Beam
+return_modemat	.\beam.py	/^  def return_modemat(self, F):$/;"	m	class:Prob_Solv_Modes
+return_modemat_eig	.\beam.py	/^  def return_modemat_eig(self, F:np.ndarray, gamma):$/;"	m	class:Beam
+return_modemat_eig	.\beam.py	/^  def return_modemat_eig(self, F:np.ndarray, gamma):$/;"	m	class:Prob_Solv_Modes
+solve	.\beam.py	/^    def solve(self):$/;"	m	class:Beam.modal_appr
+solve_ivp	.\beam.py	/^from scipy.integrate import solve_ivp$/;"	i
+t	.\main.py	/^t = t.to(device)$/;"	v
+t	.\main.py	/^t = torch.full_like(x, t_value)$/;"	v
+t_domain	.\main.py	/^t_domain = np.array([0.0, T])\/T$/;"	v
+t_value	.\main.py	/^t_value = 0.0$/;"	v
+ticker	.\beam.py	/^import matplotlib.ticker as ticker$/;"	i
+to_matpar_PINN	par.py	/^    def to_matpar_PINN(self) -> float:$/;"	m	class:Parameters
+torch	.\initialization_NN.py	/^import torch$/;"	i
+torch	.\main.py	/^import torch$/;"	i
+torch	.\nn.py	/^import torch$/;"	i
+torch	.\nn.py	/^import torch.nn as nn$/;"	i
+torch	.\plots.py	/^import torch$/;"	i
+torch	pinn.py	/^import torch$/;"	i
+tqdm	.\initialization_NN.py	/^from tqdm import tqdm$/;"	i
+tqdm	.\main.py	/^from tqdm import tqdm$/;"	i
+tqdm	.\nn.py	/^from tqdm import tqdm$/;"	i
+tqdm	pinn.py	/^from tqdm import tqdm$/;"	i
+train_init_NN	.\initialization_NN.py	/^def train_init_NN(par: Parameters, device: torch.device):$/;"	f
+train_init_NN	.\main.py	/^from initialization_NN import train_init_NN$/;"	i
+train_model	pinn.py	/^def train_model($/;"	f
+train_model_nn	.\nn.py	/^def train_model_nn($/;"	f
+train_test_split	.\initialization_NN.py	/^    from sklearn.model_selection import train_test_split$/;"	i
+update	.\plots.py	/^    def update($/;"	f	function:plot_sol
+update	.\plots.py	/^    def update(frame, pinn: PINN, x: torch.tensor, y: torch.tensor, t_raw: torch.tensor, ax):$/;"	f	function:plot_midpoint_displ
+update_freq	.\beam.py	/^  def update_freq(self):$/;"	m	class:Beam
+update_gamma	.\beam.py	/^  def update_gamma(self, my_beam : Beam):$/;"	m	class:Prob_Solv_Modes
+update_phi	.\beam.py	/^  def update_phi(self, phi:np.ndarray):$/;"	m	class:Beam
+verbose	pinn.py	/^    def verbose(self, pinn, epoch):$/;"	m	class:Loss
+x	.\main.py	/^x = x.to(device)$/;"	v
+x_domain	.\main.py	/^x_domain = np.array([0.0, Lx])\/Lx$/;"	v
+y	.\main.py	/^y = y.to(device)$/;"	v
+y_domain	.\main.py	/^y_domain = np.array([0.0, Ly])\/Lx$/;"	v
+z	.\main.py	/^z = f(pinn_trained, x ,y, t)$/;"	v
+z0	.\main.py	/^z0 = torch.cat((ux0, uy0), dim=1)$/;"	v
