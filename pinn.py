@@ -291,7 +291,7 @@ def train_model(
                         {'params': nn_approximator.middle_layers.parameters()},
                         {'params': nn_approximator.layer_out.parameters()},
                         {'params': nn_approximator.weights, 'lr': -0.01},
-                        ], lr=0.001)
+                        ], lr=learning_rate)
     loss_values = []
     loss: torch.Tensor = torch.inf
 

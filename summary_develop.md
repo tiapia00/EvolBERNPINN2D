@@ -13,6 +13,7 @@
 - implement shuffling of hyperparameters to select best combination
 - add energy term in the loss function
 - try positional embeddings
+- try SGD (paper of SA-PINN)
 ## long term
 - comparison with closed-form analytical solutions
 - try to implement positional embedding
