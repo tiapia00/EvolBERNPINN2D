@@ -56,9 +56,7 @@ if retrain_PINN:
         t_domain,
         n_train,
         return_adim(x_domain, t_domain, rho, mu, lam),
-        initial_conditions,
-        weight_IN,
-        weight_BOUND
+        initial_conditions
     )
     
     filename_model = get_last_modified_file('in_model', '.pth')

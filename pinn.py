@@ -2,11 +2,11 @@ from typing import Callable
 import numpy as np
 import torch
 from torch import nn
+import torch.optim as optim
 from typing import Tuple
 import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 import matplotlib.pyplot as plt
-from adapt import apply_mask, initialize_weights
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     res_ux = torch.zeros_like(x)
@@ -96,9 +96,9 @@ class PINN(nn.Module):
 
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
-        self.weight_res = nn.Parameter((torch.tensor(1))
-        self.weight_in = nn.Parameter((torch.tensor(3))
-        self.weight_bound = nn.Parameter((torch.tensor(1)))
+        self.weight_res = nn.Parameter(torch.tensor([1.]))
+        self.weight_in = nn.Parameter(torch.tensor([3.]))
+        self.weight_bound = nn.Parameter(torch.tensor([1.]))
 
     def forward(self, x, y, t):
         if x.dim() == 1:
@@ -259,8 +259,8 @@ class Loss:
 
         final_loss = (
             residual_loss +
-            self.weights[0] * initial_loss +
-            self.weights[1] * boundary_loss
+            initial_loss +
+            boundary_loss
         )
 
         return final_loss, residual_loss, initial_loss, boundary_loss
@@ -283,9 +283,11 @@ def train_model(
 ) -> PINN:
 
     optimizer = optim.Adam([
-                        {'params': nn_approximator.parameters()},
-                        {'params': nn_approximator.weight_res, 'lr': -0.01}
-                        {'params': nn_approximator.weight_in, 'lr': -0.01}
+                        {'params': nn_approximator.layer_in.parameters()},
+                        {'params': nn_approximator.middle_layers.parameters()}, 
+                        {'params': nn_approximator.layer_out.parameters()},
+                        {'params': nn_approximator.weight_res, 'lr': -0.01},
+                        {'params': nn_approximator.weight_in, 'lr': -0.01},
                         {'params': nn_approximator.weight_bound, 'lr': -0.01}
                         ], lr=0.001)
     loss_values = []
