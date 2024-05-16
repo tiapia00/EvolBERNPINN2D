@@ -1,8 +1,11 @@
 # Ignore single files
 thesis_structure.md
-
+tags
 # Ignore all directories
 */
+
+# Ignore all files with specific ending
+*~
 
 # Whitelist specific directories (unignore)
 !.gitignore  # Whitelist the .gitignore file itself
