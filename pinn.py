@@ -6,7 +6,7 @@ from typing import Tuple
 import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 import matplotlib.pyplot as plt
-
+from adapt import apply_mask, initialize_weights
 
 def initial_conditions(x: torch.tensor, y : torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     res_ux = torch.zeros_like(x)
@@ -96,6 +96,10 @@ class PINN(nn.Module):
 
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
+        self.weight_res = nn.Parameter((torch.tensor(1))
+        self.weight_in = nn.Parameter((torch.tensor(3))
+        self.weight_bound = nn.Parameter((torch.tensor(1)))
+
     def forward(self, x, y, t):
         if x.dim() == 1:
             x_stack = torch.cat([x, y, t], dim=0)
@@ -153,8 +157,6 @@ class Loss:
         n_points: int,
         z: torch.Tensor,
         initial_condition: Callable,
-        weight_b: float = 1.0,
-        weight_i: float = 1.0,
         verbose: bool = False,
     ):
         self.x_domain = x_domain
@@ -163,7 +165,6 @@ class Loss:
         self.n_points = n_points
         self.z = z
         self.initial_condition = initial_condition
-        self.weights = [weight_i, weight_b]
 
     def residual_loss(self, pinn):
         x, y, t = get_interior_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -185,7 +186,7 @@ class Loss:
         loss3 = dvx_t - df(output, [t,t], 0)
         loss4 = dvy_t - df(output, [t,t], 1)
 
-        return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
+        return pinn.weight_res*(loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def initial_loss(self, pinn, epochs):
         x, y, t = get_initial_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -210,7 +211,7 @@ class Loss:
         loss3 = vx
         loss4 = vy
 
-        return self.weights[0] * (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
+        return pinn.weight_in*(loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def boundary_loss(self, pinn):
         down, up, left, right = get_boundary_points(self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
@@ -247,7 +248,7 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return self.weights[1]*(
+        return pinn.weight_bound*(
             loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
             loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
@@ -281,7 +282,12 @@ def train_model(
     path_logs: str,
 ) -> PINN:
 
-    optimizer = torch.optim.Adam(nn_approximator.parameters(), lr=learning_rate)
+    optimizer = optim.Adam([
+                        {'params': nn_approximator.parameters()},
+                        {'params': nn_approximator.weight_res, 'lr': -0.01}
+                        {'params': nn_approximator.weight_in, 'lr': -0.01}
+                        {'params': nn_approximator.weight_bound, 'lr': -0.01}
+                        ], lr=0.001)
     loss_values = []
     loss: torch.Tensor = torch.inf
 
