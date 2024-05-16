@@ -120,10 +120,7 @@ class PINN(nn.Module):
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     """Compute the value of the approximate solution from the NN model
     Internally calling the forward method when calling the class as a function"""
-    hard_enc = torch.sin(x*np.pi)
-    hard_enc = hard_enc.view(-1, 1)
-    hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
-    return hard_enc_both*pinn(x, y, t)
+    return pinn(x, y, t)
 
 def df(output: torch.Tensor, inputs: list, var : int) -> torch.Tensor:
     """Compute neural network derivative with respect to input features using PyTorch autograd engine
@@ -242,14 +239,22 @@ class Loss:
         dux_y_right = df(right, [y_right], 0)
         duy_x_right = df(right, [x_right], 1)
         tr_right = df(right, [x_right], 0) + duy_y_right
-
+        
+        loss_upx = ux_up
+        loss_upy = uy_up
+        
+        loss_downx = ux_down
+        loss_downy = uy_down
+        
         loss_left1 = 2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
         loss_left2 = 2*self.z[0]*duy_y_left + self.z[1]*tr_left
 
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return (loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
+        return (loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
+                loss_downx.pow(2).mean() + loss_downy.pow(2).mean() + 
+                loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
                 loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
     def verbose(self, pinn, epoch):
@@ -315,9 +320,9 @@ def train_model(
                                     'boundary': boundary_loss.item(),
                                     }, epoch)
         writer.add_scalars(f'Weights', {
-                                    'residual': pinn.weights[0].item(),
-                                    'initial': pinn.weights[1].item(),
-                                    'boundary': pinn.weights[2].item(),
+                                    'residual': nn_approximator.weights[0].item(),
+                                    'initial': nn_approximator.weights[1].item(),
+                                    'boundary': nn_approximator.weights[2].item(),
                                     }, epoch)
 
         pbar.update(1)
