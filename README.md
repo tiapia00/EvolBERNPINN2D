@@ -13,3 +13,4 @@ Implementation of PINN for the solution of an evolutive hyperbolic problem of a 
 - self_adapt: adaptive weighting of the various loss terms (most updated)
 - main: hard encoding still present
 - integrat: implementation of Simpson rule
+- implement_batch: at some point, try to implement batching
