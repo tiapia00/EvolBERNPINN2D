@@ -314,6 +314,11 @@ def train_model(
                                     'initial': initial_loss.item(),
                                     'boundary': boundary_loss.item(),
                                     }, epoch)
+        writer.add_scalars(f'Weights', {
+                                    'residual': pinn.weights[0].item(),
+                                    'initial': pinn.weights[1].item(),
+                                    'boundary': pinn.weights[2].item(),
+                                    }, epoch)
 
         pbar.update(1)
 
