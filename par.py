@@ -14,7 +14,7 @@ class Parameters:
             'hid_layers' : self.hid_layers,
             'neuron_per_layer' : self.neurons_per_layer,
             'lr' : 0.001,
-            'epochs' : 300,
+            'epochs' : 1000,
             }
         self.nn_par = {
             'x_end' : self.x_end,

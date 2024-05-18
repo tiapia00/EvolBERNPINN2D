@@ -27,6 +27,8 @@ def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, facto
 
     fig = plt.figure()
     plt.scatter(x, y, c=factors, cmap=viridis)
+    plt.colorbar()
+    
     plt.xlabel('x')
     plt.ylabel('y')
 
@@ -44,11 +46,14 @@ def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x, y, t, c=factors, cmap=viridis)
+    sc = ax.scatter(x, y, t, c=factors, cmap=viridis)
+       
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('t')
-
+    
+    cbar = fig.colorbar(sc, ax=ax)
+    
     fig.canvas.draw()
     image_np = np.array(fig.canvas.renderer.buffer_rgba())
     image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
@@ -350,7 +355,7 @@ def train_model(
         {'params': nn_approximator.layer_in.parameters()},
         {'params': nn_approximator.middle_layers.parameters()},
         {'params': nn_approximator.layer_out.parameters()},
-        {'params': nn_approximator.weights, 'lr': -0.01},
+        {'params': nn_approximator.weights, 'lr': -0.001},
     ], lr=learning_rate)
     loss_values = []
     loss: torch.Tensor = torch.inf
