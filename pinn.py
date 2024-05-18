@@ -94,7 +94,7 @@ class PINN(nn.Module):
     to approximate the solution of the differential equation
     """
 
-    def __init__(self, num_hidden: int, dim_hidden: int, dim_input: int = 3, dim_output: int = 4, act=nn.Tanh()):
+    def __init__(self, num_hidden: int, dim_hidden: int, points: dict, dim_input: int = 3, dim_output: int = 4, act=nn.Tanh()):
 
         super().__init__()
         self.dim_hidden = dim_hidden
@@ -110,7 +110,9 @@ class PINN(nn.Module):
 
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
-        self.weights = nn.Parameter(torch.tensor([1., 3., 1.]))
+        self.weights = nn.ParameterList([])
+        for key, value in zip(points):
+            self.weights.append([nn.Parameter(torch.ones(value.shape))])
 
     def forward(self, x, y, t):
         if x.dim() == 1:
@@ -175,27 +177,19 @@ class Loss:
         n_points: int,
         z: torch.Tensor,
         initial_condition: Callable,
-        device: torch.device,
-        verbose: bool = False,    
+        points: dict,
+        verbose: bool = False,
     ):
         self.x_domain = x_domain
         self.y_domain = y_domain
         self.t_domain = t_domain
         self.n_points = n_points
-        self.points = {
-            'res_points': get_interior_points(self.x_domain, self.y_domain,
-                                              self.t_domain, self.n_points, device),
-            'initial_points': get_initial_points(self.x_domain, self.y_domain,
-                                                 self.t_domain, self.n_points, device),
-            'boundary_points': get_boundary_points(self.x_domain, self.y_domain,
-                                                   self.t_domain, self.n_points, device)
-        }
         self.z = z
         self.initial_condition = initial_condition
         self.device = device
 
     def residual_loss(self, pinn):
-        x, y, t = self.points['res_points']
+        x, y, t = points['res_points']
 
         output = f(pinn, x, y, t)
 
@@ -222,7 +216,7 @@ class Loss:
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def initial_loss(self, pinn, epochs):
-        x, y, t = self.points['initial_points']
+        x, y, t = points['initial_points']
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
 
@@ -247,7 +241,7 @@ class Loss:
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def boundary_loss(self, pinn):
-        down, up, left, right = self.points['boundary_points']
+        down, up, left, right = points['boundary_points']
         x_down, y_down, t_down = down
         x_up, y_up, t_up = up
         x_left, y_left, t_left = left
