@@ -33,7 +33,9 @@ def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, facto
     plt.ylabel('y')
 
     fig.canvas.draw()
+    
     image_np = np.array(fig.canvas.renderer.buffer_rgba())
+    plt.close(fig)
     image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
 
     return image_tensor
@@ -55,11 +57,12 @@ def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_
     cbar = fig.colorbar(sc, ax=ax)
     
     fig.canvas.draw()
+    
     image_np = np.array(fig.canvas.renderer.buffer_rgba())
+    plt.close(fig)
     image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
 
     return image_tensor
-
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
     x_linspace = torch.linspace(x_domain[0], x_domain[1], n_points)
