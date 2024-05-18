@@ -166,9 +166,9 @@ class PINN(nn.Module):
         logits = self.layer_out(out)
         return logits
 
-    def orward_mask(self):
-        masked = torch.sigmoid(self.weights)
-        return masked
+    def forward_mask(self, idx: int):
+        masked_weights = torch.sigmoid(self.weights[idx])
+        return masked_weights
 
     def device(self):
         return next(self.parameters()).device
@@ -239,16 +239,14 @@ class Loss:
         dux_yy = df(output, [y, y], 0)
         dux_xy = df(output, [x, y], 0)
         duy_xy = df(output, [x, y], 1)
+        
+        m = pinn.forward_mask(0)
+        
+        loss1 = m*(dvx_t - 2*self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy))
+        loss2 = m*(dvy_t - 2 *self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) -self.z[1]*(dux_xy + duy_yy))
 
-        loss1 = pinn.forward_mask(pinn.weights[0])*(dvx_t - 2 *
-                                 self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) -
-                                 self.z[1]*(dux_xx + duy_xy))
-        loss2 = pinn.forward_mask(pinn.weights[0])*(dvy_t - 2 *
-                                 self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) -
-                                 self.z[1]*(dux_xy + duy_yy))
-
-        loss3 = pinn.forward_mask(pinn.weights[0])*(dvx_t - df(output, [t, t], 0))
-        loss4 = pinn.forward_mask(pinn.weights[0])*(dvy_t - df(output, [t, t], 1))
+        loss3 = m*(dvx_t - df(output, [t, t], 0))
+        loss4 = m*(dvy_t - df(output, [t, t], 1))
 
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
@@ -269,11 +267,13 @@ class Loss:
         vx = output[:, 2].reshape(-1, 1)
         vy = output[:, 3].reshape(-1, 1)
 
-        loss1 = pinn.forward_mask(pinn.weights[1])*(ux - pinn_init_ux)
-        loss2 = pinn.forward_mask(pinn.weights[1])*(uy - pinn_init_uy)
+        m = pinn.forward_mask(1)
+        
+        loss1 = m*(ux - pinn_init_ux)
+        loss2 = m*(uy - pinn_init_uy)
 
-        loss3 = vx
-        loss4 = vy
+        loss3 = m*vx
+        loss4 = m*vy
 
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
@@ -318,7 +318,7 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return pinn.forward_mask(pinn.weights[2])*(loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
+        return pinn.forward_mask(2)*(loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
                                 loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
                                 loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
                                 loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
@@ -387,8 +387,8 @@ def train_model(
             image_penalty_in = scatter_penalty_loss2D(
                 points['initial_points'][0], points['initial_points'][1], n_train, nn_approximator.weights[1].data)
 
-            writer.add_image('res_penalty', image_penalty_res)
-            writer.add_image('in_penalty', image_penalty_in)
+            writer.add_image('res_penalty', image_penalty_res, epoch)
+            writer.add_image('in_penalty', image_penalty_in, epoch)
 
         pbar.update(1)
 
