@@ -116,7 +116,7 @@ class PINN(nn.Module):
             if i==len(points)-1:
                 self.weights.append(nn.Parameter(torch.tensor([1.])))
             else:
-                self.weights.append(nn.Parameter(torch.ones(value[0].shape[0])))
+                self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
 
     def forward(self, x, y, t):
         if x.dim() == 1:
@@ -193,7 +193,6 @@ class Loss:
 
     def residual_loss(self, pinn):
         x, y, t = points['res_points']
-        print(type(x))
 
         output = f(pinn, x, y, t)
 
@@ -208,14 +207,15 @@ class Loss:
         dux_xy = df(output, [x, y], 0)
         duy_xy = df(output, [x, y], 1)
 
-        loss1 = dvx_t - 2 * \
+        loss1 = pinn.weights[0]*(dvx_t - 2 * \
             self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) - \
-            self.z[1]*(dux_xx + duy_xy)
-        loss2 = dvy_t - 2 * \
+            self.z[1]*(dux_xx + duy_xy))
+        loss2 = pinn.weights[0]*(dvy_t - 2 * \
             self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) - \
-            self.z[1]*(dux_xy + duy_yy)
-        loss3 = dvx_t - df(output, [t, t], 0)
-        loss4 = dvy_t - df(output, [t, t], 1)
+            self.z[1]*(dux_xy + duy_yy))
+
+        loss3 = pinn.weights[0]*(dvx_t - df(output, [t, t], 0))
+        loss4 = pinn.weights[0]*(dvy_t - df(output, [t, t], 1))
 
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
@@ -236,8 +236,8 @@ class Loss:
         vx = output[:, 2].reshape(-1, 1)
         vy = output[:, 3].reshape(-1, 1)
 
-        loss1 = ux - pinn_init_ux
-        loss2 = uy - pinn_init_uy
+        loss1 = pinn.weights[1]*(ux - pinn_init_ux)
+        loss2 = pinn.weights[1]*(uy - pinn_init_uy)
 
         loss3 = vx
         loss4 = vy
@@ -285,7 +285,7 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return (loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
+        return pinn.weights[2]*(loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
                 loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
                 loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
                 loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
@@ -295,10 +295,7 @@ class Loss:
         initial_loss = self.initial_loss(pinn, epoch)
         boundary_loss = self.boundary_loss(pinn)
 
-        masked = pinn.forward_mask()
-
-        loss_cat = torch.stack((residual_loss, initial_loss, boundary_loss))
-        final_loss = torch.dot(loss_cat, masked)
+        final_loss = residual_loss + initial_loss + boundary_loss
 
         return final_loss, residual_loss, initial_loss, boundary_loss
 
