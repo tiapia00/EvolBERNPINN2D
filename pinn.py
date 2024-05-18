@@ -166,7 +166,7 @@ class PINN(nn.Module):
         logits = self.layer_out(out)
         return logits
 
-    def forward_mask(self):
+    def orward_mask(self):
         masked = torch.sigmoid(self.weights)
         return masked
 
@@ -240,15 +240,15 @@ class Loss:
         dux_xy = df(output, [x, y], 0)
         duy_xy = df(output, [x, y], 1)
 
-        loss1 = pinn.weights[0]*(dvx_t - 2 *
+        loss1 = pinn.forward_mask(pinn.weights[0])*(dvx_t - 2 *
                                  self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) -
                                  self.z[1]*(dux_xx + duy_xy))
-        loss2 = pinn.weights[0]*(dvy_t - 2 *
+        loss2 = pinn.forward_mask(pinn.weights[0])*(dvy_t - 2 *
                                  self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) -
                                  self.z[1]*(dux_xy + duy_yy))
 
-        loss3 = pinn.weights[0]*(dvx_t - df(output, [t, t], 0))
-        loss4 = pinn.weights[0]*(dvy_t - df(output, [t, t], 1))
+        loss3 = pinn.forward_mask(pinn.weights[0])*(dvx_t - df(output, [t, t], 0))
+        loss4 = pinn.forward_mask(pinn.weights[0])*(dvy_t - df(output, [t, t], 1))
 
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
@@ -269,8 +269,8 @@ class Loss:
         vx = output[:, 2].reshape(-1, 1)
         vy = output[:, 3].reshape(-1, 1)
 
-        loss1 = pinn.weights[1]*(ux - pinn_init_ux)
-        loss2 = pinn.weights[1]*(uy - pinn_init_uy)
+        loss1 = pinn.forward_mask(pinn.weights[1])*(ux - pinn_init_ux)
+        loss2 = pinn.forward_mask(pinn.weights[1])*(uy - pinn_init_uy)
 
         loss3 = vx
         loss4 = vy
@@ -318,7 +318,7 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return pinn.weights[2]*(loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
+        return pinn.forward_mask(pinn.weights[2])*(loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
                                 loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
                                 loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
                                 loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
