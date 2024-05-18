@@ -1,4 +1,5 @@
 from torch.utils.tensorboard import SummaryWriter
+from mpl_toolkits.mplot3d import Axes3D
 import pytz
 import datetime
 from datetime import date
@@ -19,9 +20,43 @@ def initial_conditions(x: torch.tensor, y: torch.tensor, Lx: float, i: float = 1
     res_uy = torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
 
-def scatter_penalty_loss_2D(x: torch.tensor, y:torch.tensor, factors: torch.tensor):
-    x = x.reshape()
-    
+
+def scatter_penalty_loss_2D(x: torch.tensor, y: torch.tensor, n_train: int, factors: torch.tensor):
+    x = x.reshape(n_train, n_train).detach().numpy()
+    y = y.reshape(n_train, n_train).detach().numpy()
+    factors = factors.reshape(n_train, n_train).detach().numpy()
+
+    fig = plt.figure()
+    plt.scatter(x, y, c=factors, cmap=viridis)
+    plt.xlabel('x')
+    plt.ylabel('y')
+
+    fig.canvas.draw()
+    image_np = np.array(fig.canvas.renderer.buffer_rgba())
+    image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
+
+    return image_tensor
+
+
+def scatter_penalty_loss_3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_train: int, factors: torch.tensor):
+    x = x.reshape(n_train, n_train, n_train).detach().numpy()
+    y = y.reshape(n_train, n_train, n_train).detach().numpy()
+    t = t.reshape(n_train, n_train, n_train).detach().numpy()
+    factors = factors.reshape(n_train, n_train, n_train).detach().numpy()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(x, y, t, c=factors, cmap=viridis)
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('t')
+
+    fig.canvas.draw()
+    image_np = np.array(fig.canvas.renderer.buffer_rgba())
+    image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
+
+    return image_tensor
+
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
     x_linspace = torch.linspace(x_domain[0], x_domain[1], n_points)
@@ -116,7 +151,7 @@ class PINN(nn.Module):
         self.weights = nn.ParameterList([])
 
         for i, (key, value) in enumerate(zip(points.keys(), points.values())):
-            if i==len(points)-1:
+            if i == len(points)-1:
                 self.weights.append(nn.Parameter(torch.tensor([1.])))
             else:
                 self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
@@ -211,12 +246,12 @@ class Loss:
         dux_xy = df(output, [x, y], 0)
         duy_xy = df(output, [x, y], 1)
 
-        loss1 = pinn.weights[0]*(dvx_t - 2 * \
-            self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) - \
-            self.z[1]*(dux_xx + duy_xy))
-        loss2 = pinn.weights[0]*(dvy_t - 2 * \
-            self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) - \
-            self.z[1]*(dux_xy + duy_yy))
+        loss1 = pinn.weights[0]*(dvx_t - 2 *
+                                 self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) -
+                                 self.z[1]*(dux_xx + duy_xy))
+        loss2 = pinn.weights[0]*(dvy_t - 2 *
+                                 self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) -
+                                 self.z[1]*(dux_xy + duy_yy))
 
         loss3 = pinn.weights[0]*(dvx_t - df(output, [t, t], 0))
         loss4 = pinn.weights[0]*(dvy_t - df(output, [t, t], 1))
@@ -290,9 +325,9 @@ class Loss:
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
         return pinn.weights[2]*(loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
-                loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
-                loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
-                loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
+                                loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
+                                loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
+                                loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
     def verbose(self, pinn, epoch):
         residual_loss = self.residual_loss(pinn)
@@ -313,6 +348,7 @@ def train_model(
     learning_rate: int,
     max_epochs: int,
     path_logs: str,
+    points: dict
 ) -> PINN:
 
     optimizer = optim.Adam([
@@ -349,9 +385,15 @@ def train_model(
             'initial': initial_loss.item(),
             'boundary': boundary_loss.item(),
         }, epoch)
-        
-        if epoch % 100 ==0:
-        writer.add_image(f'Epoch = {epoch}'
+
+        if epoch % 100 == 0:
+            image_weights_res = scatter_penalty_loss3D(
+                points['res_points'][0], points['res_points'][1], points['res_points'][2], pinn.weights[0].data)
+            image_weigths_in = scatter_penalty_loss2D(
+                points['in_points'][0], points['in_points'][1], pinn.weights[1].data)
+
+            writer.add_image('res_penalty')
+            writer.add_image('in_penalty')
 
         pbar.update(1)
 
