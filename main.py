@@ -53,7 +53,7 @@ points = {
                                                    t_domain, n_points, device)
         }
 
-pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
+pinn = PINN(layers, dim_hidden, points, act=nn.Tanh()).to(device)
 
 if retrain_PINN:
 
@@ -67,6 +67,7 @@ if retrain_PINN:
         n_train,
         return_adim(x_domain, t_domain, rho, mu, lam),
         initial_conditions,
+        points
     )
 
     filename_model = get_last_modified_file('in_model', '.pth')
@@ -125,12 +126,3 @@ plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train)
 plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction')
 plot_midpoint_displ(pinn_trained, t, n_train, dir_model)
-
-
-# # To be added
-# - ~separate loss in more bars to see how the various loss term come to zero~
-# - see if some quadrature rule has been implemented
-# - scheme of weights initialization in order to automatically satisfy initial conditions
-# - plots (in progress)
-# - NN operators (to generalize results)
-# - try to implement function that allows that satisfy initial conditions?
