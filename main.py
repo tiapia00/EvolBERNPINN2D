@@ -8,6 +8,7 @@ from beam import Beam, Prob_Solv_Modes, In_Cond
 import pytz
 import datetime
 from read_write import get_current_time, get_last_modified_file, pass_folder, delete_old_files
+from torchvision.transforms import ToTensor
 from tqdm import tqdm
 from typing import Callable
 from nn import *

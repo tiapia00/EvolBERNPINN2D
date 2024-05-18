@@ -19,6 +19,9 @@ def initial_conditions(x: torch.tensor, y: torch.tensor, Lx: float, i: float = 1
     res_uy = torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
 
+def scatter_penalty_loss_2D(x: torch.tensor, y:torch.tensor, factors: torch.tensor):
+    x = x.reshape()
+    
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
     x_linspace = torch.linspace(x_domain[0], x_domain[1], n_points)
@@ -190,9 +193,10 @@ class Loss:
         self.n_points = n_points
         self.z = z
         self.initial_condition = initial_condition
+        self.points = points
 
     def residual_loss(self, pinn):
-        x, y, t = points['res_points']
+        x, y, t = self.points['res_points']
 
         output = f(pinn, x, y, t)
 
@@ -220,7 +224,7 @@ class Loss:
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def initial_loss(self, pinn, epochs):
-        x, y, t = points['initial_points']
+        x, y, t = self.points['initial_points']
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
 
@@ -245,7 +249,7 @@ class Loss:
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def boundary_loss(self, pinn):
-        down, up, left, right = points['boundary_points']
+        down, up, left, right = self.points['boundary_points']
         x_down, y_down, t_down = down
         x_up, y_up, t_up = up
         x_left, y_left, t_left = left
@@ -345,11 +349,9 @@ def train_model(
             'initial': initial_loss.item(),
             'boundary': boundary_loss.item(),
         }, epoch)
-        writer.add_scalars(f'Weights', {
-            'residual': nn_approximator.weights[0].item(),
-            'initial': nn_approximator.weights[1].item(),
-            'boundary': nn_approximator.weights[2].item(),
-        }, epoch)
+        
+        if epoch % 100 ==0:
+        writer.add_image(f'Epoch = {epoch}'
 
         pbar.update(1)
 
