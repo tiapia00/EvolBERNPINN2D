@@ -148,7 +148,7 @@ def df(output: torch.Tensor, inputs: list, var: int) -> torch.Tensor:
     var = 2 : dux_t
     var = 3 : duy_t
     """
-    df_value = output[:, var].unsqueeze(1)
+    df_value = output[:, vgetar].unsqueeze(1)
     for _ in np.arange(len(inputs)):
         df_value = torch.autograd.grad(
             df_value,
@@ -181,12 +181,20 @@ class Loss:
         self.y_domain = y_domain
         self.t_domain = t_domain
         self.n_points = n_points
+        self.x = {
+            'res_points': get_interior_points(self.x_domain, self.y_domain, 
+                                              self.t_domain, self.n_points, pinn.device()),
+            'initial_points': get_initial_points(self.x_domain, self.y_domain, 
+                                              self.t_domain, self.n_points, pinn.device()),
+            'boundary_points': get_boundary_points(self.x_domain, self.y_domain, 
+                                              self.t_domain, self.n_points, pinn.device())
+        }
         self.z = z
         self.initial_condition = initial_condition
 
     def residual_loss(self, pinn):
-        x, y, t = get_interior_points(
-            self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
+        x, y, t = self.x['res_points']
+
         output = f(pinn, x, y, t)
 
         dvx_t = df(output, [t], 2)
@@ -212,8 +220,7 @@ class Loss:
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def initial_loss(self, pinn, epochs):
-        x, y, t = get_initial_points(
-            self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
+        x, y, t = self.x['initial_points']
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
 
@@ -238,8 +245,7 @@ class Loss:
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def boundary_loss(self, pinn):
-        down, up, left, right = get_boundary_points(
-            self.x_domain, self.y_domain, self.t_domain, self.n_points, pinn.device())
+        down, up, left, right = self.x['boundary_points']
         x_down, y_down, t_down = down
         x_up, y_up, t_up = up
         x_left, y_left, t_left = left
