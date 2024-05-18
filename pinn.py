@@ -182,12 +182,12 @@ class Loss:
         self.t_domain = t_domain
         self.n_points = n_points
         self.x = {
-            'res_points': get_interior_points(self.x_domain, self.y_domain, 
+            'res_points': get_interior_points(self.x_domain, self.y_domain,
                                               self.t_domain, self.n_points, pinn.device()),
-            'initial_points': get_initial_points(self.x_domain, self.y_domain, 
-                                              self.t_domain, self.n_points, pinn.device()),
-            'boundary_points': get_boundary_points(self.x_domain, self.y_domain, 
-                                              self.t_domain, self.n_points, pinn.device())
+            'initial_points': get_initial_points(self.x_domain, self.y_domain,
+                                                 self.t_domain, self.n_points, pinn.device()),
+            'boundary_points': get_boundary_points(self.x_domain, self.y_domain,
+                                                   self.t_domain, self.n_points, pinn.device())
         }
         self.z = z
         self.initial_condition = initial_condition
