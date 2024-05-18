@@ -19,7 +19,7 @@ torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 retrain_PINN = True
-retrain_init = True
+retrain_init = False
 delete_old = False
 
 if delete_old:
@@ -46,11 +46,11 @@ t_domain = np.array([0.0, T])/T
 
 points = {
             'res_points': get_interior_points(x_domain, y_domain,
-                                              t_domain, n_points, device),
+                                              t_domain, n_train, device),
             'initial_points': get_initial_points(x_domain, y_domain,
-                                                 t_domain, n_points, device),
+                                                 t_domain, n_train, device),
             'boundary_points': get_boundary_points(x_domain, y_domain,
-                                                   t_domain, n_points, device)
+                                                   t_domain, n_train, device)
         }
 
 pinn = PINN(layers, dim_hidden, points, act=nn.Tanh()).to(device)

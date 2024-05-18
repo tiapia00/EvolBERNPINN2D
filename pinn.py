@@ -68,7 +68,7 @@ def get_boundary_points(x_domain, y_domain, t_domain, n_points, device, requires
     left = (y0,     x_grid, t_grid)
     right = (y1,     x_grid, t_grid)
 
-    return down, up, left, right
+    return (down, up, left, right)
 
 
 def get_interior_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
@@ -84,7 +84,7 @@ def get_interior_points(x_domain, y_domain, t_domain, n_points, device, requires
     y = grids[1].reshape(-1, 1).to(device)
     t = grids[2].reshape(-1, 1).to(device)
 
-    return x, y, t
+    return (x, y, t)
 
 
 class PINN(nn.Module):
@@ -111,8 +111,11 @@ class PINN(nn.Module):
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
         self.weights = nn.ParameterList([])
-        for key, value in zip(points):
-            self.weights.append([nn.Parameter(torch.ones(value.shape))])
+        for i, (key, value) in enumerate(zip(points.keys(), points.values())):
+            if i==len(points)-1:
+                self.weights.append(nn.Parameter(torch.tensor([1.])))
+            else:
+                self.weights.append(nn.Parameter(torch.ones(value[0].shape[0])))
 
     def forward(self, x, y, t):
         if x.dim() == 1:
@@ -186,10 +189,10 @@ class Loss:
         self.n_points = n_points
         self.z = z
         self.initial_condition = initial_condition
-        self.device = device
 
     def residual_loss(self, pinn):
         x, y, t = points['res_points']
+        print(type(x))
 
         output = f(pinn, x, y, t)
 
