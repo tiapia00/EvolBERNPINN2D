@@ -111,6 +111,7 @@ class PINN(nn.Module):
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
         self.weights = nn.ParameterList([])
+
         for i, (key, value) in enumerate(zip(points.keys(), points.values())):
             if i==len(points)-1:
                 self.weights.append(nn.Parameter(torch.tensor([1.])))
