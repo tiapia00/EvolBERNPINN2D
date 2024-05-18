@@ -181,7 +181,7 @@ class Loss:
         self.y_domain = y_domain
         self.t_domain = t_domain
         self.n_points = n_points
-        self.x = {
+        self.points = {
             'res_points': get_interior_points(self.x_domain, self.y_domain,
                                               self.t_domain, self.n_points, pinn.device()),
             'initial_points': get_initial_points(self.x_domain, self.y_domain,
@@ -193,7 +193,7 @@ class Loss:
         self.initial_condition = initial_condition
 
     def residual_loss(self, pinn):
-        x, y, t = self.x['res_points']
+        x, y, t = self.points['res_points']
 
         output = f(pinn, x, y, t)
 
@@ -220,7 +220,7 @@ class Loss:
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def initial_loss(self, pinn, epochs):
-        x, y, t = self.x['initial_points']
+        x, y, t = self.points['initial_points']
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
 
@@ -245,7 +245,7 @@ class Loss:
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
     def boundary_loss(self, pinn):
-        down, up, left, right = self.x['boundary_points']
+        down, up, left, right = self.points['boundary_points']
         x_down, y_down, t_down = down
         x_up, y_up, t_up = up
         x_left, y_left, t_left = left
