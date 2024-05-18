@@ -13,18 +13,17 @@ from typing import Tuple
 import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 import matplotlib.pyplot as plt
-
+from matplotlib.cm import viridis
 
 def initial_conditions(x: torch.tensor, y: torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     res_ux = torch.zeros_like(x)
     res_uy = torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
 
-
-def scatter_penalty_loss_2D(x: torch.tensor, y: torch.tensor, n_train: int, factors: torch.tensor):
-    x = x.reshape(n_train, n_train).detach().numpy()
-    y = y.reshape(n_train, n_train).detach().numpy()
-    factors = factors.reshape(n_train, n_train).detach().numpy()
+def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, factors: torch.tensor):
+    x = x.reshape(n_train, n_train).detach().cpu().numpy()
+    y = y.reshape(n_train, n_train).detach().cpu().numpy()
+    factors = factors.reshape(n_train, n_train).detach().cpu().numpy()
 
     fig = plt.figure()
     plt.scatter(x, y, c=factors, cmap=viridis)
@@ -37,12 +36,11 @@ def scatter_penalty_loss_2D(x: torch.tensor, y: torch.tensor, n_train: int, fact
 
     return image_tensor
 
-
-def scatter_penalty_loss_3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_train: int, factors: torch.tensor):
-    x = x.reshape(n_train, n_train, n_train).detach().numpy()
-    y = y.reshape(n_train, n_train, n_train).detach().numpy()
-    t = t.reshape(n_train, n_train, n_train).detach().numpy()
-    factors = factors.reshape(n_train, n_train, n_train).detach().numpy()
+def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_train: int, factors: torch.tensor):
+    x = x.reshape(n_train, n_train, n_train).detach().cpu().numpy()
+    y = y.reshape(n_train, n_train, n_train).detach().cpu().numpy()
+    t = t.reshape(n_train, n_train, n_train).detach().cpu().numpy()
+    factors = factors.reshape(n_train, n_train, n_train).detach().cpu().numpy()
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -179,11 +177,7 @@ class PINN(nn.Module):
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     """Compute the value of the approximate solution from the NN model
     Internally calling the forward method when calling the class as a function"""
-    hard_enc = torch.sin(x*np.pi)
-    hard_enc = hard_enc.view(-1, 1)
-    hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
-    return hard_enc_both*pinn(x, y, t)
-
+    return pinn(x, y, t)
 
 def df(output: torch.Tensor, inputs: list, var: int) -> torch.Tensor:
     """Compute neural network derivative with respect to input features using PyTorch autograd engine
@@ -348,7 +342,8 @@ def train_model(
     learning_rate: int,
     max_epochs: int,
     path_logs: str,
-    points: dict
+    points: dict,
+    n_train: int
 ) -> PINN:
 
     optimizer = optim.Adam([
@@ -387,13 +382,13 @@ def train_model(
         }, epoch)
 
         if epoch % 100 == 0:
-            image_weights_res = scatter_penalty_loss3D(
-                points['res_points'][0], points['res_points'][1], points['res_points'][2], pinn.weights[0].data)
-            image_weigths_in = scatter_penalty_loss2D(
-                points['in_points'][0], points['in_points'][1], pinn.weights[1].data)
+            image_penalty_res = scatter_penalty_loss3D(
+                points['res_points'][0], points['res_points'][1], points['res_points'][2], n_train, nn_approximator.weights[0].data)
+            image_penalty_in = scatter_penalty_loss2D(
+                points['initial_points'][0], points['initial_points'][1], n_train, nn_approximator.weights[1].data)
 
-            writer.add_image('res_penalty')
-            writer.add_image('in_penalty')
+            writer.add_image('res_penalty', image_penalty_res)
+            writer.add_image('in_penalty', image_penalty_in)
 
         pbar.update(1)
 

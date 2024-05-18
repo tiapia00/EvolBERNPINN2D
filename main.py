@@ -8,7 +8,6 @@ from beam import Beam, Prob_Solv_Modes, In_Cond
 import pytz
 import datetime
 from read_write import get_current_time, get_last_modified_file, pass_folder, delete_old_files
-from torchvision.transforms import ToTensor
 from tqdm import tqdm
 from typing import Callable
 from nn import *
@@ -88,7 +87,7 @@ if retrain_PINN:
             pretrained_model.middle_layers[i].bias)
 
     pinn_trained, loss_values = train_model(
-        pinn, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, path_logs=dir_logs)
+        pinn, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, path_logs=dir_logs, points=points, n_train=n_train)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
