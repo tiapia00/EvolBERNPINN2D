@@ -56,7 +56,8 @@ if retrain_PINN:
         t_domain,
         n_train,
         return_adim(x_domain, t_domain, rho, mu, lam),
-        initial_conditions
+        initial_conditions,
+        device
     )
     
     filename_model = get_last_modified_file('in_model', '.pth')

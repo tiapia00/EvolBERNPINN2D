@@ -20,7 +20,7 @@ def initial_conditions(x: torch.tensor, y: torch.tensor, Lx: float, i: float = 1
     return res_ux, res_uy
 
 
-def get_initial_points(x_domain, y_domain, t_domain, n_points, device=torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):
+def get_initial_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
     x_linspace = torch.linspace(x_domain[0], x_domain[1], n_points)
     y_linspace = torch.linspace(y_domain[0], y_domain[1], n_points)
     x_grid, y_grid = torch.meshgrid(x_linspace, y_linspace, indexing="ij")
@@ -32,7 +32,7 @@ def get_initial_points(x_domain, y_domain, t_domain, n_points, device=torch.devi
     return (x_grid, y_grid, t0)
 
 
-def get_boundary_points(x_domain, y_domain, t_domain, n_points, device=torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):
+def get_boundary_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
     """
          .+------+
        .' |    .'|
@@ -71,7 +71,7 @@ def get_boundary_points(x_domain, y_domain, t_domain, n_points, device=torch.dev
     return down, up, left, right
 
 
-def get_interior_points(x_domain, y_domain, t_domain, n_points, device=torch.device("cuda" if torch.cuda.is_available() else "cpu"), requires_grad=True):
+def get_interior_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
     x_raw = torch.linspace(
         x_domain[0], x_domain[1], steps=n_points, requires_grad=requires_grad)
     y_raw = torch.linspace(
@@ -148,7 +148,7 @@ def df(output: torch.Tensor, inputs: list, var: int) -> torch.Tensor:
     var = 2 : dux_t
     var = 3 : duy_t
     """
-    df_value = output[:, vgetar].unsqueeze(1)
+    df_value = output[:, var].unsqueeze(1)
     for _ in np.arange(len(inputs)):
         df_value = torch.autograd.grad(
             df_value,
@@ -175,7 +175,8 @@ class Loss:
         n_points: int,
         z: torch.Tensor,
         initial_condition: Callable,
-        verbose: bool = False,
+        device: torch.device,
+        verbose: bool = False,    
     ):
         self.x_domain = x_domain
         self.y_domain = y_domain
@@ -183,14 +184,15 @@ class Loss:
         self.n_points = n_points
         self.points = {
             'res_points': get_interior_points(self.x_domain, self.y_domain,
-                                              self.t_domain, self.n_points, pinn.device()),
+                                              self.t_domain, self.n_points, device),
             'initial_points': get_initial_points(self.x_domain, self.y_domain,
-                                                 self.t_domain, self.n_points, pinn.device()),
+                                                 self.t_domain, self.n_points, device),
             'boundary_points': get_boundary_points(self.x_domain, self.y_domain,
-                                                   self.t_domain, self.n_points, pinn.device())
+                                                   self.t_domain, self.n_points, device)
         }
         self.z = z
         self.initial_condition = initial_condition
+        self.device = device
 
     def residual_loss(self, pinn):
         x, y, t = self.points['res_points']
