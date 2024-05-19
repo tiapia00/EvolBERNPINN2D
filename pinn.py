@@ -15,10 +15,12 @@ from read_write import pass_folder, get_current_time, get_last_modified_file, ge
 import matplotlib.pyplot as plt
 from matplotlib.cm import viridis
 
+
 def initial_conditions(x: torch.tensor, y: torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     res_ux = torch.zeros_like(x)
     res_uy = torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
+
 
 def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, factors: torch.tensor):
     x = x.reshape(n_train, n_train).detach().cpu().numpy()
@@ -28,17 +30,18 @@ def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, facto
     fig = plt.figure()
     plt.scatter(x, y, c=factors, cmap=viridis)
     plt.colorbar()
-    
+
     plt.xlabel('x')
     plt.ylabel('y')
 
     fig.canvas.draw()
-    
+
     image_np = np.array(fig.canvas.renderer.buffer_rgba())
     plt.close(fig)
     image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
 
     return image_tensor
+
 
 def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_train: int, factors: torch.tensor):
     x = x.reshape(n_train, n_train, n_train).detach().cpu().numpy()
@@ -49,20 +52,21 @@ def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     sc = ax.scatter(x, y, t, c=factors, cmap=viridis)
-       
+
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('t')
-    
+
     cbar = fig.colorbar(sc, ax=ax)
-    
+
     fig.canvas.draw()
-    
+
     image_np = np.array(fig.canvas.renderer.buffer_rgba())
     plt.close(fig)
     image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
 
     return image_tensor
+
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
     x_linspace = torch.linspace(x_domain[0], x_domain[1], n_points)
@@ -187,6 +191,7 @@ def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Te
     Internally calling the forward method when calling the class as a function"""
     return pinn(x, y, t)
 
+
 def df(output: torch.Tensor, inputs: list, var: int) -> torch.Tensor:
     """Compute neural network derivative with respect to input features using PyTorch autograd engine
     var = 0 : dux
@@ -247,11 +252,13 @@ class Loss:
         dux_yy = df(output, [y, y], 0)
         dux_xy = df(output, [x, y], 0)
         duy_xy = df(output, [x, y], 1)
-        
+
         m = pinn.forward_mask(0)
-        
-        loss1 = m*(dvx_t - 2*self.z[0]*(dux_xx + 1/2*(dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy))
-        loss2 = m*(dvy_t - 2 *self.z[0]*(1/2*(duy_xx + dux_xy) + duy_yy) -self.z[1]*(dux_xy + duy_yy))
+
+        loss1 = m*(dvx_t - 2*self.z[0]*(dux_xx + 1/2 *
+                   (dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy))
+        loss2 = m*(dvy_t - 2 * self.z[0]*(1/2*(duy_xx +
+                   dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy))
 
         loss3 = m*(dvx_t - df(output, [t, t], 0))
         loss4 = m*(dvy_t - df(output, [t, t], 1))
@@ -276,7 +283,7 @@ class Loss:
         vy = output[:, 3].reshape(-1, 1)
 
         m = pinn.forward_mask(1)
-        
+
         loss1 = m*(ux - pinn_init_ux)
         loss2 = m*(uy - pinn_init_uy)
 
@@ -327,9 +334,9 @@ class Loss:
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
         return pinn.forward_mask(2)*(loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
-                                loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
-                                loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
-                                loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
+                                     loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
+                                     loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
+                                     loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
     def verbose(self, pinn, epoch):
         residual_loss = self.residual_loss(pinn)
