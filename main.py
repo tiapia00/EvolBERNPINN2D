@@ -1,3 +1,4 @@
+from plots import plot_initial_conditions, plot_sol, plot_midpoint_displ
 import numpy as np
 import os
 import torch
@@ -18,38 +19,42 @@ torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 retrain_PINN = True
-retrain_init = True
 delete_old = False
 
 if delete_old:
     delete_old_files("model")
     delete_old_files("in_model")
-    
-if not retrain_PINN:
-    retrain_init = False
 
 par = Parameters()
 
-if retrain_init:
-    train_init_NN(par, device)
+t_ad, uy_mid = train_init_NN(par, device)
 
-E, rho, _ , nu = get_params(par.mat_par)
+E, rho, _, nu = get_params(par.mat_par)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_train, layers, dim_hidden, lr, epochs, weight_IN, weight_BOUND = get_params(par.pinn_par)
+Lx, Ly, T, n_train, layers, dim_hidden, lr, epochs = get_params(par.pinn_par)
 
 x_domain = np.array([0.0, Lx])/Lx
 y_domain = np.array([0.0, Ly])/Lx
 t_domain = np.array([0.0, T])/T
 
-pinn = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
+points = {
+            'res_points': get_interior_points(x_domain, y_domain,
+                                              t_domain, n_train, device),
+            'initial_points': get_initial_points(x_domain, y_domain,
+                                                 t_domain, n_train, device),
+            'boundary_points': get_boundary_points(x_domain, y_domain,
+                                                   t_domain, n_train, device)
+        }
+
+pinn = PINN(layers, dim_hidden, points, act=nn.Tanh()).to(device)
 
 if retrain_PINN:
-    
+
     dir_model = pass_folder('model')
     dir_logs = pass_folder('model/logs')
-    
+
     loss_fn = Loss(
         x_domain,
         y_domain,
@@ -57,12 +62,12 @@ if retrain_PINN:
         n_train,
         return_adim(x_domain, t_domain, rho, mu, lam),
         initial_conditions,
-        weight_IN,
-        weight_BOUND
+        points
     )
-    
+
     filename_model = get_last_modified_file('in_model', '.pth')
-    pretrained_model_dict = torch.load(filename_model, map_location=torch.device(device))
+    pretrained_model_dict = torch.load(
+        filename_model, map_location=torch.device(device))
     print(f"{filename_model} loaded succesfully")
 
     pretrained_model = NN(layers, dim_hidden, 2, 1)
@@ -71,57 +76,48 @@ if retrain_PINN:
     for i in np.arange(len(pinn.middle_layers)):
         pinn_layer = pinn.middle_layers[i]
         pretrained_layer = pretrained_model.middle_layers[i]
-        pinn.middle_layers[i].weight.data.copy_(pretrained_model.middle_layers[i].weight)
-        pinn.middle_layers[i].bias.data.copy_(pretrained_model.middle_layers[i].bias)
+        pinn.middle_layers[i].weight.data.copy_(
+            pretrained_model.middle_layers[i].weight)
+        pinn.middle_layers[i].bias.data.copy_(
+            pretrained_model.middle_layers[i].bias)
 
     pinn_trained, loss_values = train_model(
-    pinn, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, path_logs=dir_logs)
-    
+        pinn, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, path_logs=dir_logs, points=points, n_train=n_train)
+
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
-    
+
     torch.save(pinn_trained.state_dict(), model_path)
-    
+
 else:
-    pinn_trained = PINN(layers, dim_hidden, act=nn.Tanh()).to(device)
-    
+    pinn_trained = PINN(layers, dim_hidden, points, act=nn.Tanh()).to(device)
+
     filename = get_last_modified_file('model', '.pth')
-    
+
     dir_model = os.path.dirname(filename)
     print(f'Target for outputs: {dir_model}\n')
-    
-    pinn_trained.load_state_dict(torch.load(filename, map_location = device))
+
+    pinn_trained.load_state_dict(torch.load(filename, map_location=device))
     print(f'{filename} loaded.\n')
 
 print(pinn_trained)
 
-    
+
 pinn_trained.eval()
 
 
-from plots import plot_initial_conditions, plot_sol, plot_midpoint_displ
-
-x, y, _ = get_initial_points(x_domain, y_domain, t_domain, n_train)
+x, y, _ = get_initial_points(x_domain, y_domain, t_domain, n_train, device)
 t_value = 0.0
 t = torch.full_like(x, t_value)
 x = x.to(device)
 y = y.to(device)
 t = t.to(device)
-z = f(pinn_trained, x ,y, t)
-ux0, uy0 = initial_conditions(x, y, Lx, i = 1)
+z = f(pinn_trained, x, y, t)
+ux0, uy0 = initial_conditions(x, y, Lx, i=1)
 z0 = torch.cat((ux0, uy0), dim=1)
 
 plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 
-x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train)
+x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train, device)
 plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction')
-plot_midpoint_displ(pinn_trained, t, n_train, dir_model)
-
-
-# # To be added
-# - ~separate loss in more bars to see how the various loss term come to zero~
-# - see if some quadrature rule has been implemented
-# - scheme of weights initialization in order to automatically satisfy initial conditions
-# - plots (in progress)
-# - NN operators (to generalize results)
-# - try to implement function that allows that satisfy initial conditions?
+plot_midpoint_displ(pinn_trained, t, n_train, t_ad, uy_mid, dir_model)
