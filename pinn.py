@@ -163,6 +163,8 @@ class PINN(nn.Module):
         for i, (key, value) in enumerate(zip(points.keys(), points.values())):
             if i == len(points)-1:
                 self.weights.append(nn.Parameter(torch.tensor([1.])))
+            elif i==1:
+                self.weights.append(nn.Parameter(3*torch.ones(value[0].shape)))
             else:
                 self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
 
