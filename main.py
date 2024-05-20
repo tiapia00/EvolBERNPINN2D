@@ -19,7 +19,7 @@ torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 retrain_PINN = True
-retrain_init = False
+retrain_init = True
 delete_old = False
 
 if delete_old:
