@@ -193,7 +193,7 @@ def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Te
     Internally calling the forward method when calling the class as a function"""
     return pinn(x, y, t)
 
-def df(output: torch.Tensor, inputs: list, var: int) -> torch.Tensor:
+def df(output: torch.Tensor, inputs: list, var: int = 0) -> torch.Tensor:
     """Compute neural network derivative with respect to input features using PyTorch autograd engine
     var = 0 : dux
     var = 1 : duy
@@ -250,14 +250,14 @@ class Loss:
         dux_y = df(output, [y], 0)
         duy_x = df(output, [x], 1)
         duy_y = df(output, [y], 1)
-        
-        dux_xx = df(output, [x, x], 0)
-        duy_yy = df(output, [y, y], 1)
-        duy_xx = df(output, [x, x], 1)
 
-        dux_yy = df(output, [y, y], 0)
-        dux_xy = df(output, [x, y], 0)
-        duy_xy = df(output, [x, y], 1)
+        dux_xx = df(dux_x, [x])
+        duy_yy = df(duy_y, [y])
+        duy_xx = df(duy_x, [x])
+
+        dux_yy = df(dux_y, [y])
+        dux_xy = df(dux_x, [y])
+        duy_xy = df(duy_x, [y])
 
         m = pinn.forward_mask(0)
 

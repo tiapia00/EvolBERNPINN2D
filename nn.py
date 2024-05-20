@@ -77,7 +77,7 @@ def train_model_nn(
     optimizer = torch.optim.Adam(nn_approximator.parameters(), lr=learning_rate)
     loss_values = []
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
-        
+
     writer = SummaryWriter(log_dir=path_logs)
 
     for epoch in range(max_epochs):
