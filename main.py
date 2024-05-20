@@ -120,4 +120,4 @@ plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 
 x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train, device)
 plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction')
-plot_midpoint_displ(pinn_trained, t, n_train, dir_model)
+plot_midpoint_displ(pinn_trained, t, n_train, t_ad, uy_mid, dir_model)

@@ -109,8 +109,6 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
 
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
-        ax.text(0.3, 0.5, s=fr'$\hat{{t}} = {
-                t_value:.2f}$', fontsize=10, color='black', ha='center')
         ax.scatter(x_plot+z[:, 0], y_plot+z[:, 1], c=norm, cmap='viridis')
 
         return ax
@@ -123,7 +121,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     ani.save(file, fps=60)
 
 
-def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, path: str, t_ad: np.ndarray, uy_mid: np.ndarray,
+def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, t_ad: np.ndarray, uy_mid: np.ndarray, path: str,
                         device=torch.device("cuda" if torch.cuda.is_available() else "cpu")):
 
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10, 8))
@@ -131,27 +129,30 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, path: str, t_
 
     t_raw = torch.unique(t, sorted=True)
 
-    x = torch.tensor([0.5]).to(device)
-    y = torch.tensor([0.5]).to(device)
+    x = torch.tensor([0.5]).to(device).reshape(-1,1)
+    y = torch.tensor([0.5]).to(device).reshape(-1,1)
 
     uy_mid_PINN = []
 
     for t in t_raw:
+        t = t.reshape(-1,1)
         output = f(pinn, x, y, t)
-        print(output.shape)
-        uy = output[1].cpu().detach().numpy()
-        uy_mid.append(uy)
+        uy = output[0, 1].cpu().detach().numpy()
+        uy_mid_PINN.append(uy)
 
     ax[0].plot(t_raw.cpu().detach().numpy(),
                np.array(uy_mid_PINN), color='blue')
     ax[0].set_title('Prediction from PINN')
-    ax[0].set_xlabel('$t$')
-    ax[0].set_ylabel('$u_y$')
+    ax[0].set_xlabel('$\\hat{t}$')
+    ax[0].set_ylabel('$\\hat{u}_y$')
 
-    ax[1].plot(t_ad, uy_mid-np.array(uy_mid_PINN), color='red'
+    ax[1].plot(t_ad, uy_mid-np.array(uy_mid_PINN), color='red')
     ax[1].set_title('Deviation from analytical')
-    ax[1].set_xlabel('$t$')
-    ax[1].set_ylabel('$u_y$')
-
+    ax[1].set_xlabel('$\\hat{t}$')
+    ax[1].set_ylabel('$\\hat{u}_\\text{y,an}-\\hat{u}_\\text{y,PINN}$')
+    
+    plt.grid()
+    plt.tight_layout()
+    
     file=f'{path}/midpoint_time.png'
-    fig.save(file)
+    plt.savefig(file)

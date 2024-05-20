@@ -102,5 +102,7 @@ def train_init_NN(par: Parameters, device: torch.device):
     my_beam.plot_sol(dir_model)
 
     torch.save(nn_trained.state_dict(), model_path)
-
-    return t_hat, w_ad[w_ad.shape[0]/2,:]
+    
+    idx = int(np.floor(w_ad.shape[0]/2))
+    
+    return t_hat, w_ad[idx,:]

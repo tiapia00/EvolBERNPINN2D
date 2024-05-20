@@ -164,16 +164,12 @@ class PINN(nn.Module):
             if i == len(points)-1:
                 self.weights.append(nn.Parameter(torch.tensor([1.])))
             elif i==1:
-                self.weights.append(nn.Parameter(3*torch.ones(value[0].shape)))
+                self.weights.append(nn.Parameter(5*torch.ones(value[0].shape)))
             else:
                 self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
 
     def forward(self, x, y, t):
-        if x.dim() == 1:
-            x_stack = torch.cat([x, y, t], dim=0)
-            x_stack = x_stack.reshape(1, -1)
-        else:
-            x_stack = torch.cat([x, y, t], dim=1)
+        x_stack = torch.cat([x, y, t], dim=1)
         out = self.act(self.layer_in(x_stack))
         for layer in self.middle_layers:
             out = self.act(layer(out))
