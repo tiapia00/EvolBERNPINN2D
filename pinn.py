@@ -399,12 +399,14 @@ def train_model(
 
         pbar.set_description(f"Global loss: {loss.item():.2f}")
 
-        writer.add_scalars(f'Loss', {
+        writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': residual_loss.item(),
             'initial': initial_loss.item(),
             'boundary': boundary_loss.item(),
         }, epoch)
+
+        writer.add_scalars('Energy_cons', en_crit.item(), epoch)
 
         if epoch % 100 == 0:
             image_penalty_res = scatter_penalty_loss3D(
