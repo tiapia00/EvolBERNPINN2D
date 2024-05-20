@@ -123,9 +123,10 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     ani.save(file, fps=60)
 
 
-def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, path: str, device=torch.device("cuda" if torch.cuda.is_available() else "cpu")):
+def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, path: str, t_ad: np.ndarray, uy_mid: np.ndarray,
+                        device=torch.device("cuda" if torch.cuda.is_available() else "cpu")):
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10, 8))
     fig.suptitle('Midpoint displacement')
 
     t_raw = torch.unique(t, sorted=True)
@@ -133,7 +134,7 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, path: str, de
     x = torch.tensor([0.5]).to(device)
     y = torch.tensor([0.5]).to(device)
 
-    uy_mid = []
+    uy_mid_PINN = []
 
     for t in t_raw:
         output = f(pinn, x, y, t)
@@ -141,7 +142,16 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, path: str, de
         uy = output[1].cpu().detach().numpy()
         uy_mid.append(uy)
 
-    ax.plot(t_raw.cpu().detach().numpy(), np.array(uy_mid), color='blue')
+    ax[0].plot(t_raw.cpu().detach().numpy(),
+               np.array(uy_mid_PINN), color='blue')
+    ax[0].set_title('Prediction from PINN')
+    ax[0].set_xlabel('$t$')
+    ax[0].set_ylabel('$u_y$')
 
-    file = f'{path}/midpoint_time.png'
+    ax[1].plot(t_ad, uy_mid-np.array(uy_mid_PINN), color='red'
+    ax[1].set_title('Deviation from analytical')
+    ax[1].set_xlabel('$t$')
+    ax[1].set_ylabel('$u_y$')
+
+    file=f'{path}/midpoint_time.png'
     fig.save(file)

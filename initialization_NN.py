@@ -99,7 +99,8 @@ def train_init_NN(par: Parameters, device: torch.device):
         nn_init, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, x_val=x_val, t_val=t_val, y_val=y_val,
         path_logs=dir_logs)
 
-    x, uy = my_beam.plot_sol(dir_model)
+    my_beam.plot_sol(dir_model)
 
     torch.save(nn_trained.state_dict(), model_path)
-    return x, uy
+
+    return t_hat, w_ad[w_ad.shape[0]/2,:]

@@ -19,19 +19,15 @@ torch.set_default_dtype(torch.float32)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 retrain_PINN = True
-retrain_init = True
 delete_old = False
 
 if delete_old:
     delete_old_files("model")
     delete_old_files("in_model")
 
-if not retrain_PINN:
-    retrain_init = False
-
 par = Parameters()
 
-x, uy = train_init_NN(par, device)
+t_ad, uy_mid = train_init_NN(par, device)
 
 E, rho, _, nu = get_params(par.mat_par)
 
