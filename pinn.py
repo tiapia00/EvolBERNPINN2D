@@ -193,7 +193,6 @@ def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Te
     Internally calling the forward method when calling the class as a function"""
     return pinn(x, y, t)
 
-
 def df(output: torch.Tensor, inputs: list, var: int) -> torch.Tensor:
     """Compute neural network derivative with respect to input features using PyTorch autograd engine
     var = 0 : dux
