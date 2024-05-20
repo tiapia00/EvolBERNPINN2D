@@ -286,12 +286,6 @@ class Loss:
         pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
         output = f(pinn, x, y, t)
 
-        if epochs == 0:
-            fig = plt.figure()
-            plt.scatter(x.cpu().detach().numpy()+pinn_init_ux.cpu().detach().numpy(),
-                        y.cpu().detach().numpy()+pinn_init_uy.cpu().detach().numpy())
-            plt.savefig('initial_cond.png')
-
         ux = output[:, 0].reshape(-1, 1)
         uy = output[:, 1].reshape(-1, 1)
 
