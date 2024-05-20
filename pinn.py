@@ -406,7 +406,7 @@ def train_model(
             'boundary': boundary_loss.item(),
         }, epoch)
 
-        writer.add_scalars('Energy_cons', en_crit.item(), epoch)
+        writer.add_scalar('Energy_cons', en_crit.item(), epoch)
 
         if epoch % 100 == 0:
             image_penalty_res = scatter_penalty_loss3D(
