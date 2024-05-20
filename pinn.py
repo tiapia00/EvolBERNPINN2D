@@ -247,7 +247,11 @@ class Loss:
         dvx_t = df(output, [t], 2)
         dvy_t = df(output, [t], 3)
 
-        dux_xx = df(output, [x, x], 0)
+        dux_x = df(output, [x], 0)
+        dux_y = df(output, [y], 0)
+        duy_x = df(output, [x], 1)
+        duy_y = df(output, [y], 1)
+
         duy_yy = df(output, [y, y], 1)
         duy_xx = df(output, [x, x], 1)
 
@@ -265,7 +269,17 @@ class Loss:
         loss3 = m*(dvx_t - df(output, [t, t], 0))
         loss4 = m*(dvy_t - df(output, [t, t], 1))
 
-        return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
+        d_en = (dvx_t + dvy_t) + self.z[0]*(dux_x + duy_y)**2 +\
+                   self.z[1]*2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)**2 + (duy_x + dux_y)**2)
+
+        d_en_t = torch.autograd.grad(
+            d_en,
+            t,
+            grad_outputs=torch.ones_like(t),
+            create_graph=True
+        )[0]
+
+        return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean(), d_en_t.pow(2).mean())
 
     def initial_loss(self, pinn, epochs):
         x, y, t = self.points['initial_points']
@@ -341,13 +355,13 @@ class Loss:
                                      loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
     def verbose(self, pinn, epoch):
-        residual_loss = self.residual_loss(pinn)
+        residual_loss, en_crit = self.residual_loss(pinn)
         initial_loss = self.initial_loss(pinn, epoch)
         boundary_loss = self.boundary_loss(pinn)
 
         final_loss = residual_loss + initial_loss + boundary_loss
 
-        return final_loss, residual_loss, initial_loss, boundary_loss
+        return final_loss, residual_loss, initial_loss, boundary_loss, en_crit
 
     def __call__(self, pinn, epoch):
         return self.verbose(pinn, epoch)[0]
