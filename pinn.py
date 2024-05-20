@@ -250,7 +250,8 @@ class Loss:
         dux_y = df(output, [y], 0)
         duy_x = df(output, [x], 1)
         duy_y = df(output, [y], 1)
-
+        
+        dux_xx = df(output, [x, x], 0)
         duy_yy = df(output, [y, y], 1)
         duy_xx = df(output, [x, x], 1)
 
@@ -393,7 +394,7 @@ def train_model(
         grads = []
 
         optimizer.zero_grad()
-        _, residual_loss, initial_loss, boundary_loss = loss_fn.verbose(
+        _, residual_loss, initial_loss, boundary_loss, en_crit = loss_fn.verbose(
             nn_approximator, epoch)
         loss: torch.Tensor = loss_fn(nn_approximator, epoch)
 
