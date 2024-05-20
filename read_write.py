@@ -2,9 +2,10 @@ import os
 import datetime
 import pytz
 
+
 def pass_folder(root: str):
     date = get_current_time(fmt='%m-%d')
-    time = get_current_time(fmt='%H:%M')
+    time = get_current_time(fmt='%H%M')
     direct = f'{root}/{date}/{time}'
     if not os.path.exists(direct):
         os.makedirs(direct)
@@ -13,17 +14,20 @@ def pass_folder(root: str):
         print(f"Folder '{direct}' already exists.")
     return direct
 
+
 def delete_old_subfolders(root_folder):
     threshold_date = datetime.now() - timedelta(days=7)
-    
+
     for root, dirs, files in os.walk(root_folder, topdown=False):
         for dir_name in dirs:
             dir_path = os.path.join(root, dir_name)
             modified_time = datetime.fromtimestamp(os.path.getmtime(dir_path))
-            
+
             if modified_time < threshold_date:
                 print(f"Deleting {dir_path} (last modified {modified_time}).")
-                shutil.rmtree(dir_path)  # Delete the directory and its contents
+                # Delete the directory and its contents
+                shutil.rmtree(dir_path)
+
 
 def create_folder_date(directory, folder_name):
     folder_path = os.path.join(directory, folder_name)
@@ -32,6 +36,7 @@ def create_folder_date(directory, folder_name):
         print(f"Folder '{folder_name}' created.")
     else:
         print(f"Folder '{folder_name}' already exists.")
+
 
 def get_last_modified_file(folder_path, file_extension):
     try:
@@ -50,15 +55,18 @@ def get_last_modified_file(folder_path, file_extension):
         files.sort(key=lambda x: x[1], reverse=True)
 
         if files:
-            return files[0][0]  # Return the path of the most recently modified file
+            # Return the path of the most recently modified file
+            return files[0][0]
         else:
-            print(f"No files with extension '{file_extension}' found in {folder_path} or its subfolders.")
+            print(f"No files with extension '{file_extension}' found in {
+                  folder_path} or its subfolders.")
             return None
 
     except OSError as e:
         print(f"Error: {e}")
         return None
-    
+
+
 def get_current_time(timezone_name='Europe/Paris', fmt='%Y-%m-%d %H:%M:%S'):
     current_time_utc = datetime.datetime.utcnow()
     target_timezone = pytz.timezone(timezone_name)
@@ -66,9 +74,10 @@ def get_current_time(timezone_name='Europe/Paris', fmt='%Y-%m-%d %H:%M:%S'):
     time_str = current_time_local.strftime(fmt)
     return time_str
 
+
 def delete_old_files(folder_path):
     cutoff_date = datetime.datetime.now() - datetime.timedelta(days=3)
-    
+
     for root, dirs, files in os.walk(folder_path):
         for file_name in files:
             file_path = os.path.join(root, file_name)
