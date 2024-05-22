@@ -6,6 +6,49 @@ from matplotlib.animation import FuncAnimation
 from pinn import PINN, f
 import numpy as np
 
+def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, factors: torch.tensor):
+    x = x.reshape(n_train, n_train).detach().cpu().numpy()
+    y = y.reshape(n_train, n_train).detach().cpu().numpy()
+    factors = factors.reshape(n_train, n_train).detach().cpu().numpy()
+
+    fig = plt.figure()
+    plt.scatter(x, y, c=factors, cmap=viridis)
+    plt.colorbar()
+
+    plt.xlabel('x')
+    plt.ylabel('y')
+
+    fig.canvas.draw()
+
+    image_np = np.array(fig.canvas.renderer.buffer_rgba())
+    plt.close(fig)
+    image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
+
+    return image_tensor
+
+def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_train: int, factors: torch.tensor):
+    x = x.reshape(n_train, n_train, n_train).detach().cpu().numpy()
+    y = y.reshape(n_train, n_train, n_train).detach().cpu().numpy()
+    t = t.reshape(n_train, n_train, n_train).detach().cpu().numpy()
+    factors = factors.reshape(n_train, n_train, n_train).detach().cpu().numpy()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    sc = ax.scatter(x, y, t, c=factors, cmap=viridis)
+
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('t')
+
+    cbar = fig.colorbar(sc, ax=ax)
+
+    fig.canvas.draw()
+
+    image_np = np.array(fig.canvas.renderer.buffer_rgba())
+    plt.close(fig)
+    image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
+
+    return image_tensor
 
 def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, n_train: int, path: str):
     """Plot initial conditions.

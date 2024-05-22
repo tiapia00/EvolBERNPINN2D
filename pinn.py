@@ -14,59 +14,12 @@ import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 import matplotlib.pyplot as plt
 from matplotlib.cm import viridis
-
+from plots import scatter_penalty_loss2D, scatter_penalty_loss3D
 
 def initial_conditions(x: torch.tensor, y: torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     res_ux = torch.zeros_like(x)
     res_uy = torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
-
-
-def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, factors: torch.tensor):
-    x = x.reshape(n_train, n_train).detach().cpu().numpy()
-    y = y.reshape(n_train, n_train).detach().cpu().numpy()
-    factors = factors.reshape(n_train, n_train).detach().cpu().numpy()
-
-    fig = plt.figure()
-    plt.scatter(x, y, c=factors, cmap=viridis)
-    plt.colorbar()
-
-    plt.xlabel('x')
-    plt.ylabel('y')
-
-    fig.canvas.draw()
-
-    image_np = np.array(fig.canvas.renderer.buffer_rgba())
-    plt.close(fig)
-    image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
-
-    return image_tensor
-
-
-def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_train: int, factors: torch.tensor):
-    x = x.reshape(n_train, n_train, n_train).detach().cpu().numpy()
-    y = y.reshape(n_train, n_train, n_train).detach().cpu().numpy()
-    t = t.reshape(n_train, n_train, n_train).detach().cpu().numpy()
-    factors = factors.reshape(n_train, n_train, n_train).detach().cpu().numpy()
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    sc = ax.scatter(x, y, t, c=factors, cmap=viridis)
-
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('t')
-
-    cbar = fig.colorbar(sc, ax=ax)
-
-    fig.canvas.draw()
-
-    image_np = np.array(fig.canvas.renderer.buffer_rgba())
-    plt.close(fig)
-    image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
-
-    return image_tensor
-
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
     x_linspace = torch.linspace(x_domain[0], x_domain[1], n_points)
