@@ -124,14 +124,6 @@ class PINN(nn.Module):
         self.dim_hidden = dim_hidden
         self.layer_in = RBF(dim_input, dim_hidden, matern52)
 
-        self.num_middle = num_hidden - 1
-        self.middle_layers = nn.ModuleList()
-
-        for _ in range(self.num_middle):
-            middle_layer = nn.Linear(dim_hidden, dim_hidden)
-            self.act = act
-            self.middle_layers.append(middle_layer)
-
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
         self.weights = nn.ParameterList([])
@@ -147,8 +139,6 @@ class PINN(nn.Module):
     def forward(self, x, y, t):
         x_stack = torch.cat([x, y, t], dim=1)
         out = self.act(self.layer_in(x_stack))
-        for layer in self.middle_layers:
-            out = self.act(layer(out))
         logits = self.layer_out(out)
         return logits
 
@@ -158,7 +148,6 @@ class PINN(nn.Module):
 
     def device(self):
         return next(self.parameters()).device
-
 
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     """Compute the value of the approximate solution from the NN model
