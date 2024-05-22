@@ -27,8 +27,6 @@ if delete_old:
 
 par = Parameters()
 
-t_ad, uy_mid = train_init_NN(par, device)
-
 E, rho, _, nu = get_params(par.mat_par)
 
 lam, mu = par.to_matpar_PINN()
@@ -48,7 +46,7 @@ points = {
                                                    t_domain, n_train, device)
         }
 
-pinn = PINN(layers, dim_hidden, points, act=nn.Tanh()).to(device)
+pinn = PINN(dim_hidden, points, act=nn.Tanh()).to(device)
 
 if retrain_PINN:
 
@@ -65,24 +63,8 @@ if retrain_PINN:
         points
     )
 
-    filename_model = get_last_modified_file('in_model', '.pth')
-    pretrained_model_dict = torch.load(
-        filename_model, map_location=torch.device(device))
-    print(f"{filename_model} loaded succesfully")
-
-    pretrained_model = NN(layers, dim_hidden, 2, 1)
-    pretrained_model.load_state_dict(pretrained_model_dict)
-
-    for i in np.arange(len(pinn.middle_layers)):
-        pinn_layer = pinn.middle_layers[i]
-        pretrained_layer = pretrained_model.middle_layers[i]
-        pinn.middle_layers[i].weight.data.copy_(
-            pretrained_model.middle_layers[i].weight)
-        pinn.middle_layers[i].bias.data.copy_(
-            pretrained_model.middle_layers[i].bias)
-
-    pinn_trained, loss_values = train_model(
-        pinn, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, path_logs=dir_logs, points=points, n_train=n_train)
+    pinn_trained, loss_values = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
+                                            max_epochs=epochs, path_logs=dir_logs, points=points, n_train=n_train)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
@@ -90,21 +72,11 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(layers, dim_hidden, points, act=nn.Tanh()).to(device)
-
-    filename = get_last_modified_file('model', '.pth')
-
-    dir_model = os.path.dirname(filename)
-    print(f'Target for outputs: {dir_model}\n')
-
-    pinn_trained.load_state_dict(torch.load(filename, map_location=device))
-    print(f'{filename} loaded.\n')
+    pinn_trained = PINN(dim_hidden, points, act=nn.Tanh()).to(device)
 
 print(pinn_trained)
 
-
 pinn_trained.eval()
-
 
 x, y, _ = get_initial_points(x_domain, y_domain, t_domain, n_train, device)
 t_value = 0.0

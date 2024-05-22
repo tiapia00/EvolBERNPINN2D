@@ -121,9 +121,8 @@ class PINN(nn.Module):
     def __init__(self, dim_hidden: int, points: dict, dim_input: int = 3, dim_output: int = 4, act=nn.Tanh()):
 
         super().__init__()
-        self.dim_hidden = dim_hidden
         self.layer_in = RBF(dim_input, dim_hidden, matern52)
-
+        self.dim_hidden = dim_hidden
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
         self.weights = nn.ParameterList([])
@@ -138,7 +137,7 @@ class PINN(nn.Module):
 
     def forward(self, x, y, t):
         x_stack = torch.cat([x, y, t], dim=1)
-        out = self.act(self.layer_in(x_stack))
+        out = self.layer_in(x_stack)
         logits = self.layer_out(out)
         return logits
 
@@ -330,12 +329,11 @@ def train_model(
     points: dict,
     n_train: int
 ) -> PINN:
-    
+
     from plots import scatter_penalty_loss2D, scatter_penalty_loss3D
 
     optimizer = optim.Adam([
         {'params': nn_approximator.layer_in.parameters()},
-        {'params': nn_approximator.middle_layers.parameters()},
         {'params': nn_approximator.layer_out.parameters()},
         {'params': nn_approximator.weights, 'lr': -0.001},
     ], lr=learning_rate)
