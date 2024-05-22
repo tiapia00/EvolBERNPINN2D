@@ -87,6 +87,32 @@ def get_interior_points(x_domain, y_domain, t_domain, n_points, device, requires
 
     return (x, y, t)
 
+class RBF(nn.Module):
+    def __init__(self, in_features, out_features, basis_func):
+        super(RBF, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.centres = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.log_sigmas = nn.Parameter(torch.Tensor(out_features))
+        self.basis_func = basis_func
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        nn.init.normal_(self.centres, 0, 1)
+        nn.init.constant_(self.log_sigmas, 0)
+
+    def forward(self, input):
+        size = (input.size(0), self.out_features, self.in_features)
+        x = input.unsqueeze(1).expand(size)
+        c = self.centres.unsqueeze(0).expand(size)
+        distances = (x - c).pow(2).sum(-1).pow(0.5) / \
+            torch.exp(self.log_sigmas).unsqueeze(0)
+        return self.basis_func(distances)
+
+def matern52(alpha):
+    phi = (torch.ones_like(alpha) + 5**0.5*alpha + (5/3) \
+    * alpha.pow(2))*torch.exp(-5**0.5*alpha)
+    return phi
 
 class PINN(nn.Module):
     """Simple neural network accepting two features as input and returning a single output
@@ -99,7 +125,7 @@ class PINN(nn.Module):
 
         super().__init__()
         self.dim_hidden = dim_hidden
-        self.layer_in = nn.Linear(dim_input, self.dim_hidden)
+        self.layer_in = RBF(dim_input, dim_hidden, matern52)
 
         self.num_middle = num_hidden - 1
         self.middle_layers = nn.ModuleList()
