@@ -5,7 +5,7 @@ class Parameters:
         self.t_end = 7
         self.n = 40
         self.hid_layers = 4
-        self.neurons_per_layer = 4
+        self.neurons_per_layer = 50
         self.pinn_par = {
             'x_end' : self.x_end,
             'y_end' : self.y_end,
