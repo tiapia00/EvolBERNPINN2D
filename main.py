@@ -27,6 +27,8 @@ if delete_old:
 
 par = Parameters()
 
+t_hat, w_ad_mid = train_init_NN(par, device)
+
 E, rho, _, nu = get_params(par.mat_par)
 
 lam, mu = par.to_matpar_PINN()
@@ -92,4 +94,4 @@ plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 
 x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train, device)
 plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction')
-plot_midpoint_displ(pinn_trained, t, n_train, t_ad, uy_mid, dir_model)
+plot_midpoint_displ(pinn_trained, t, n_train, t_ad, w_ad_mid, dir_model)
