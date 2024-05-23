@@ -31,7 +31,7 @@ E, rho, _, nu = get_params(par.mat_par)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_train, layers, dim_hidden, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_train, dim_hidden, lr, epochs = get_params(par.pinn_par)
 
 x_domain = np.array([0.0, Lx])/Lx
 y_domain = np.array([0.0, Ly])/Lx

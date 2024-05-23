@@ -4,14 +4,12 @@ class Parameters:
         self.y_end = 0.2
         self.t_end = 7
         self.n = 40
-        self.hid_layers = 1
         self.neurons_per_layer = 50
         self.pinn_par = {
             'x_end' : self.x_end,
             'y_end' : self.y_end,
             't_end' : self.t_end,
             'n' : self.n,
-            'hid_layers' : self.hid_layers,
             'neuron_per_layer' : self.neurons_per_layer,
             'lr' : 0.001,
             'epochs' : 2000,
@@ -20,7 +18,6 @@ class Parameters:
             'x_end' : self.x_end,
             't_end' : self.t_end,
             'n' : self.n,
-            'hid_layers' : self.hid_layers,
             'neuron_per_layer' : self.neurons_per_layer,
             'lr' : 0.001,
             'epochs' : 200,
