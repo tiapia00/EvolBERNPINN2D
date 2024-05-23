@@ -68,8 +68,17 @@ def get_boundary_points(x_domain, y_domain, t_domain, n_points, device, requires
 
     return (down, up, left, right)
 
+def find_matching_rows(tensor, target_vector):
+
+    """matching_indices: print idx of rows which are identical"""
+
+    comparison = torch.all(tensor == target_vector, dim=1)
+    matching_indices = torch.nonzero(comparison).squeeze()
+
+    return matching_indices
 
 def get_interior_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
+
     x_raw = torch.linspace(
         x_domain[0], x_domain[1], steps=n_points, requires_grad=requires_grad)
     y_raw = torch.linspace(
