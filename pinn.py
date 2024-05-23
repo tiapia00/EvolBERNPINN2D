@@ -15,7 +15,7 @@ from read_write import pass_folder, get_current_time, get_last_modified_file, ge
 
 def initial_conditions(x: torch.tensor, y: torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     res_ux = torch.zeros_like(x)
-    res_uy = torch.sin(torch.pi*i/x[-1]*x)
+    res_uy = 0.1*torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
 
 def get_initial_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):

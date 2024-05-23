@@ -15,7 +15,7 @@ from nn import *
 
 
 def train_init_NN(par: Parameters, device: torch.device):
-    Lx, t, n, num_hidden, dim_hidden, lr, epochs = get_params(par.nn_par)
+    Lx, t, n = get_params(par.beam_par)
     E, rho, _, h = get_params(par.mat_par)
     my_beam = Beam(Lx, E, rho, h/1000, 40e-3, n)  # h: m
 
@@ -52,4 +52,4 @@ def train_init_NN(par: Parameters, device: torch.device):
 
     idx = int(np.floor(w_ad.shape[0]/2))
     
-    return t_hat, w_ad[idx,:]
+    return t_lin, w_ad[idx,:]

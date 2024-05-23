@@ -27,7 +27,7 @@ if delete_old:
 
 par = Parameters()
 
-t_hat, w_ad_mid = train_init_NN(par, device)
+t_ad, w_ad_mid = train_init_NN(par, device)
 
 E, rho, _, nu = get_params(par.mat_par)
 
