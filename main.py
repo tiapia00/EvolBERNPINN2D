@@ -39,13 +39,12 @@ x_domain = np.array([0.0, Lx])/Lx
 y_domain = np.array([0.0, Ly])/Lx
 t_domain = np.array([0.0, T])/T
 
+grid = Grid(x_domain, y_domain, t_domain, n_train, device)
+
 points = {
-            'res_points': get_interior_points(x_domain, y_domain,
-                                              t_domain, n_train, device),
-            'initial_points': get_initial_points(x_domain, y_domain,
-                                                 t_domain, n_train, device),
-            'boundary_points': get_boundary_points(x_domain, y_domain,
-                                                   t_domain, n_train, device)
+            'res_points': grid.get_interior_points(),
+            'initial_points': grid.get_initial_points(),
+            'boundary_points': grid.get_boundary_points()
         }
 
 pinn = PINN(dim_hidden, points, act=nn.Tanh()).to(device)
@@ -56,10 +55,6 @@ if retrain_PINN:
     dir_logs = pass_folder('model/logs')
 
     loss_fn = Loss(
-        x_domain,
-        y_domain,
-        t_domain,
-        n_train,
         return_adim(x_domain, t_domain, rho, mu, lam),
         initial_conditions,
         points

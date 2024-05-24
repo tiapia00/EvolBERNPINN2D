@@ -13,85 +13,127 @@ from typing import Tuple
 import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 
+
 def initial_conditions(x: torch.tensor, y: torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     res_ux = torch.zeros_like(x)
     res_uy = 0.1*torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
 
-def get_initial_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
-    x_linspace = torch.linspace(x_domain[0], x_domain[1], n_points)
-    y_linspace = torch.linspace(y_domain[0], y_domain[1], n_points)
-    x_grid, y_grid = torch.meshgrid(x_linspace, y_linspace, indexing="ij")
-    x_grid = x_grid.reshape(-1, 1).to(device)
-    x_grid.requires_grad = requires_grad
-    y_grid = y_grid.reshape(-1, 1).to(device)
-    y_grid.requires_grad = requires_grad
-    t0 = torch.full_like(x_grid, t_domain[0], requires_grad=requires_grad)
-    return (x_grid, y_grid, t0)
 
+class Grid:
+    def __init__(self, x_domain, y_domain, t_domain, n_points, device):
+        self.x_domain = x_domain
+        self.y_domain = y_domain
+        self.t_domain = t_domain
+        self.n_points = n_points
+        self.device = device
+        self.requires_grad = True
+        self.grid_init = self.generate_grid_init()
+        self.grid_bound: torch.tensor
 
-def get_boundary_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
-    """
-         .+------+
-       .' |    .'|
-      +---+--+'  |
-      |   |  |   |
-    x |  ,+--+---+
-      |.'    | .' t
-      +------+'
-         y
-    down , up : extremes of the beam
-    """
-    x_linspace = torch.linspace(x_domain[0], x_domain[1], n_points)
-    y_linspace = torch.linspace(y_domain[0], y_domain[1], n_points)
-    t_linspace = torch.linspace(t_domain[0], t_domain[1], n_points)
+    def delete_rows_init(self, tensor) -> torch.tensor:
+        """matching_indices: print idx of rows which are identical"""
 
-    x_grid, t_grid = torch.meshgrid(x_linspace, t_linspace, indexing="ij")
-    y_grid, _ = torch.meshgrid(y_linspace, t_linspace, indexing="ij")
+        for vector in self.grid_init:
+            comparison = torch.all(tensor == vector, dim=1)
+            filtered_tensor = tensor[comparison == False]
+            tensor = filtered_tensor
 
-    x_grid = x_grid.reshape(-1, 1).to(device)
-    x_grid.requires_grad = requires_grad
-    y_grid = y_grid.reshape(-1, 1).to(device)
-    y_grid.requires_grad = requires_grad
-    t_grid = t_grid.reshape(-1, 1).to(device)
-    t_grid.requires_grad = requires_grad
+        return filtered_tensor
 
-    x0 = torch.full_like(t_grid, x_domain[0], requires_grad=requires_grad)
-    x1 = torch.full_like(t_grid, x_domain[1], requires_grad=requires_grad)
-    y0 = torch.full_like(t_grid, y_domain[0], requires_grad=requires_grad)
-    y1 = torch.full_like(t_grid, y_domain[1], requires_grad=requires_grad)
+    def generate_grid_init(self):
+        x_linspace = torch.linspace(
+            self.x_domain[0], self.x_domain[1], self.n_points)
+        y_linspace = torch.linspace(
+            self.y_domain[0], self.y_domain[1], self.n_points)
+        x_grid, y_grid = torch.meshgrid(x_linspace, y_linspace, indexing="ij")
 
-    down = (y_grid, x0,     t_grid)
-    up = (y_grid, x1,     t_grid)
-    left = (y0,     x_grid, t_grid)
-    right = (y1,     x_grid, t_grid)
+        x_grid = x_grid.reshape(-1, 1).to(self.device)
+        x_grid.requires_grad = self.requires_grad
+        y_grid = y_grid.reshape(-1, 1).to(self.device)
+        y_grid.requires_grad = self.requires_grad
+        t0 = torch.full_like(
+            x_grid, self.t_domain[0], requires_grad=True)
 
-    return (down, up, left, right)
+        grid_init = torch.cat((x_grid, y_grid, t0), dim=1)
 
-def find_matching_rows(tensor, target_vector):
+        return grid_init
 
-    """matching_indices: print idx of rows which are identical"""
+    def get_initial_points(self):
 
-    comparison = torch.all(tensor == target_vector, dim=1)
-    matching_indices = torch.nonzero(comparison).squeeze()
+        x_grid = self.grid_init[:, 0].unsqueeze(1)
+        y_grid = self.grid_init[:, 1].unsqueeze(1)
+        t0 = self.grid_init[:, 2].unsqueeze(1)
 
-    return matching_indices
+        return (x_grid, y_grid, t0)
 
-def get_interior_points(x_domain, y_domain, t_domain, n_points, device, requires_grad=True):
+    def get_boundary_points(self):
+        """
+             .+------+
+           .' |    .'|
+          +---+--+'  |
+          |   |  |   |
+        x |  ,+--+---+
+          |.'    | .' t
+          +------+'
+             y
+        down , up : extremes of the beam
+        """
+        x_linspace = torch.linspace(
+            self.x_domain[0], self.x_domain[1], self.n_points)
+        y_linspace = torch.linspace(
+            self.y_domain[0], self.y_domain[1], self.n_points)
+        t_linspace = torch.linspace(
+            self.t_domain[0], self.t_domain[1], self.n_points)
 
-    x_raw = torch.linspace(
-        x_domain[0], x_domain[1], steps=n_points, requires_grad=requires_grad)
-    y_raw = torch.linspace(
-        y_domain[0], y_domain[1], steps=n_points, requires_grad=requires_grad)
-    t_raw = torch.linspace(
-        t_domain[0], t_domain[1], steps=n_points, requires_grad=requires_grad)
-    grids = torch.meshgrid(x_raw, y_raw, t_raw, indexing="ij")
+        x_grid, t_grid = torch.meshgrid(x_linspace, t_linspace, indexing="ij")
+        y_grid, _ = torch.meshgrid(y_linspace, t_linspace, indexing="ij")
 
-    x = grids[0].reshape(-1, 1).to(device)
-    y = grids[1].reshape(-1, 1).to(device)
-    t = grids[2].reshape(-1, 1).to(device)
+        x_grid = x_grid.reshape(-1, 1).to(self.device)
+        x_grid.requires_grad = self.requires_grad
+        y_grid = y_grid.reshape(-1, 1).to(self.device)
+        y_grid.requires_grad = self.requires_grad
+        t_grid = t_grid.reshape(-1, 1).to(self.device)
+        t_grid.requires_grad = self.requires_grad
 
-    return (x, y, t)
+        x0 = torch.full_like(
+            t_grid, self.x_domain[0], requires_grad=True)
+        x1 = torch.full_like(
+            t_grid, self.x_domain[1], requires_grad=True)
+        y0 = torch.full_like(
+            t_grid, self.y_domain[0], requires_grad=True)
+        y1 = torch.full_like(
+            t_grid, self.y_domain[1], requires_grad=True)
+
+        down = (y_grid, x0,     t_grid)
+        up = (y_grid, x1,     t_grid)
+        left = (y0,     x_grid, t_grid)
+        right = (y1,     x_grid, t_grid)
+
+        return (down, up, left, right)
+
+    def get_interior_points(self):
+        x_raw = torch.linspace(
+            self.x_domain[0], self.x_domain[1], steps=self.n_points, requires_grad=True)
+        y_raw = torch.linspace(
+            self.y_domain[0], self.y_domain[1], steps=self.n_points, requires_grad=True)
+        t_raw = torch.linspace(
+            self.t_domain[0], self.t_domain[1], steps=self.n_points, requires_grad=True)
+        grids = torch.meshgrid(x_raw, y_raw, t_raw, indexing="ij")
+
+        x = grids[0].reshape(-1, 1).to(self.device)
+        y = grids[1].reshape(-1, 1).to(self.device)
+        t = grids[2].reshape(-1, 1).to(self.device)
+
+        grid = torch.cat((x, y, t), dim=1)
+        grid = self.delete_rows_init(grid)
+
+        x = grid[:, 0].unsqueeze(1)
+        y = grid[:, 1].unsqueeze(1)
+        t = grid[:, 2].unsqueeze(1)
+
+        return (x, y, t)
+
 
 class RBF(nn.Module):
     def __init__(self, in_features, out_features, basis_func):
@@ -115,10 +157,12 @@ class RBF(nn.Module):
             torch.exp(self.log_sigmas).unsqueeze(0)
         return self.basis_func(distances)
 
+
 def matern52(alpha):
-    phi = (torch.ones_like(alpha) + 5**0.5*alpha + (5/3) \
-    * alpha.pow(2))*torch.exp(-5**0.5*alpha)
+    phi = (torch.ones_like(alpha) + 5**0.5*alpha + (5/3)
+           * alpha.pow(2))*torch.exp(-5**0.5*alpha)
     return phi
+
 
 class PINN(nn.Module):
     """Simple neural network accepting two features as input and returning a single output
@@ -139,7 +183,7 @@ class PINN(nn.Module):
         for i, (key, value) in enumerate(zip(points.keys(), points.values())):
             if i == len(points)-1:
                 self.weights.append(nn.Parameter(torch.tensor([1.])))
-            elif i==1:
+            elif i == 1:
                 self.weights.append(nn.Parameter(5*torch.ones(value[0].shape)))
             else:
                 self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
@@ -157,11 +201,13 @@ class PINN(nn.Module):
     def device(self):
         return next(self.parameters()).device
 
+
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     hard_enc = torch.sin(x*np.pi)
     hard_enc = hard_enc.view(-1, 1)
     hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
     return hard_enc_both*pinn(x, y, t)
+
 
 def df(output: torch.Tensor, inputs: list, var: int = 0) -> torch.Tensor:
     """Compute neural network derivative with respect to input features using PyTorch autograd engine
@@ -191,26 +237,17 @@ class Loss:
 
     def __init__(
         self,
-        x_domain: Tuple[float, float],
-        y_domain: Tuple[float, float],
-        t_domain: Tuple[float, float],
-        n_points: int,
         z: torch.Tensor,
         initial_condition: Callable,
         points: dict,
         verbose: bool = False,
     ):
-        self.x_domain = x_domain
-        self.y_domain = y_domain
-        self.t_domain = t_domain
-        self.n_points = n_points
         self.z = z
         self.initial_condition = initial_condition
         self.points = points
 
     def residual_loss(self, pinn):
         x, y, t = self.points['res_points']
-
         output = f(pinn, x, y, t)
 
         dvx_t = df(output, [t], 2)
@@ -222,6 +259,7 @@ class Loss:
         duy_y = df(output, [y], 1)
 
         dux_xx = df(dux_x, [x])
+        print(dux_x.shape)
         duy_yy = df(duy_y, [y])
         duy_xx = df(duy_x, [x])
 
@@ -240,7 +278,8 @@ class Loss:
         loss4 = m*(dvy_t - df(output, [t, t], 1))
 
         d_en = (dvx_t + dvy_t) + self.z[0]*(dux_x + duy_y)**2 +\
-                   self.z[1]*2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)**2 + (duy_x + dux_y)**2)
+            self.z[1]*2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)
+                         ** 2 + (duy_x + dux_y)**2)
 
         d_en_t = torch.autograd.grad(
             d_en,
@@ -329,6 +368,7 @@ class Loss:
 
     def __call__(self, pinn, epoch):
         return self.verbose(pinn, epoch)[0]
+
 
 def train_model(
     nn_approximator: PINN,
