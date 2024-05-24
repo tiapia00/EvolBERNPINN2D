@@ -7,6 +7,7 @@ from matplotlib.animation import FuncAnimation
 from pinn import PINN, f
 import numpy as np
 
+
 def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, factors: torch.tensor):
     x = x.reshape(n_train, n_train).detach().cpu().numpy()
     y = y.reshape(n_train, n_train).detach().cpu().numpy()
@@ -27,11 +28,16 @@ def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, facto
 
     return image_tensor
 
+
 def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_train: int, factors: torch.tensor):
-    x = x.reshape(n_train, n_train, n_train).detach().cpu().numpy()
-    y = y.reshape(n_train, n_train, n_train).detach().cpu().numpy()
-    t = t.reshape(n_train, n_train, n_train).detach().cpu().numpy()
-    factors = factors.reshape(n_train, n_train, n_train).detach().cpu().numpy()
+    nx = n_train-2
+    ny = nx
+    nt = n_train-1
+
+    x = x.reshape(nx, ny, nt).detach().cpu().numpy()
+    y = y.reshape(nx, ny, nt).detach().cpu().numpy()
+    t = t.reshape(nx, ny, nt).detach().cpu().numpy()
+    factors = factors.reshape(nx, ny, nt).detach().cpu().numpy()
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -50,6 +56,7 @@ def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_
     image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
 
     return image_tensor
+
 
 def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, n_train: int, path: str):
     """Plot initial conditions.
@@ -95,6 +102,10 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
 def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train:
              int, path: str, name: str):
 
+    nx = n_train - 2
+    ny = nx
+    nt = n_train - 1
+
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
 
     ax.set_title(f'Time response - {name}')
@@ -102,8 +113,8 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     t_raw = torch.unique(t, sorted=True)
     t_raw = t_raw.reshape(-1, 1)
 
-    x_raw = x.reshape(n_train, n_train, n_train)
-    y_raw = y.reshape(n_train, n_train, n_train)
+    x_raw = x.reshape(nx, ny, nt)
+    y_raw = y.reshape(nx, ny, nt)
 
     x = x_raw[:, :, 0]
     y = y_raw[:, :, 0]
@@ -116,8 +127,8 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
 
     output = f(pinn, x, y, t)
 
-    x_plot = x.cpu().detach().numpy().reshape(n_train, n_train).reshape(-1)
-    y_plot = y.cpu().detach().numpy().reshape(n_train, n_train).reshape(-1)
+    x_plot = x.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
+    y_plot = y.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
 
     z0 = output.cpu().detach().numpy()
     norm = np.linalg.norm(z0, axis=1).reshape(-1)
@@ -173,13 +184,13 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, t_ad: np.ndar
 
     t_raw = torch.unique(t, sorted=True)
 
-    x = torch.tensor([0.5]).to(device).reshape(-1,1)
-    y = torch.tensor([0.5]).to(device).reshape(-1,1)
+    x = torch.tensor([0.5]).to(device).reshape(-1, 1)
+    y = torch.tensor([0.5]).to(device).reshape(-1, 1)
 
     uy_mid_PINN = []
 
     for t in t_raw:
-        t = t.reshape(-1,1)
+        t = t.reshape(-1, 1)
         output = f(pinn, x, y, t)
         uy = output[0, 1].cpu().detach().numpy()
         uy_mid_PINN.append(uy)
@@ -194,9 +205,9 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, t_ad: np.ndar
     ax[1].set_title('Deviation from analytical')
     ax[1].set_xlabel('$\\hat{t}$')
     ax[1].set_ylabel('$\\hat{u}_\\text{y,an}-\\hat{u}_\\text{y,PINN}$')
-    
+
     plt.grid()
     plt.tight_layout()
-    
-    file=f'{path}/midpoint_time.png'
+
+    file = f'{path}/midpoint_time.png'
     plt.savefig(file)
