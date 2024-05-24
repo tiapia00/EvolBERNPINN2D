@@ -270,7 +270,6 @@ class Loss:
         duy_y = df(output, [y], 1)
 
         dux_xx = df(dux_x, [x])
-        print(dux_x.shape)
         duy_yy = df(duy_y, [y])
         duy_xx = df(duy_x, [x])
 
