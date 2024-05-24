@@ -183,7 +183,7 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, t_ad: np.ndar
     fig.suptitle('Midpoint displacement')
 
     t_raw = torch.unique(t, sorted=True)
-
+    
     x = torch.tensor([0.5]).to(device).reshape(-1, 1)
     y = torch.tensor([0.5]).to(device).reshape(-1, 1)
 
@@ -200,7 +200,7 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, t_ad: np.ndar
     ax[0].set_title('Prediction from PINN')
     ax[0].set_xlabel('$\\hat{t}$')
     ax[0].set_ylabel('$\\hat{u}_y$')
-
+    
     ax[1].plot(t_ad, uy_mid-np.array(uy_mid_PINN), color='red')
     ax[1].set_title('Deviation from analytical')
     ax[1].set_xlabel('$\\hat{t}$')

@@ -41,7 +41,7 @@ def train_init_NN(par: Parameters, device: torch.device):
     my_In_Cond.pass_init_cond(w_0, w_dot_0)
     A, B = my_In_Cond.compute_coeff()
 
-    t_lin = np.linspace(0, t, n)
+    t_lin = np.linspace(0, t, n)/t
     my_beam.calculate_solution(A, B, t_lin)
     w = my_beam.w
 

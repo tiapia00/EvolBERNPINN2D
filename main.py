@@ -71,11 +71,19 @@ if retrain_PINN:
 else:
     pinn_trained = PINN(dim_hidden, points, act=nn.Tanh()).to(device)
 
+    filename = get_last_modified_file('model', '.pth')
+
+    dir_model = os.path.dirname(filename)
+    print(f'Target for outputs: {dir_model}\n')
+
+    pinn_trained.load_state_dict(torch.load(filename, map_location=device))
+    print(f'{filename} loaded.\n')
+
 print(pinn_trained)
 
 pinn_trained.eval()
 
-x, y, _ = get_initial_points(x_domain, y_domain, t_domain, n_train, device)
+x, y, _ = grid.get_initial_points()
 t_value = 0.0
 t = torch.full_like(x, t_value)
 x = x.to(device)
@@ -87,6 +95,6 @@ z0 = torch.cat((ux0, uy0), dim=1)
 
 plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 
-x, y, t = get_interior_points(x_domain, y_domain, t_domain, n_train, device)
+x, y, t = grid.get_interior_points()
 plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction')
-plot_midpoint_displ(pinn_trained, t, n_train, t_ad, w_ad_mid, dir_model)
+plot_midpoint_displ(pinn_trained, t, n_train, t_ad[1:], w_ad_mid[1:], dir_model)

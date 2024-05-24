@@ -310,7 +310,7 @@ class Loss:
             d_en,
             t,
             grad_outputs=torch.ones_like(t),
-            create_graph=True
+            create_graph=True,
         )[0]
 
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean(), d_en_t.pow(2).mean())
