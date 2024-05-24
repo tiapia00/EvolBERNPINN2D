@@ -29,12 +29,21 @@ class Grid:
         self.device = device
         self.requires_grad = True
         self.grid_init = self.generate_grid_init()
-        self.grid_bound: torch.tensor
+        self.grid_bound = self.generate_grid_bound()
 
-    def delete_rows_init(self, tensor) -> torch.tensor:
+    def delete_init(self, tensor) -> torch.tensor:
         """matching_indices: print idx of rows which are identical"""
 
         for vector in self.grid_init:
+            comparison = torch.all(tensor == vector, dim=1)
+            filtered_tensor = tensor[comparison == False]
+            tensor = filtered_tensor
+
+        return filtered_tensor
+
+    def delete_bound(self, tensor) -> torch.tensor:
+
+        for vector in self.grid_bound[4]:
             comparison = torch.all(tensor == vector, dim=1)
             filtered_tensor = tensor[comparison == False]
             tensor = filtered_tensor
@@ -59,15 +68,8 @@ class Grid:
 
         return grid_init
 
-    def get_initial_points(self):
+    def generate_grid_bound(self):
 
-        x_grid = self.grid_init[:, 0].unsqueeze(1)
-        y_grid = self.grid_init[:, 1].unsqueeze(1)
-        t0 = self.grid_init[:, 2].unsqueeze(1)
-
-        return (x_grid, y_grid, t0)
-
-    def get_boundary_points(self):
         """
              .+------+
            .' |    .'|
@@ -79,10 +81,11 @@ class Grid:
              y
         down , up : extremes of the beam
         """
+
         x_linspace = torch.linspace(
             self.x_domain[0], self.x_domain[1], self.n_points)
         y_linspace = torch.linspace(
-            self.y_domain[0], self.y_domain[1], self.n_points)
+                self.y_domain[0], self.y_domain[1], self.n_points)
         t_linspace = torch.linspace(
             self.t_domain[0], self.t_domain[1], self.n_points)
 
@@ -106,21 +109,32 @@ class Grid:
             t_grid, self.y_domain[1], requires_grad=True)
 
         down = torch.cat((x0, y_grid, t_grid), dim=1)
-        down = self.delete_rows_init(down)
-        down = tuple(down[:, i].unsqueeze(1) for i in range(down.shape[1]))
+        down = self.delete_init(down)
 
         up = torch.cat((x1, y_grid, t_grid), dim=1)
-        up = self.delete_rows_init(up)
-        up = tuple(up[:, i].unsqueeze(1) for i in range(up.shape[1]))
+        up = self.delete_init(up)
 
         left = torch.cat((x_grid, y0, t_grid), dim=1)
-        left = self.delete_rows_init(left)
-        left = tuple(left[:, i].unsqueeze(1) for i in range(left.shape[1]))
+        left = self.delete_init(left)
 
         right = torch.cat((x_grid, y1, t_grid), dim=1)
-        right = self.delete_rows_init(right)
-        right = tuple(right[:, i].unsqueeze(1) for i in range(right.shape[1]))
+        right = self.delete_init(right)
 
+        bound_points = torch.cat((down, up, left, right), dim=0)
+
+        return (down, up, left, right, bound_points)
+
+    def get_initial_points(self):
+        x_grid = self.grid_init[:, 0].unsqueeze(1)
+        y_grid = self.grid_init[:, 1].unsqueeze(1)
+        t0 = self.grid_init[:, 2].unsqueeze(1)
+        return (x_grid, y_grid, t0)
+
+    def get_boundary_points(self):
+        down = tuple(self.grid_bound[0][:, i].unsqueeze(1) for i in range(self.grid_bound[0].shape[1]))
+        up = tuple(self.grid_bound[1][:, i].unsqueeze(1) for i in range(self.grid_bound[1].shape[1]))
+        left = tuple(self.grid_bound[2][:, i].unsqueeze(1) for i in range(self.grid_bound[2].shape[1]))
+        right = tuple(self.grid_bound[3][:, i].unsqueeze(1) for i in range(self.grid_bound[3].shape[1]))
         return (down, up, left, right)
 
     def get_interior_points(self):
@@ -137,7 +151,8 @@ class Grid:
         t = grids[2].reshape(-1, 1).to(self.device)
 
         grid = torch.cat((x, y, t), dim=1)
-        grid = self.delete_rows_init(grid)
+        grid = self.delete_init(grid)
+        grid = self.delete_bound(grid)
 
         x = grid[:, 0].unsqueeze(1)
         y = grid[:, 1].unsqueeze(1)
