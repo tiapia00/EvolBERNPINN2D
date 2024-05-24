@@ -14,7 +14,6 @@ import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 import matplotlib.pyplot as plt
 from matplotlib.cm import viridis
-from plots import scatter_penalty_loss2D, scatter_penalty_loss3D
 
 def initial_conditions(x: torch.tensor, y: torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     res_ux = torch.zeros_like(x)
@@ -319,6 +318,7 @@ def train_model(
     points: dict,
     n_train: int
 ) -> PINN:
+    from plots import scatter_penalty_loss2D, scatter_penalty_loss3D
 
     optimizer = optim.Adam([
         {'params': nn_approximator.layer_in.parameters()},
@@ -326,7 +326,6 @@ def train_model(
         {'params': nn_approximator.layer_out.parameters()},
         {'params': nn_approximator.weights, 'lr': -0.001},
     ], lr=learning_rate)
-    loss_values = []
     loss: torch.Tensor = torch.inf
 
     writer = SummaryWriter(log_dir=path_logs)
@@ -343,8 +342,6 @@ def train_model(
 
         loss.backward()
         optimizer.step()
-
-        loss_values.append(loss.item())
 
         pbar.set_description(f"Global loss: {loss.item():.2f}")
 
