@@ -105,10 +105,21 @@ class Grid:
         y1 = torch.full_like(
             t_grid, self.y_domain[1], requires_grad=True)
 
-        down = (y_grid, x0,     t_grid)
-        up = (y_grid, x1,     t_grid)
-        left = (y0,     x_grid, t_grid)
-        right = (y1,     x_grid, t_grid)
+        down = torch.cat((x0, y_grid, t_grid), dim=1)
+        down = self.delete_rows_init(down)
+        down = tuple(down[:, i].unsqueeze(1) for i in range(down.shape[1]))
+
+        up = torch.cat((x1, y_grid, t_grid), dim=1)
+        up = self.delete_rows_init(up)
+        up = tuple(up[:, i].unsqueeze(1) for i in range(up.shape[1]))
+
+        left = torch.cat((x_grid, y0, t_grid), dim=1)
+        left = self.delete_rows_init(left)
+        left = tuple(left[:, i].unsqueeze(1) for i in range(left.shape[1]))
+
+        right = torch.cat((x_grid, y1, t_grid), dim=1)
+        right = self.delete_rows_init(right)
+        right = tuple(right[:, i].unsqueeze(1) for i in range(right.shape[1]))
 
         return (down, up, left, right)
 
