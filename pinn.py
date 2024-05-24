@@ -412,7 +412,6 @@ def train_model(
         {'params': nn_approximator.layer_out.parameters()},
         {'params': nn_approximator.weights, 'lr': -0.001},
     ], lr=learning_rate)
-    loss_values = []
     loss: torch.Tensor = torch.inf
 
     writer = SummaryWriter(log_dir=path_logs)
@@ -429,8 +428,6 @@ def train_model(
 
         loss.backward()
         optimizer.step()
-
-        loss_values.append(loss.item())
 
         pbar.set_description(f"Global loss: {loss.item():.2f}")
 
