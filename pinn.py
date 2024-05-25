@@ -57,12 +57,10 @@ class Grid:
             self.y_domain[0], self.y_domain[1], self.n_points)
         x_grid, y_grid = torch.meshgrid(x_linspace, y_linspace, indexing="ij")
 
-        x_grid = x_grid.reshape(-1, 1).to(self.device)
-        x_grid.requires_grad = self.requires_grad
-        y_grid = y_grid.reshape(-1, 1).to(self.device)
-        y_grid.requires_grad = self.requires_grad
+        x_grid = x_grid.reshape(-1, 1)
+        y_grid = y_grid.reshape(-1, 1)
         t0 = torch.full_like(
-            x_grid, self.t_domain[0], requires_grad=True)
+            x_grid, self.t_domain[0])
 
         grid_init = torch.cat((x_grid, y_grid, t0), dim=1)
 
@@ -92,21 +90,18 @@ class Grid:
         x_grid, t_grid = torch.meshgrid(x_linspace, t_linspace, indexing="ij")
         y_grid, _ = torch.meshgrid(y_linspace, t_linspace, indexing="ij")
 
-        x_grid = x_grid.reshape(-1, 1).to(self.device)
-        x_grid.requires_grad = self.requires_grad
-        y_grid = y_grid.reshape(-1, 1).to(self.device)
-        y_grid.requires_grad = self.requires_grad
-        t_grid = t_grid.reshape(-1, 1).to(self.device)
-        t_grid.requires_grad = self.requires_grad
+        x_grid = x_grid.reshape(-1, 1)
+        y_grid = y_grid.reshape(-1, 1)
+        t_grid = t_grid.reshape(-1, 1)
 
         x0 = torch.full_like(
-            t_grid, self.x_domain[0], requires_grad=True)
+            t_grid, self.x_domain[0])
         x1 = torch.full_like(
-            t_grid, self.x_domain[1], requires_grad=True)
+            t_grid, self.x_domain[1])
         y0 = torch.full_like(
-            t_grid, self.y_domain[0], requires_grad=True)
+            t_grid, self.y_domain[0])
         y1 = torch.full_like(
-            t_grid, self.y_domain[1], requires_grad=True)
+            t_grid, self.y_domain[1])
 
         down = torch.cat((x0, y_grid, t_grid), dim=1)
         down = self.delete_init(down)
@@ -125,38 +120,44 @@ class Grid:
         return (down, up, left, right, bound_points)
 
     def get_initial_points(self):
-        x_grid = self.grid_init[:, 0].unsqueeze(1)
-        y_grid = self.grid_init[:, 1].unsqueeze(1)
-        t0 = self.grid_init[:, 2].unsqueeze(1)
+        x_grid = self.grid_init[:, 0].unsqueeze(1).to(self.device)
+        x_grid.requires_grad = True
+        y_grid = self.grid_init[:, 1].unsqueeze(1).to(self.device)
+        y_grid.requires_grad = True
+        t0 = self.grid_init[:, 2].unsqueeze(1).to(self.device)
+        t0.requires_grad = True
         return (x_grid, y_grid, t0)
 
     def get_boundary_points(self):
-        down = tuple(self.grid_bound[0][:, i].unsqueeze(1) for i in range(self.grid_bound[0].shape[1]))
-        up = tuple(self.grid_bound[1][:, i].unsqueeze(1) for i in range(self.grid_bound[1].shape[1]))
-        left = tuple(self.grid_bound[2][:, i].unsqueeze(1) for i in range(self.grid_bound[2].shape[1]))
-        right = tuple(self.grid_bound[3][:, i].unsqueeze(1) for i in range(self.grid_bound[3].shape[1]))
+        down = tuple(self.grid_bound[0][:, i].unsqueeze(1).requires_grad_().to(self.device) for i in range(self.grid_bound[0].shape[1]))
+        up = tuple(self.grid_bound[1][:, i].unsqueeze(1).requires_grad_().to(self.device) for i in range(self.grid_bound[1].shape[1]))
+        left = tuple(self.grid_bound[2][:, i].unsqueeze(1).requires_grad_().to(self.device) for i in range(self.grid_bound[2].shape[1]))
+        right = tuple(self.grid_bound[3][:, i].unsqueeze(1).requires_grad_().to(self.device) for i in range(self.grid_bound[3].shape[1]))
         return (down, up, left, right)
 
     def get_interior_points(self):
         x_raw = torch.linspace(
-            self.x_domain[0], self.x_domain[1], steps=self.n_points, requires_grad=True)
+            self.x_domain[0], self.x_domain[1], steps=self.n_points)
         y_raw = torch.linspace(
-            self.y_domain[0], self.y_domain[1], steps=self.n_points, requires_grad=True)
+            self.y_domain[0], self.y_domain[1], steps=self.n_points)
         t_raw = torch.linspace(
-            self.t_domain[0], self.t_domain[1], steps=self.n_points, requires_grad=True)
+            self.t_domain[0], self.t_domain[1], steps=self.n_points)
         grids = torch.meshgrid(x_raw, y_raw, t_raw, indexing="ij")
 
-        x = grids[0].reshape(-1, 1).to(self.device)
-        y = grids[1].reshape(-1, 1).to(self.device)
-        t = grids[2].reshape(-1, 1).to(self.device)
+        x = grids[0].reshape(-1, 1)
+        y = grids[1].reshape(-1, 1)
+        t = grids[2].reshape(-1, 1)
 
         grid = torch.cat((x, y, t), dim=1)
         grid = self.delete_init(grid)
         grid = self.delete_bound(grid)
 
-        x = grid[:, 0].unsqueeze(1)
-        y = grid[:, 1].unsqueeze(1)
-        t = grid[:, 2].unsqueeze(1)
+        x = grid[:, 0].unsqueeze(1).to(self.device)
+        x.requires_grad = True
+        y = grid[:, 1].unsqueeze(1).to(self.device)
+        y.requires_grad = True
+        t = grid[:, 2].unsqueeze(1).to(self.device)
+        t.requires_grad = True
 
         return (x, y, t)
 
@@ -412,15 +413,12 @@ def train_model(
         {'params': nn_approximator.layer_out.parameters()},
         {'params': nn_approximator.weights, 'lr': -0.001},
     ], lr=learning_rate)
-    loss: torch.Tensor = torch.inf
 
     writer = SummaryWriter(log_dir=path_logs)
 
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
-        grads = []
-
         optimizer.zero_grad()
         _, residual_loss, initial_loss, boundary_loss, en_crit = loss_fn.verbose(
             nn_approximator, epoch)
