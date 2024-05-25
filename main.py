@@ -16,9 +16,18 @@ from par import Parameters, get_params
 from initialization_NN import train_init_NN
 
 torch.set_default_dtype(torch.float32)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-retrain_PINN = True
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+    print("Using MPS device.")
+elif torch.cuda.is_available():
+    device = torch.device("cuda")
+    print("Using CUDA device.")
+else:
+    device = torch.device("cpu")
+    print("Using CPU device.")
+
+retrain_PINN = False
 delete_old = False
 
 if delete_old:

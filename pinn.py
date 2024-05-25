@@ -454,7 +454,7 @@ def train_model(
 
     writer.close()
 
-    return nn_approximator, np.array(loss_values)
+    return nn_approximator 
 
 
 def return_adim(x_dom: np.ndarray, t_dom: np.ndarray, rho: float, mu: float, lam: float):
