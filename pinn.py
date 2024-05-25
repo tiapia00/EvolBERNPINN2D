@@ -230,10 +230,10 @@ class PINN(nn.Module):
 
 
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-    hard_enc = torch.sin(x*np.pi)
-    hard_enc = hard_enc.view(-1, 1)
-    hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
-    return hard_enc_both*pinn(x, y, t)
+    #hard_enc = torch.sin(x*np.pi)
+    #hard_enc = hard_enc.view(-1, 1)
+    #hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
+    return pinn(x, y, t)
 
 
 def df(output: torch.Tensor, inputs: list, var: int = 0) -> torch.Tensor:

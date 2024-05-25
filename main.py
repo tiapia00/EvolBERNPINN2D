@@ -69,7 +69,7 @@ if retrain_PINN:
         points
     )
 
-    pinn_trained, loss_values = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
+    pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
                                             max_epochs=epochs, path_logs=dir_logs, points=points, n_train=n_train)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
@@ -105,5 +105,5 @@ z0 = torch.cat((ux0, uy0), dim=1)
 plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 
 x, y, t = grid.get_interior_points()
-plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction')
-plot_midpoint_displ(pinn_trained, t, n_train, t_ad[1:], w_ad_mid[1:], dir_model)
+plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction', device)
+plot_midpoint_displ(pinn_trained, t, n_train, t_ad[1:], w_ad_mid[1:], dir_model, device)
