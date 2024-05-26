@@ -15,7 +15,7 @@ from nn import *
 
 
 def train_init_NN(par: Parameters, device: torch.device):
-    Lx, t, n, num_hidden, dim_hidden, lr, epochs = get_params(par.nn_par)
+    Lx, t, n = get_params(par.beam_par)
     E, rho, _, h = get_params(par.mat_par)
     my_beam = Beam(Lx, E, rho, h/1000, 40e-3, n)  # h: m
 
@@ -41,7 +41,7 @@ def train_init_NN(par: Parameters, device: torch.device):
     my_In_Cond.pass_init_cond(w_0, w_dot_0)
     A, B = my_In_Cond.compute_coeff()
 
-    t_lin = np.linspace(0, t, n)
+    t_lin = np.linspace(0, t, n)/t
     my_beam.calculate_solution(A, B, t_lin)
     w = my_beam.w
 
@@ -50,59 +50,6 @@ def train_init_NN(par: Parameters, device: torch.device):
 
     w_ad = adimensionalize_sol(w, Lx).T
 
-    x_lin = np.linspace(0, 1, n)
-
-    t_hat = np.linspace(0, 1, len(t_lin))
-    x, t = np.meshgrid(x_lin, t_hat)
-    x = x.reshape(-1)
-    t = t.reshape(-1)
-    X = np.stack((x, t), axis=1)
-
-    # ## Split data for validation
-
-    y = w.reshape(-1, 1)
-
-    from sklearn.model_selection import train_test_split
-
-    X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.2, random_state=42)
-
-    x_train = X_train[:, 0].reshape(-1, 1)
-    t_train = X_train[:, 1].reshape(-1, 1)
-
-    x_val = X_val[:, 0].reshape(-1, 1)
-    t_val = X_val[:, 1].reshape(-1, 1)
-
-    x = torch.tensor(x_train).to(device).float()
-    t = torch.tensor(t_train).to(device).float()
-
-    x_val = torch.tensor(x_val).to(device).float()
-    t_val = torch.tensor(t_val).to(device).float()
-
-    y = torch.tensor(y_train).to(device).float()
-    y_val = torch.tensor(y_val).to(device).float()
-
-    nn_init = NN(num_hidden, dim_hidden, dim_input=2, dim_output=1).to(device)
-
-    dir_model = pass_folder('in_model')
-    dir_logs = pass_folder('in_model/logs')
-    model_name = 'init_NN.pth'
-    model_path = os.path.join(dir_model, model_name)
-
-    loss_fn = Loss_NN(
-        x,
-        t,
-        y
-    )
-
-    nn_trained, loss_values = train_model_nn(
-        nn_init, loss_fn=loss_fn, learning_rate=lr, max_epochs=epochs, x_val=x_val, t_val=t_val, y_val=y_val,
-        path_logs=dir_logs)
-
-    my_beam.plot_sol(dir_model)
-
-    torch.save(nn_trained.state_dict(), model_path)
-    
     idx = int(np.floor(w_ad.shape[0]/2))
     
-    return t_hat, w_ad[idx,:]
+    return t_lin, w_ad[idx,:]
