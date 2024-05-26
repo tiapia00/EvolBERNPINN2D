@@ -67,7 +67,6 @@ class Grid:
         return grid_init
 
     def generate_grid_bound(self):
-
         """
              .+------+
            .' |    .'|
@@ -83,7 +82,7 @@ class Grid:
         x_linspace = torch.linspace(
             self.x_domain[0], self.x_domain[1], self.n_points)
         y_linspace = torch.linspace(
-                self.y_domain[0], self.y_domain[1], self.n_points)
+            self.y_domain[0], self.y_domain[1], self.n_points)
         t_linspace = torch.linspace(
             self.t_domain[0], self.t_domain[1], self.n_points)
 
@@ -129,10 +128,14 @@ class Grid:
         return (x_grid, y_grid, t0)
 
     def get_boundary_points(self):
-        down = tuple(self.grid_bound[0][:, i].unsqueeze(1).requires_grad_().to(self.device) for i in range(self.grid_bound[0].shape[1]))
-        up = tuple(self.grid_bound[1][:, i].unsqueeze(1).requires_grad_().to(self.device) for i in range(self.grid_bound[1].shape[1]))
-        left = tuple(self.grid_bound[2][:, i].unsqueeze(1).requires_grad_().to(self.device) for i in range(self.grid_bound[2].shape[1]))
-        right = tuple(self.grid_bound[3][:, i].unsqueeze(1).requires_grad_().to(self.device) for i in range(self.grid_bound[3].shape[1]))
+        down = tuple(self.grid_bound[0][:, i].unsqueeze(1).requires_grad_().to(
+            self.device) for i in range(self.grid_bound[0].shape[1]))
+        up = tuple(self.grid_bound[1][:, i].unsqueeze(1).requires_grad_().to(
+            self.device) for i in range(self.grid_bound[1].shape[1]))
+        left = tuple(self.grid_bound[2][:, i].unsqueeze(1).requires_grad_().to(
+            self.device) for i in range(self.grid_bound[2].shape[1]))
+        right = tuple(self.grid_bound[3][:, i].unsqueeze(1).requires_grad_().to(
+            self.device) for i in range(self.grid_bound[3].shape[1]))
         return (down, up, left, right)
 
     def get_interior_points(self):
@@ -230,10 +233,10 @@ class PINN(nn.Module):
 
 
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-    #hard_enc = torch.sin(x*np.pi)
-    #hard_enc = hard_enc.view(-1, 1)
-    #hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
-    return pinn(x, y, t)
+    hard_enc = torch.sin(x*np.pi)
+    hard_enc = hard_enc.view(-1, 1)
+    hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
+    return hard_enc_both*pinn(x, y, t)
 
 
 def df(output: torch.Tensor, inputs: list, var: int = 0) -> torch.Tensor:
@@ -366,11 +369,11 @@ class Loss:
         duy_x_right = df(right, [x_right], 1)
         tr_right = df(right, [x_right], 0) + duy_y_right
 
-        loss_upx = ux_up
-        loss_upy = uy_up
+        # loss_upx = ux_up
+        # loss_upy = uy_up
 
-        loss_downx = ux_down
-        loss_downy = uy_down
+        # loss_downx = ux_down
+        # loss_downy = uy_down
 
         loss_left1 = 2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
         loss_left2 = 2*self.z[0]*duy_y_left + self.z[1]*tr_left
@@ -378,10 +381,9 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return pinn.forward_mask(2)*(loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
-                                     loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
-                                     loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
-                                     loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
+        return pinn.forward_mask(2)*(
+            loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
+            loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
     def verbose(self, pinn, epoch):
         residual_loss, en_crit = self.residual_loss(pinn)
@@ -427,7 +429,7 @@ def train_model(
         loss.backward()
         optimizer.step()
 
-        pbar.set_description(f"Global loss: {loss.item():.2f}")
+        pbar.set_description(f"Global loss: {loss.item():.3e}")
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
@@ -454,7 +456,7 @@ def train_model(
 
     writer.close()
 
-    return nn_approximator 
+    return nn_approximator
 
 
 def return_adim(x_dom: np.ndarray, t_dom: np.ndarray, rho: float, mu: float, lam: float):

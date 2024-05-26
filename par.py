@@ -3,16 +3,16 @@ class Parameters:
         self.x_end = 2
         self.y_end = 0.2
         self.t_end = 5
-        self.n = 20
-        self.neurons_per_layer = 30
+        self.n = 30
+        self.neurons_per_layer = 70
         self.pinn_par = {
             'x_end' : self.x_end,
             'y_end' : self.y_end,
             't_end' : self.t_end,
             'n' : self.n,
             'neuron_per_layer' : self.neurons_per_layer,
-            'lr' : 0.001,
-            'epochs' : 3000,
+            'lr' : 0.0005,
+            'epochs' : 8000,
             }
         self.beam_par = {
             'x_end' : self.x_end,

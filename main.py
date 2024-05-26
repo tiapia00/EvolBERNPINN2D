@@ -27,7 +27,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = False
+retrain_PINN = True 
 delete_old = False
 
 if delete_old:
