@@ -187,11 +187,9 @@ class RBF(nn.Module):
         return self.basis_func(distances)
 
 
-def matern52(alpha):
-    phi = (torch.ones_like(alpha) + 5**0.5*alpha + (5/3)
-           * alpha.pow(2))*torch.exp(-5**0.5*alpha)
+def gaussian(alpha):
+    phi = torch.exp(-1*alpha.pow(2))
     return phi
-
 
 class PINN(nn.Module):
     """Simple neural network accepting two features as input and returning a single output
@@ -203,7 +201,7 @@ class PINN(nn.Module):
     def __init__(self, dim_hidden: int, points: dict, dim_input: int = 3, dim_output: int = 4, act=nn.Tanh()):
 
         super().__init__()
-        self.layer_in = RBF(dim_input, dim_hidden, matern52)
+        self.layer_in = RBF(dim_input, dim_hidden, gaussian)
         self.dim_hidden = dim_hidden
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
@@ -213,7 +211,7 @@ class PINN(nn.Module):
             if i == len(points)-1:
                 self.weights.append(nn.Parameter(torch.tensor([1.])))
             elif i == 1:
-                self.weights.append(nn.Parameter(5*torch.ones(value[0].shape)))
+                self.weights.append(nn.Parameter(2.5*torch.ones(value[0].shape)))
             else:
                 self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
 
