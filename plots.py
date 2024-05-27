@@ -98,7 +98,82 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
 
     plt.savefig(f'{path}/init.png')
 
+def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, w_ad: np.ndarray, n_train:
+             int, path: str, name: str, device):
 
+    nx = n_train - 2
+    ny = nx
+    nt = n_train - 1
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
+
+    ax.set_title(f'Time response - {name}')
+
+    t_raw = torch.unique(t, sorted=True)
+    t_raw = t_raw.reshape(-1, 1)
+
+    x_raw = x.reshape(nx, ny, nt)
+    y_raw = y.reshape(nx, ny, nt)
+
+    x = x_raw[:, :, 0]
+    y = y_raw[:, :, 0]
+
+    x = x.reshape(-1, 1).to(device)
+    y = y.reshape(-1, 1).to(device)
+
+    t_shaped = torch.ones_like(x)
+    t = t_shaped*t_raw[0].to(device)
+
+    output = f(pinn, x, y, t)
+
+    x_plot = x.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
+    y_plot = y.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
+
+    z0 = output.cpu().detach().numpy()
+    norm = np.linalg.norm(z0, axis=1).reshape(-1)
+
+    ax.scatter(x_plot+z0[:, 0], y_plot+z0[:, 1], c=norm, cmap='viridis')
+    ax.scatter(np.unique(x_plot), w_ad[1:-1,0])
+
+    def update(
+            frame,
+            x: torch.tensor,
+            y: torch.tensor,
+            x_plot: np.ndarray,
+            y_plot: np.ndarray,
+            t_raw: torch.tensor,
+            t_shaped: torch.tensor,
+            pinn: PINN,
+            ax):
+
+        x_limts = np.array([0, 2])
+        y_limts = np.array([-0.5, 0.5])
+        t = t_shaped*t_raw[frame]
+
+        output = f(pinn, x, y, t)
+
+        z = output.cpu().detach().numpy()
+        norm = np.linalg.norm(z, axis=1).reshape(-1)
+
+        ax.clear()
+
+        ax.set_xlabel('$\\hat{x}$')
+        ax.set_ylabel('$\\hat{y}$')
+
+        ax.set_xlim(np.min(x_limts), np.max(x_limts))
+        ax.set_ylim(np.min(y_limts), np.max(y_limts))
+        ax.scatter(x_plot+z[:, 0], y_plot+z[:, 1], c=norm, cmap='viridis')
+        ax.scatter(np.unique(x_plot), w_ad[1:-1, frame])
+
+        return ax
+    
+    n_frames = len(t_raw)
+    ani = FuncAnimation(fig, update, frames=n_frames,
+                        fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
+
+    file = f'{path}/sol_time_comparison.gif'
+    ani.save(file, fps=60)
+    
 def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train:
              int, path: str, name: str, device):
 
@@ -124,7 +199,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
 
     t_shaped = torch.ones_like(x)
     t = t_shaped*t_raw[0].to(device)
-    
+
     output = f(pinn, x, y, t)
 
     x_plot = x.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
@@ -181,7 +256,7 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, t_ad: np.ndar
     fig.suptitle('Midpoint displacement')
 
     t_raw = torch.unique(t, sorted=True)
-    
+
     x = torch.tensor([0.5]).to(device).reshape(-1, 1)
     y = torch.tensor([0.5]).to(device).reshape(-1, 1)
 

@@ -48,8 +48,6 @@ def train_init_NN(par: Parameters, device: torch.device):
     def adimensionalize_sol(w: np.ndarray, w_ast: float):
         return w/w_ast
 
-    w_ad = adimensionalize_sol(w, Lx).T
+    w_ad = adimensionalize_sol(w, Lx)
 
-    idx = int(np.floor(w_ad.shape[0]/2))
-    
-    return t_lin, w_ad[idx,:]
+    return t_lin, w_ad

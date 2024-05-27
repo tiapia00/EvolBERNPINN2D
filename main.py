@@ -1,4 +1,4 @@
-from plots import plot_initial_conditions, plot_sol, plot_midpoint_displ
+from plots import plot_initial_conditions, plot_sol, plot_midpoint_displ, plot_sol_comparison
 import numpy as np
 import os
 import torch
@@ -27,7 +27,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = True 
+retrain_PINN = False
 delete_old = False
 
 if delete_old:
@@ -36,7 +36,7 @@ if delete_old:
 
 par = Parameters()
 
-t_ad, w_ad_mid = train_init_NN(par, device)
+t_ad, w_ad = train_init_NN(par, device)
 
 E, rho, _, nu = get_params(par.mat_par)
 
@@ -106,4 +106,6 @@ plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 
 x, y, t = grid.get_interior_points()
 plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction', device)
+w_ad_mid = w_ad[:, int(w_ad.shape[0]/2)]
 plot_midpoint_displ(pinn_trained, t, n_train, t_ad[1:], w_ad_mid[1:], dir_model, device)
+plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train, dir_model, 'Comparison with analytical solution', device)
