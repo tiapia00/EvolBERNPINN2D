@@ -2,9 +2,9 @@ class Parameters:
     def __init__(self):
         self.x_end = 2
         self.y_end = 0.2
-        self.t_end = 5
-        self.n = 30
-        self.neurons_per_layer = 40
+        self.t_end = 20 
+        self.n = 20
+        self.neurons_per_layer = 50
         self.pinn_par = {
             'x_end' : self.x_end,
             'y_end' : self.y_end,
@@ -12,7 +12,7 @@ class Parameters:
             'n' : self.n,
             'neuron_per_layer' : self.neurons_per_layer,
             'lr' : 0.001,
-            'epochs' : 2000,
+            'epochs' : 10000,
             }
         self.beam_par = {
             'x_end' : self.x_end,

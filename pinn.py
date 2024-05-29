@@ -13,9 +13,10 @@ from typing import Tuple
 import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 
+
 def initial_conditions(x: torch.tensor, y: torch.tensor, Lx: float, i: float = 1) -> torch.tensor:
     res_ux = torch.zeros_like(x)
-    res_uy = 0.1*torch.sin(torch.pi*i/x[-1]*x)
+    res_uy = 0.5*torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
 
 
@@ -191,6 +192,7 @@ def gaussian(alpha):
     phi = torch.exp(-1*alpha.pow(2))
     return phi
 
+
 class PINN(nn.Module):
     """Simple neural network accepting two features as input and returning a single output
 
@@ -211,7 +213,7 @@ class PINN(nn.Module):
             if i == len(points)-1:
                 self.weights.append(nn.Parameter(torch.tensor([1.])))
             elif i == 1:
-                self.weights.append(nn.Parameter(2.5*torch.ones(value[0].shape)))
+                self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
             else:
                 self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
 
@@ -230,10 +232,10 @@ class PINN(nn.Module):
 
 
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-    hard_enc = torch.sin(x*np.pi)
-    hard_enc = hard_enc.view(-1, 1)
-    hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
-    return hard_enc_both*pinn(x, y, t)
+    # hard_enc = torch.sin(x*np.pi)
+    # hard_enc = hard_enc.view(-1, 1)
+    # hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
+    return pinn(x, y, t)
 
 
 def df(output: torch.Tensor, inputs: list, var: int = 0) -> torch.Tensor:
@@ -332,8 +334,8 @@ class Loss:
         loss1 = m*(ux - pinn_init_ux)
         loss2 = m*(uy - pinn_init_uy)
 
-        loss3 = m*vx
-        loss4 = m*vy
+        loss3 = vx
+        loss4 = vy
 
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
@@ -366,11 +368,11 @@ class Loss:
         duy_x_right = df(right, [x_right], 1)
         tr_right = df(right, [x_right], 0) + duy_y_right
 
-        # loss_upx = ux_up
-        # loss_upy = uy_up
+        loss_upx = ux_up
+        loss_upy = uy_up
 
-        # loss_downx = ux_down
-        # loss_downy = uy_down
+        loss_downx = ux_down
+        loss_downy = uy_down
 
         loss_left1 = 2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
         loss_left2 = 2*self.z[0]*duy_y_left + self.z[1]*tr_left
@@ -378,9 +380,10 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return pinn.forward_mask(2)*(
-            loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
-            loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
+        return pinn.forward_mask(2)*(loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
+                                     loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
+                                     loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
+                                     loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
     def verbose(self, pinn, epoch):
         residual_loss, en_crit = self.residual_loss(pinn)

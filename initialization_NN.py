@@ -50,4 +50,4 @@ def train_init_NN(par: Parameters, device: torch.device):
 
     w_ad = adimensionalize_sol(w, Lx)
 
-    return t_lin, w_ad
+    return w_ad
