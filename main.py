@@ -46,7 +46,7 @@ Lx, Ly, T, n_train, dim_hidden, lr, epochs = get_params(par.pinn_par)
 
 x_domain = np.array([0.0, Lx])/Lx
 y_domain = np.array([-Ly/2, Ly/2])/Lx
-t_domain = np.array([0.0, T])/T
+t_domain = np.array([0.0, T])
 
 grid = Grid(x_domain, y_domain, t_domain, n_train, device)
 
