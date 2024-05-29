@@ -45,7 +45,7 @@ lam, mu = par.to_matpar_PINN()
 Lx, Ly, T, n_train, dim_hidden, lr, epochs = get_params(par.pinn_par)
 
 x_domain = np.array([0.0, Lx])/Lx
-y_domain = np.array([0.0, Ly])/Lx
+y_domain = np.array([-Ly/2, Ly/2])/Lx
 t_domain = np.array([0.0, T])/T
 
 grid = Grid(x_domain, y_domain, t_domain, n_train, device)
@@ -99,13 +99,14 @@ x = x.to(device)
 y = y.to(device)
 t = t.to(device)
 z = f(pinn_trained, x, y, t)
-ux0, uy0 = initial_conditions(x, y, Lx, i=1)
+ux0, uy0 = initial_conditions(x, y, i=1)
 z0 = torch.cat((ux0, uy0), dim=1)
 
 plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 
 x, y, t = grid.get_interior_points()
 plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction', device)
+
 w_ad_mid = w_ad[:, int(w_ad.shape[0]/2)]
 plot_midpoint_displ(pinn_trained, t, n_train, w_ad_mid[1:], dir_model, device)
 plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train, dir_model, 'Comparison with analytical solution', device)
