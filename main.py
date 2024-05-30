@@ -13,7 +13,7 @@ from typing import Callable
 from nn import *
 from pinn import *
 from par import Parameters, get_params
-from initialization_NN import train_init_NN
+from analytical import obtain_analytical_trv
 
 torch.set_default_dtype(torch.float32)
 
@@ -36,7 +36,8 @@ if delete_old:
 
 par = Parameters()
 
-w_ad = train_init_NN(par, device)
+t_ast, w_ad = obtain_analytical_trv(par)
+print(t_ast)
 
 E, rho, _, nu = get_params(par.mat_par)
 
@@ -46,7 +47,7 @@ Lx, Ly, T, n_train, dim_hidden, lr, epochs = get_params(par.pinn_par)
 
 x_domain = np.array([0.0, Lx])/Lx
 y_domain = np.array([-Ly/2, Ly/2])/Lx
-t_domain = np.array([0.0, T])/T
+t_domain = np.array([0.0, T])/t_ast
 
 grid = Grid(x_domain, y_domain, t_domain, n_train, device)
 

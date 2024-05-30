@@ -99,15 +99,13 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     plt.savefig(f'{path}/init.png')
 
 def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, w_ad: np.ndarray, n_train:
-             int, path: str, name: str, device):
+             int, path: str, device):
 
     nx = n_train - 2
     ny = nx
     nt = n_train - 1
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
-
-    ax.set_title(f'Time response - {name}')
 
     t_raw = torch.unique(t, sorted=True)
     t_raw = t_raw.reshape(-1, 1)
@@ -134,6 +132,9 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
     ax.scatter(x_plot+z0[:, 0], y_plot+z0[:, 1], c=norm, cmap='viridis')
     ax.scatter(np.unique(x_plot), w_ad[1:-1,0])
+    t_value = float(t_raw[0])
+
+    ax.set_title(f'$t = {t_value}$')
 
     def update(
             frame,
@@ -154,11 +155,13 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
         z = output.cpu().detach().numpy()
         norm = np.linalg.norm(z, axis=1).reshape(-1)
+        t_value = float(t[0])
 
         ax.clear()
 
         ax.set_xlabel('$\\hat{x}$')
         ax.set_ylabel('$\\hat{y}$')
+        ax.set_title(f'$t = {t_value}$')
 
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
@@ -182,8 +185,6 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     nt = n_train - 1
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
-
-    ax.set_title(f'Time response - {name}')
 
     t_raw = torch.unique(t, sorted=True)
     t_raw = t_raw.reshape(-1, 1)
@@ -209,6 +210,9 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     norm = np.linalg.norm(z0, axis=1).reshape(-1)
 
     ax.scatter(x_plot+z0[:, 0], y_plot+z0[:, 1], c=norm, cmap='viridis')
+    t_value = float(t_raw[0])
+
+    ax.set_title(f'$t = {t_value}$')
 
     def update(
             frame,
@@ -236,6 +240,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
 
         ax.set_xlabel('$\\hat{x}$')
         ax.set_ylabel('$\\hat{y}$')
+        ax.set_title(f'$t = {t_value}$') 
 
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
@@ -248,7 +253,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
                         fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
 
     file = f'{path}/sol_time.gif'
-    ani.save(file, fps=60)
+    ani.save(file, fps=30)
 
 
 def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, uy_mid: np.ndarray, path: str, device):
