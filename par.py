@@ -12,7 +12,7 @@ class Parameters:
             'n': self.n,
             'neuron_per_layer': self.neurons_per_layer,
             'lr': 0.001,
-            'epochs': 1000,
+            'epochs': 5000,
         }
         self.beam_par = {
             'x_end': self.x_end,

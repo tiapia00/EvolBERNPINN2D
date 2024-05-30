@@ -163,7 +163,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
         ax.set_xlabel('$\\hat{x}$')
         ax.set_ylabel('$\\hat{y}$')
-        ax.set_title(f'$t = {t_value}$')
+        ax.set_title(f'$t = {t_value:.2f}$')
 
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
@@ -177,11 +177,11 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
                         fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
 
     file = f'{path}/sol_time_comparison.gif'
-    ani.save(file, fps=60)
+    ani.save(file, fps=30)
 
 
 def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train:
-             int, path: str, name: str, device):
+             int, path: str, device):
 
     nx = n_train - 2
     ny = nx
@@ -215,7 +215,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     ax.scatter(x_plot+z0[:, 0], y_plot+z0[:, 1], c=norm, cmap='viridis')
     t_value = float(t_raw[0])
 
-    ax.set_title(f'$t = {t_value}$')
+    ax.set_title(f'$t = {t_value:.2f}$')
 
     def update(
             frame,

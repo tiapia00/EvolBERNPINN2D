@@ -27,7 +27,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = True
+retrain_PINN = False
 delete_old = False
 
 if delete_old:
@@ -37,7 +37,6 @@ if delete_old:
 par = Parameters()
 
 t_ast, w_ad = obtain_analytical_trv(par)
-print(t_ast)
 
 E, rho, _, nu = get_params(par.mat_par)
 
@@ -106,9 +105,9 @@ z0 = torch.cat((ux0, uy0), dim=1)
 plot_initial_conditions(z, z0, x, y, n_train, dir_model)
 
 x, y, t = grid.get_interior_points()
-plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction', device)
+plot_sol(pinn_trained, x, y, t, n_train, dir_model, device)
 
 w_ad_mid = w_ad[:, int(w_ad.shape[0]/2)]
 plot_midpoint_displ(pinn_trained, t, n_train, w_ad_mid[1:], dir_model, device)
 plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train,
-                    dir_model, 'Comparison with analytical solution', device)
+                    dir_model, device)

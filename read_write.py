@@ -58,8 +58,8 @@ def get_last_modified_file(folder_path, file_extension):
             # Return the path of the most recently modified file
             return files[0][0]
         else:
-            print(f"No files with extension {file_extension} found in {
-                  folder_path} or its subfolders.")
+            print(f"No files with extension {file_extension} found in {folder_path} \
+            or its subfolders.")
             return None
 
     except OSError as e:
