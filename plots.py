@@ -7,6 +7,7 @@ from matplotlib.animation import FuncAnimation
 from pinn import PINN, f
 import numpy as np
 
+
 def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, factors: torch.tensor):
     x = x.reshape(n_train, n_train).detach().cpu().numpy()
     y = y.reshape(n_train, n_train).detach().cpu().numpy()
@@ -98,8 +99,9 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
 
     plt.savefig(f'{path}/init.png')
 
+
 def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, w_ad: np.ndarray, n_train:
-             int, path: str, device):
+                        int, path: str, device):
 
     nx = n_train - 2
     ny = nx
@@ -131,7 +133,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
     norm = np.linalg.norm(z0, axis=1).reshape(-1)
 
     ax.scatter(x_plot+z0[:, 0], y_plot+z0[:, 1], c=norm, cmap='viridis')
-    ax.scatter(np.unique(x_plot), w_ad[1:-1,0])
+    ax.scatter(np.unique(x_plot), w_ad[1:-1, 0])
     t_value = float(t_raw[0])
 
     ax.set_title(f'$t = {t_value}$')
@@ -169,14 +171,15 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
         ax.scatter(np.unique(x_plot), w_ad[1:-1, frame])
 
         return ax
-    
+
     n_frames = len(t_raw)
     ani = FuncAnimation(fig, update, frames=n_frames,
                         fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
 
     file = f'{path}/sol_time_comparison.gif'
     ani.save(file, fps=60)
-    
+
+
 def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train:
              int, path: str, name: str, device):
 
@@ -240,7 +243,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
 
         ax.set_xlabel('$\\hat{x}$')
         ax.set_ylabel('$\\hat{y}$')
-        ax.set_title(f'$t = {t_value}$') 
+        ax.set_title(f'$t = {t_value}$')
 
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
@@ -278,8 +281,9 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, uy_mid: np.nd
     ax[0].set_title('Prediction from PINN')
     ax[0].set_xlabel('$\\hat{t}$')
     ax[0].set_ylabel('$\\hat{u}_y$')
-    
-    ax[1].plot(t_raw.cpu().detach().numpy(), uy_mid-np.array(uy_mid_PINN), color='red')
+
+    ax[1].plot(t_raw.cpu().detach().numpy(), uy_mid -
+               np.array(uy_mid_PINN), color='red')
     ax[1].set_title('Deviation from analytical')
     ax[1].set_xlabel('$\\hat{t}$')
     ax[1].set_ylabel('$\\hat{u}_\\text{y,an}-\\hat{u}_\\text{y,PINN}$')

@@ -27,7 +27,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = True 
+retrain_PINN = True
 delete_old = False
 
 if delete_old:
@@ -52,10 +52,10 @@ t_domain = np.array([0.0, T])/t_ast
 grid = Grid(x_domain, y_domain, t_domain, n_train, device)
 
 points = {
-            'res_points': grid.get_interior_points(),
-            'initial_points': grid.get_initial_points(),
-            'boundary_points': grid.get_boundary_points()
-        }
+    'res_points': grid.get_interior_points(),
+    'initial_points': grid.get_initial_points(),
+    'boundary_points': grid.get_boundary_points()
+}
 
 pinn = PINN(dim_hidden, points, act=nn.Tanh()).to(device)
 
@@ -71,7 +71,7 @@ if retrain_PINN:
     )
 
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
-                                            max_epochs=epochs, path_logs=dir_logs, points=points, n_train=n_train)
+                               max_epochs=epochs, path_logs=dir_logs, points=points, n_train=n_train)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
@@ -110,4 +110,5 @@ plot_sol(pinn_trained, x, y, t, n_train, dir_model, 'NN prediction', device)
 
 w_ad_mid = w_ad[:, int(w_ad.shape[0]/2)]
 plot_midpoint_displ(pinn_trained, t, n_train, w_ad_mid[1:], dir_model, device)
-plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train, dir_model, 'Comparison with analytical solution', device)
+plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train,
+                    dir_model, 'Comparison with analytical solution', device)

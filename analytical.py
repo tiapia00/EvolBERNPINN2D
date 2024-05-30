@@ -13,6 +13,7 @@ from typing import Callable
 import pytz
 from nn import *
 
+
 def obtain_analytical_trv(par: Parameters):
     Lx, t, n = get_params(par.beam_par)
     E, rho, _, h = get_params(par.mat_par)

@@ -8,12 +8,14 @@ import datetime
 import pytz
 from typing import Callable
 
+
 class NN(nn.Module):
     """Simple neural network accepting two features as input and returning a single output
 
     In the context of PINNs, the neural network is used as a universal function approximator
     to approximate the solution of the differential equation
     """
+
     def __init__(self, num_hidden: int, dim_hidden: int, dim_input: int = 3, dim_output: int = 2, act=nn.Tanh()):
 
         super().__init__()
@@ -44,6 +46,7 @@ class NN(nn.Module):
     def device(self):
         return next(self.parameters()).device
 
+
 class Loss_NN:
     def __init__(
         self,
@@ -64,6 +67,7 @@ class Loss_NN:
     def __call__(self, nn: NN):
         return self.loss(nn)
 
+
 def train_model_nn(
     nn_approximator: NN,
     loss_fn: Callable,
@@ -74,7 +78,8 @@ def train_model_nn(
     y_val: torch.tensor,
     path_logs: str
 ) -> NN:
-    optimizer = torch.optim.Adam(nn_approximator.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(
+        nn_approximator.parameters(), lr=learning_rate)
     loss_values = []
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
@@ -100,10 +105,12 @@ def train_model_nn(
     pbar.close()
     return nn_approximator, np.array(loss_values)
 
+
 def f_nn(nn: NN, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
     """Compute the value of the approximate solution from the NN model
     Internally calling the forward method when calling the class as a function"""
     return nn(x, t)
+
 
 def get_current_time(fmt="%H:%M") -> str:
     tz = pytz.timezone('Europe/Berlin')

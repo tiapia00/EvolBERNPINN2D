@@ -226,9 +226,9 @@ class PINN(nn.Module):
         hard_enc = torch.sin(x*np.pi)
         hard_enc = hard_enc.view(-1, 1)
         hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
-        
+
         out = logits*hard_enc_both
-        return out 
+        return out
 
     def forward_mask(self, idx: int):
         masked_weights = torch.sigmoid(self.weights[idx])
@@ -239,7 +239,7 @@ class PINN(nn.Module):
 
 
 def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        return pinn(x, y, t)
+    return pinn(x, y, t)
 
 
 def df(output: torch.Tensor, inputs: list, var: int = 0) -> torch.Tensor:
@@ -309,10 +309,10 @@ class Loss:
         loss3 = m*(dvx_t - df(output, [t, t], 0))
         loss4 = m*(dvy_t - df(output, [t, t], 1))
 
-        vx = output[:,2].reshape(-1,1)
-        vy = output[:,3].reshape(-1,1)
+        vx = output[:, 2].reshape(-1, 1)
+        vy = output[:, 3].reshape(-1, 1)
         h = torch.max(y) - torch.min(y)
-        
+
         d_en = (1/2*h*(vx+vy)).pow(2) + self.z[0]*(dux_x + duy_y)**2 +\
             self.z[1]*2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)
                          ** 2 + (duy_x + dux_y)**2)
@@ -388,10 +388,10 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return pinn.forward_mask(2)*(#loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
-                                     #loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
-                                     loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
-                                     loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
+        return pinn.forward_mask(2)*(  # loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
+            # loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
+            loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
+            loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
     def verbose(self, pinn, epoch):
         residual_loss, en_crit = self.residual_loss(pinn)
