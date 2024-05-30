@@ -17,8 +17,8 @@ def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, facto
     plt.scatter(x, y, c=factors, cmap=viridis)
     plt.colorbar()
 
-    plt.xlabel('x')
-    plt.ylabel('y')
+    plt.xlabel('$\\hat{x}$')
+    plt.ylabel('$\\hat{y}$')
 
     fig.canvas.draw()
 
@@ -43,9 +43,9 @@ def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_
     ax = fig.add_subplot(111, projection='3d')
     sc = ax.scatter(x, y, t, c=factors, cmap=viridis)
 
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('t')
+    ax.set_xlabel('$\\hat{x}$')
+    ax.set_ylabel('$\\hat{y}$')
+    ax.set_zlabel('$\\hat{t}$')
 
     cbar = fig.colorbar(sc, ax=ax)
 
@@ -136,7 +136,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
     ax.scatter(np.unique(x_plot), w_ad[1:-1, 0])
     t_value = float(t_raw[0])
 
-    ax.set_title(f'$t = {t_value}$')
+    ax.set_title(f'$\\hat{{t}} = {t_value:.2f}$')
 
     def update(
             frame,
@@ -163,7 +163,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
         ax.set_xlabel('$\\hat{x}$')
         ax.set_ylabel('$\\hat{y}$')
-        ax.set_title(f'$t = {t_value:.2f}$')
+        ax.set_title(f'$\\hat{{t}} = {t_value:.2f}$')
 
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
@@ -177,7 +177,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
                         fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
 
     file = f'{path}/sol_time_comparison.gif'
-    ani.save(file, fps=30)
+    ani.save(file, fps=5)
 
 
 def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train:
@@ -215,7 +215,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     ax.scatter(x_plot+z0[:, 0], y_plot+z0[:, 1], c=norm, cmap='viridis')
     t_value = float(t_raw[0])
 
-    ax.set_title(f'$t = {t_value:.2f}$')
+    ax.set_title(f'$\\hat{{t}} = {t_value:.2f}$')
 
     def update(
             frame,
@@ -243,7 +243,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
 
         ax.set_xlabel('$\\hat{x}$')
         ax.set_ylabel('$\\hat{y}$')
-        ax.set_title(f'$t = {t_value}$')
+        ax.set_title(f'$\\hat{{t}} = {t_value}$')
 
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
@@ -256,7 +256,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
                         fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
 
     file = f'{path}/sol_time.gif'
-    ani.save(file, fps=30)
+    ani.save(file, fps=5)
 
 
 def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, uy_mid: np.ndarray, path: str, device):
