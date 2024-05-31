@@ -461,7 +461,8 @@ def train_model(
 
             writer.add_image('res_penalty', image_penalty_res, epoch)
             writer.add_image('in_penalty', image_penalty_in, epoch)
-
+            
+        writer.add_scalar('bound_penalty', nn_approximator.weight[2].data, epoch)
         pbar.update(1)
 
     pbar.update(1)
