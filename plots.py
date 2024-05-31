@@ -243,7 +243,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
 
         ax.set_xlabel('$\\hat{x}$')
         ax.set_ylabel('$\\hat{y}$')
-        ax.set_title(f'$\\hat{{t}} = {t_value}$')
+        ax.set_title(f'$\\hat{{t}} = {t_value:.2f}$')
 
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
