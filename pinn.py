@@ -483,10 +483,8 @@ def train_model(
     return nn_approximator
 
 
-def return_adim(x_dom: np.ndarray, t_dom: np.ndarray, rho: float, mu: float, lam: float):
-    L_ast = x_dom[-1]
-    T_ast = t_dom[-1]
-    z_1 = T_ast**2/(L_ast*rho)*mu
+def return_adim(L_tild, t_tild, rho: float, mu: float, lam: float):
+    z_1 = t_tild**2/(L_tild*rho)*mu
     z_2 = z_1/mu*lam
     z = np.array([z_1, z_2])
     z = torch.tensor(z)

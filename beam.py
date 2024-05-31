@@ -142,9 +142,7 @@ class Beam:
             self.m = calculate_m()
             self.k = calculate_k()
 
-        def def_load(self, xi, F, omega):
-            # Find index of nearest point
-            nearest_index = np.abs(self.xi - xi).argmin()
+        def def_load_distr(self, xi, F, omega):
             self.xi_L = self.xi[nearest_index]
             self.idx = nearest_index
             self.F = F

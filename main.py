@@ -36,7 +36,7 @@ if delete_old:
 
 par = Parameters()
 
-t_ast, w_ad = obtain_analytical_trv(par)
+t_tild, w_ad = obtain_analytical_trv(par)
 
 E, rho, _, nu = get_params(par.mat_par)
 
@@ -44,9 +44,10 @@ lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_train, w0, dim_hidden, n_hidden, lr, epochs = get_params(par.pinn_par)
 
-x_domain = np.array([0.0, Lx])/Lx
-y_domain = np.array([-Ly/2, Ly/2])/Lx
-t_domain = np.array([0.0, T])/t_ast
+L_tild = Lx
+x_domain = np.array([0.0, Lx])/L_tild
+y_domain = np.array([-Ly/2, Ly/2])/L_tild
+t_domain = np.array([0.0, T])/t_tild
 
 grid = Grid(x_domain, y_domain, t_domain, n_train, device)
 
@@ -64,7 +65,7 @@ if retrain_PINN:
     dir_logs = pass_folder('model/logs')
 
     loss_fn = Loss(
-        return_adim(x_domain, t_domain, rho, mu, lam),
+        return_adim(L_tild, t_tild, rho, mu, lam),
         initial_conditions,
         points,
         w0
