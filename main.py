@@ -79,6 +79,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
+    pinn_trained = PINN(dim_hidden, n_hidden, points).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
@@ -98,7 +99,7 @@ x = x.to(device)
 y = y.to(device)
 t = t.to(device)
 z = f(pinn_trained, x, y, t)
-ux0, uy0 = initial_conditions(x, y, i=1)
+ux0, uy0 = initial_conditions(x, y, w0)
 z0 = torch.cat((ux0, uy0), dim=1)
 
 plot_initial_conditions(z, z0, x, y, n_train, dir_model)
