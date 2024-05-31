@@ -14,10 +14,9 @@ import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 
 
-def initial_conditions(x: torch.tensor, y: torch.tensor, i: float = 1) -> torch.tensor:
-    A = 0.2
+def initial_conditions(x: torch.tensor, y: torch.tensor, w0: float, i: float = 1) -> torch.tensor:
     res_ux = torch.zeros_like(x)
-    res_uy = A*torch.sin(torch.pi*i/x[-1]*x)
+    res_uy = w0*torch.sin(torch.pi*i/x[-1]*x)
     return res_ux, res_uy
 
 
@@ -276,12 +275,14 @@ class Loss:
         self,
         z: torch.Tensor,
         initial_condition: Callable,
+        w0: float,
         points: dict,
         verbose: bool = False,
     ):
         self.z = z
         self.initial_condition = initial_condition
         self.points = points
+        self.w0 = w0
 
     def residual_loss(self, pinn):
         x, y, t = self.points['res_points']
@@ -332,7 +333,7 @@ class Loss:
 
     def initial_loss(self, pinn, epochs):
         x, y, t = self.points['initial_points']
-        pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1])
+        pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1], self.w0)
         output = f(pinn, x, y, t)
 
         ux = output[:, 0].reshape(-1, 1)

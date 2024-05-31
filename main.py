@@ -42,7 +42,7 @@ E, rho, _, nu = get_params(par.mat_par)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_train, dim_hidden, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_train, w0, dim_hidden, lr, epochs = get_params(par.pinn_par)
 
 x_domain = np.array([0.0, Lx])/Lx
 y_domain = np.array([-Ly/2, Ly/2])/Lx
@@ -66,7 +66,8 @@ if retrain_PINN:
     loss_fn = Loss(
         return_adim(x_domain, t_domain, rho, mu, lam),
         initial_conditions,
-        points
+        points,
+        w0
     )
 
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,

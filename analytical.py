@@ -15,7 +15,7 @@ from nn import *
 
 
 def obtain_analytical_trv(par: Parameters):
-    Lx, t, n = get_params(par.beam_par)
+    Lx, t, n, w0 = get_params(par.beam_par)
     E, rho, _, h = get_params(par.mat_par)
     my_beam = Beam(Lx, E, rho, h/1000, 40e-3, n)  # h: m
 
@@ -38,7 +38,7 @@ def obtain_analytical_trv(par: Parameters):
     my_beam.update_phi(phi)
     my_In_Cond = In_Cond(my_beam)
 
-    w_0 = my_beam.phi[:, 0]
+    w_0 = w0*my_beam.phi[:, 0]
     w_dot_0 = np.zeros(len(w_0))
 
     my_In_Cond.pass_init_cond(w_0, w_dot_0)

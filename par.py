@@ -5,11 +5,13 @@ class Parameters:
         self.t_end = 20
         self.n = 20
         self.neurons_per_layer = 120
+        self.w0 = 0.2
         self.pinn_par = {
             'x_end': self.x_end,
             'y_end': self.y_end,
             't_end': self.t_end,
             'n': self.n,
+            'w0': self.w0
             'neuron_per_layer': self.neurons_per_layer,
             'lr': 0.001,
             'epochs': 8000,
@@ -18,6 +20,7 @@ class Parameters:
             'x_end': self.x_end,
             't_end': self.t_end,
             'n': self.n,
+            'w0' : self.w0
         }
         self.mat_par = {
             'E': 68.0e9,
