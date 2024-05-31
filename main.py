@@ -42,7 +42,7 @@ E, rho, _, nu = get_params(par.mat_par)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_train, w0, dim_hidden, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_train, w0, dim_hidden, n_hidden, lr, epochs = get_params(par.pinn_par)
 
 x_domain = np.array([0.0, Lx])/Lx
 y_domain = np.array([-Ly/2, Ly/2])/Lx
@@ -56,7 +56,7 @@ points = {
     'boundary_points': grid.get_boundary_points()
 }
 
-pinn = PINN(dim_hidden, points, act=nn.Tanh()).to(device)
+pinn = PINN(dim_hidden, n_hidden, points).to(device)
 
 if retrain_PINN:
 
@@ -79,8 +79,6 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, points, act=nn.Tanh()).to(device)
-
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)

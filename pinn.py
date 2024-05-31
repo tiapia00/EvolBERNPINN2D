@@ -204,11 +204,20 @@ class PINN(nn.Module):
     to approximate the solution of the differential equation
     """
 
-    def __init__(self, dim_hidden: int, points: dict, dim_input: int = 3, dim_output: int = 4, act=nn.Tanh()):
+    def __init__(self, dim_hidden: int, n_hidden: int, points: dict, dim_input: int = 3, dim_output: int = 4, act=nn.Tanh()):
 
         super().__init__()
         self.layer_in = RBF(dim_input, dim_hidden, gaussian)
         self.sine = SineActivation()
+        
+        self.num_middle = n_hidden - 1
+        self.middle_layers = nn.ModuleList()
+        
+        for _ in range(self.num_middle):
+            middle_layer = nn.Linear(dim_hidden, dim_hidden)
+            self.act = act
+            self.middle_layers.append(middle_layer)
+        
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
         self.weights = nn.ParameterList([])
@@ -275,9 +284,9 @@ class Loss:
         self,
         z: torch.Tensor,
         initial_condition: Callable,
-        w0: float,
         points: dict,
-        verbose: bool = False,
+        w0: float,
+        verbose: bool = False
     ):
         self.z = z
         self.initial_condition = initial_condition
