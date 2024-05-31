@@ -166,6 +166,10 @@ class Grid:
         return (x, y, t)
 
 
+class SineActivation(nn.Module):
+    def forward(self, input):
+        return torch.sin(input)
+
 class RBF(nn.Module):
     def __init__(self, in_features, out_features, basis_func):
         super(RBF, self).__init__()
@@ -205,7 +209,7 @@ class PINN(nn.Module):
 
         super().__init__()
         self.layer_in = RBF(dim_input, dim_hidden, gaussian)
-        self.dim_hidden = dim_hidden
+        self.sine = SineActivation()
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
         self.weights = nn.ParameterList([])
@@ -220,15 +224,15 @@ class PINN(nn.Module):
 
     def forward(self, x, y, t):
         x_stack = torch.cat([x, y, t], dim=1)
-        out = self.layer_in(x_stack)
+        out = self.sine(self.layer_in(x_stack))
         logits = self.layer_out(out)
 
-        hard_enc = torch.sin(x*np.pi)
-        hard_enc = hard_enc.view(-1, 1)
-        hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
-
-        out = logits*hard_enc_both
-        return out
+#       hard_enc = torch.sin(x*np.pi)
+#       hard_enc = hard_enc.view(-1, 1)
+#       hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
+#
+#       out = logits*hard_enc_both
+        return logits
 
     def forward_mask(self, idx: int):
         masked_weights = torch.sigmoid(self.weights[idx])
@@ -376,11 +380,11 @@ class Loss:
         duy_x_right = df(right, [x_right], 1)
         tr_right = df(right, [x_right], 0) + duy_y_right
 
-        #loss_upx = ux_up
-        #loss_upy = uy_up
+        loss_upx = ux_up
+        loss_upy = uy_up
 
-        #loss_downx = ux_down
-        #loss_downy = uy_down
+        loss_downx = ux_down
+        loss_downy = uy_down
 
         loss_left1 = 2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
         loss_left2 = 2*self.z[0]*duy_y_left + self.z[1]*tr_left
@@ -388,8 +392,8 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return pinn.forward_mask(2)*(#loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
-            #loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
+        return pinn.forward_mask(2)*(loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
+            loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
             loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
             loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
