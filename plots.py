@@ -297,7 +297,7 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, uy_mid: np.nd
 
 def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: torch.tensor, path):
     fig = plt.figure(figsize=(10, 8))
-    plt.xlabel('t')
+    plt.xlabel('$\\hat{t}')
 
     t = t.detach().cpu().numpy()
     en = en.detach().cpu().numpy()
@@ -308,5 +308,7 @@ def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: tor
     plt.plot(t, en_k, label='Kinetic energy')
     plt.plot(t, en_p, label='Potential energy')
 
+    plt.legend()
+    
     file = f'{path}/energy.png'
     plt.savefig(file)

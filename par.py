@@ -6,7 +6,7 @@ class Parameters:
         self.n = 20
         self.neurons_per_layer = 40
         self.num_hidden = 3
-        self.w0 = 0.2
+        self.w0 = 0.4
         self.pinn_par = {
             'x_end': self.x_end,
             'y_end': self.y_end,
@@ -16,7 +16,7 @@ class Parameters:
             'neuron_per_layer': self.neurons_per_layer,
             'n_hidden': self.num_hidden,
             'lr': 0.001,
-            'epochs': 500
+            'epochs': 1000
         }
         self.beam_par = {
             'x_end': self.x_end,
