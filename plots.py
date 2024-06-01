@@ -295,7 +295,7 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, uy_mid: np.nd
     plt.savefig(file)
 
 
-def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: torch.tensor, path):
+def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: torch.tensor, e0: float, path):
     fig = plt.figure(figsize=(10, 8))
     plt.xlabel('$\\hat{t}$')
 
@@ -311,4 +311,14 @@ def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: tor
     plt.legend()
 
     file = f'{path}/energy.png'
+    plt.savefig(file)
+    
+    fig = plt.figure(figsize=(10,8))
+
+    plt.plot(t, e0 - en)
+
+    plt.xlabel('$\\hat{t}$')
+    plt.ylabel('$E_0 - E(t)$')
+
+    file = f'{path}/diff_energy.png'
     plt.savefig(file)

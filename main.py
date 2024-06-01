@@ -36,8 +36,7 @@ if delete_old:
 
 par = Parameters()
 
-t_tild, w_ad, V0_ad = obtain_analytical_trv(par)
-print(V0_ad)
+t_tild, w_ad, en0 = obtain_analytical_trv(par)
 E, rho, _, nu = get_params(par.mat_par)
 
 lam, mu = par.to_matpar_PINN()
@@ -113,4 +112,4 @@ plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train,
                     dir_model, device)
 
 t, en_k, en_p, en = calc_energy(pinn_trained, loss_fn, n_train, device)
-plot_energy(t, en_k, en_p, en, dir_model)
+plot_energy(t, en_k, en_p, en, en0, dir_model)
