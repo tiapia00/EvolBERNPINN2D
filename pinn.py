@@ -235,13 +235,13 @@ class PINN(nn.Module):
         x_stack = torch.cat([x, y, t], dim=1)
         out = self.sine(self.layer_in(x_stack))
         logits = self.layer_out(out)
-
+"""
         hard_enc = torch.sin(x*np.pi)
         hard_enc = hard_enc.view(-1, 1)
         hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
 
-        out = logits*hard_enc_both
-        return out
+        out = logits*hard_enc_both"""
+        return logits
 
     def forward_mask(self, idx: int):
         masked_weights = torch.sigmoid(self.weights[idx])
@@ -501,7 +501,6 @@ def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
     y.to(device)
 
     t = torch.unique(t)
-
     nx = n_train-2
     ny = nx
     nt = n_train-1
@@ -523,6 +522,7 @@ def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
         dux_y = df(output, [y], 0)
         duy_x = df(output, [x], 1)
         duy_y = df(output, [y], 1)
+        
 
         d_en_k = (1/2*loss.h*(vx+vy)).pow(2)
         d_en_p = loss.z[0]*(dux_x + duy_y)**2 +\
@@ -534,18 +534,21 @@ def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
 
         d_en_k = d_en_k[:, :, 0]
         d_en_p = d_en_p[:, :, 0]
-
+        
         y_int = y.reshape(nx, ny, nt)
         y_int = y_int[:, 0, 0]
 
         x_int = x.reshape(nx, ny, nt)
         x_int = x_int[:, 0, 0]
 
-        I_y_k = torch.trapz(d_en_k, y_int, dim=1)
-        I_y_p = torch.trapz(d_en_p, y_int, dim=1)
+        I_y_k = torch.trapz(y=d_en_k, x=y_int, dim=1)
+        I_y_p = torch.trapz(y=d_en_p, x=y_int, dim=1)
 
-        en_k_t = torch.trapz(I_y_k, x_int)
-        en_p_t = torch.trapz(I_y_p, x_int)
+        en_k_t = torch.trapz(y=I_y_k, x=x_int)
+        en_p_t = torch.trapz(y=I_y_p, x=x_int)
+        
+        print(en_k_t)
+        print(en_p_t)
 
         en_k.append(en_k_t)
         en_p.append(en_p_t)
