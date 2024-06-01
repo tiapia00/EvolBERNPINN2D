@@ -12,6 +12,7 @@ from tqdm import tqdm
 from typing import Callable
 import pytz
 from nn import *
+from scipy import integrate
 
 
 def obtain_analytical_trv(par: Parameters):
@@ -51,3 +52,38 @@ def obtain_analytical_trv(par: Parameters):
     w_ad = w/Lx
 
     return t_ad, w_ad
+
+
+def calculate_an_init_en(my_beam: Beam, t_ad) -> float:
+    Lx = my_beam.xi[-1]
+    x_ad = my_beam.xi/Lx
+
+    EJ = my_beam.E*my_beam.J
+    w_ad = my_beam.w/Lx
+
+    dw_dxx = df_num(x_ad, df_num(x_ad, w_ad))
+
+    V = 1/2*EJ*integrate.simpson(y=dw_dxx**2, x=x_ad)
+    V_ad = V/(my_beam.rho*Lx**2/t_ad**2)
+
+    return V_ad
+
+def df_num(x: np.ndarray, y: np.ndarray):
+    dx = np.diff(x)
+    dy = np.diff(y)
+
+    derivative = np.zeros_like(y)
+
+    # Forward difference for the first point
+    derivative[0] = dy[0] / dx[0]
+
+    # Central difference for the middle points
+    for i in range(1, len(x) - 1):
+        dx_avg = (x[i+1] - x[i-1]) / 2
+        dy_avg = (y[i+1] - y[i-1]) / 2
+        derivative[i] = dy_avg / dx_avg
+
+    # Backward difference for the last point
+    derivative[-1] = dy[-1] / dx[-1]
+
+    return derivative
