@@ -2,11 +2,11 @@ class Parameters:
     def __init__(self):
         self.x_end = 2
         self.y_end = 0.2
-        self.t_end = 3
+        self.t_end = 2
         self.n = 20
-        self.neurons_per_layer = 40
+        self.neurons_per_layer = 30
         self.num_hidden = 3
-        self.w0 = 0.4
+        self.w0 = 0.5
         self.pinn_par = {
             'x_end': self.x_end,
             'y_end': self.y_end,

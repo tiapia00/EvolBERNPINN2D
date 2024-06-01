@@ -205,7 +205,7 @@ class PINN(nn.Module):
     to approximate the solution of the differential equation
     """
 
-    def __init__(self, dim_hidden: int, n_hidden: int, points: dict, dim_input: int = 3, dim_output: int = 4, act=nn.Tanh()):
+    def __init__(self, dim_hidden: int, n_hidden: int, points: dict, dim_input: int = 3, dim_output: int = 4, act=nn.Sigmoid()):
 
         super().__init__()
         self.layer_in = RBF(dim_input, dim_hidden, gaussian)
