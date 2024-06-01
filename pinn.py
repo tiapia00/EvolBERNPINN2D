@@ -293,7 +293,8 @@ class Loss:
         self.initial_condition = initial_condition
         self.points = points
         self.w0 = w0
-        self.h: float
+        self.h = torch.max(self.points['res_points'][1])-\
+                    torch.min(self.points['res_points'][1])
 
     def residual_loss(self, pinn):
         x, y, t = self.points['res_points']
@@ -327,7 +328,6 @@ class Loss:
 
         vx = output[:, 2].reshape(-1, 1)
         vy = output[:, 3].reshape(-1, 1)
-        self.h = torch.max(y) - torch.min(y)
 
         d_en = (1/2*self.h*(vx+vy)).pow(2) + self.z[0]*(dux_x + duy_y)**2 +\
             self.z[1]*2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)
@@ -495,8 +495,8 @@ def return_adim(L_tild, t_tild, rho: float, mu: float, lam: float):
     return z
 
 
-def calc_energy(pinn_trained: PINN, loss: Loss) -> tuple:
-    x, y, t = points['res_points']
+def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
+    x, y, t = loss.points['res_points']
     x.to(device)
     y.to(device)
 
@@ -505,28 +505,24 @@ def calc_energy(pinn_trained: PINN, loss: Loss) -> tuple:
     nx = n_train-2
     ny = nx
     nt = n_train-1
+    
+    en = []
+    en_k = []
+    en_p = []
 
     for t_raw in t:
         t_i = t_raw*torch.ones_like(x)
         t_i.to(device)
 
-        output = f(pinn, x, y, t_i)
+        output = f(pinn_trained, x, y, t_i)
 
-        dvx_t = df(output, [t_i], 2)
-        dvy_t = df(output, [t_i], 3)
+        vx = output[:,2]
+        vy = output[:,3]
 
         dux_x = df(output, [x], 0)
         dux_y = df(output, [y], 0)
         duy_x = df(output, [x], 1)
         duy_y = df(output, [y], 1)
-
-        dux_xx = df(dux_x, [x])
-        duy_yy = df(duy_y, [y])
-        duy_xx = df(duy_x, [x])
-
-        dux_yy = df(dux_y, [y])
-        dux_xy = df(dux_x, [y])
-        duy_xy = df(duy_x, [y])
 
         d_en_k = (1/2*loss.h*(vx+vy)).pow(2)
         d_en_p = loss.z[0]*(dux_x + duy_y)**2 +\
@@ -538,11 +534,23 @@ def calc_energy(pinn_trained: PINN, loss: Loss) -> tuple:
 
         d_en_k = d_en_k[:, :, 0]
         d_en_p = d_en_p[:, :, 0]
+         
+        y_int = y.reshape(nx, ny, nt)
+        y_int = y_int[:, 0, 0]
+        
+        x_int = x.reshape(nx, ny, nt)
+        x_int = x_int[:, 0, 0]
+        
+        I_y_k = torch.trapz(d_en_k, y_int, dim=1)
+        I_y_p = torch.trapz(d_en_p, y_int, dim=1)
+        
+        en_k.append(torch.trapz(I_y_k, x_int))
+        en_p.append(torch.trapz(I_y_p, x_int))
+        
+        en.append(I_y_k + I_y_p)
+    
+    en_k = torch.stack(en_k)
+    en_p = torch.stack(en_p)
+    en = torch.stack(en)
 
-        I_y_k = torch.trapz(d_en_k, y, dim=1)
-        I_y_p = torch.trapz(d_en_p, y, dim=1)
-
-        en_k = torch.trapz(I_y_k, x)
-        en_p = torch.trapz(I_y_p, x)
-
-    return (t, en, en_k, en_p)
+    return (t, en_k, en_p, en)

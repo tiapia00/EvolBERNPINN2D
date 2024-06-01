@@ -27,7 +27,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = True
+retrain_PINN = False
 delete_old = False
 
 if delete_old:
@@ -111,5 +111,5 @@ plot_midpoint_displ(pinn_trained, t, n_train, w_ad_mid[1:], dir_model, device)
 plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train,
                     dir_model, device)
 
-t, en, en_k, en_p = calc_energy(pinn_trained, loss_fn)
-plot_energy(t, en, en_k, en_p, dir_model)
+t, en_k, en_p, en = calc_energy(pinn_trained, loss_fn, n_train, device)
+plot_energy(t, en_k, en_p, en, dir_model)
