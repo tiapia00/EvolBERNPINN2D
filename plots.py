@@ -297,7 +297,7 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, uy_mid: np.nd
 
 def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: torch.tensor, path):
     fig = plt.figure(figsize=(10, 8))
-    plt.xlabel('$\\hat{t}')
+    plt.xlabel('$\\hat{t}$')
 
     t = t.detach().cpu().numpy()
     en = en.detach().cpu().numpy()
