@@ -293,8 +293,8 @@ class Loss:
         self.initial_condition = initial_condition
         self.points = points
         self.w0 = w0
-        self.h = torch.max(self.points['res_points'][1])-\
-                    torch.min(self.points['res_points'][1])
+        self.h = torch.max(self.points['res_points'][1]) -\
+            torch.min(self.points['res_points'][1])
 
     def residual_loss(self, pinn):
         x, y, t = self.points['res_points']
@@ -505,7 +505,7 @@ def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
     nx = n_train-2
     ny = nx
     nt = n_train-1
-    
+
     en = []
     en_k = []
     en_p = []
@@ -516,8 +516,8 @@ def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
 
         output = f(pinn_trained, x, y, t_i)
 
-        vx = output[:,2]
-        vy = output[:,3]
+        vx = output[:, 2]
+        vy = output[:, 3]
 
         dux_x = df(output, [x], 0)
         dux_y = df(output, [y], 0)
@@ -534,21 +534,24 @@ def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
 
         d_en_k = d_en_k[:, :, 0]
         d_en_p = d_en_p[:, :, 0]
-         
+
         y_int = y.reshape(nx, ny, nt)
         y_int = y_int[:, 0, 0]
-        
+
         x_int = x.reshape(nx, ny, nt)
         x_int = x_int[:, 0, 0]
-        
+
         I_y_k = torch.trapz(d_en_k, y_int, dim=1)
         I_y_p = torch.trapz(d_en_p, y_int, dim=1)
-        
-        en_k.append(torch.trapz(I_y_k, x_int))
-        en_p.append(torch.trapz(I_y_p, x_int))
-        
-        en.append(I_y_k + I_y_p)
-    
+
+        en_k_t = torch.trapz(I_y_k, x_int)
+        en_p_t = torch.trapz(I_y_p, x_int)
+
+        en_k.append(en_k_t)
+        en_p.append(en_p_t)
+
+        en.append(en_k_t + en_p_t)
+
     en_k = torch.stack(en_k)
     en_p = torch.stack(en_p)
     en = torch.stack(en)

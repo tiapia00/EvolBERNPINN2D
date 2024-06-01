@@ -309,6 +309,6 @@ def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: tor
     plt.plot(t, en_p, label='Potential energy')
 
     plt.legend()
-    
+
     file = f'{path}/energy.png'
     plt.savefig(file)
