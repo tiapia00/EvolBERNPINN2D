@@ -56,12 +56,12 @@ def obtain_analytical_trv(par: Parameters):
     return t_ad, w_ad, V0_hat
 
 
-def calculate_an_init_en(my_beam: Beam, t_ad) -> float:
+def calculate_ad_init_en(my_beam: Beam, t_ad) -> float:
     Lx = my_beam.xi[-1]
     x_ad = my_beam.xi/Lx
 
     EJ = my_beam.E*my_beam.J
-    w_ad = my_beam.w/Lx
+    w_ad = my_beam.w[:,0]/Lx
 
     dw_dxx = df_num(x_ad, df_num(x_ad, w_ad))
 

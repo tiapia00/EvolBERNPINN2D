@@ -1,52 +1,52 @@
 import numpy as np
-    import matplotlib.pyplot as plt
-    import matplotlib.ticker as ticker
-    from scipy import integrate
-    from scipy.integrate import solve_ivp
-    from mpl_toolkits.mplot3d import Axes3D
-    import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+from scipy import integrate
+from scipy.integrate import solve_ivp
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.animation as animation
 
 
-    class Beam:
-        def __init__(self, length, E, rho, H, b, n_points):
-            self.length = length  # m
-            self.E = E  # Nm^2
-            self.J = H**3*b/12
-            self.rho = rho  # kg/m
-            self.H = H
-            self.b = b
-            self.A = self.H*self.b
-            self.w: np.ndarray
-            self.gamma: np.ndarray
-            self.omega: np.ndarray
-            self.xi = np.linspace(0, self.length, n_points)
-            self.eps: np.ndarray
-            self.phi: np.ndarray
+class Beam:
+    def __init__(self, length, E, rho, H, b, n_points):
+        self.length = length  # m
+        self.E = E  # Nm^2
+        self.J = H**3*b/12
+        self.rho = rho  # kg/m
+        self.H = H
+        self.b = b
+        self.A = self.H*self.b
+        self.w: np.ndarray
+        self.gamma: np.ndarray
+        self.omega: np.ndarray
+        self.xi = np.linspace(0, self.length, n_points)
+        self.eps: np.ndarray
+        self.phi: np.ndarray
 
-        def update_freq(self):
-            self.omega = (self.gamma**4/(self.rho*self.A)*self.E*self.J)**(1/2)
+    def update_freq(self):
+        self.omega = (self.gamma**4/(self.rho*self.A)*self.E*self.J)**(1/2)
 
-        def update_phi(self, phi: np.ndarray):
-            self.phi = phi
+    def update_phi(self, phi: np.ndarray):
+        self.phi = phi
 
-        def return_modemat_eig(self, F: np.ndarray, gamma):
-            return 1*np.sin(gamma*self.xi)+F[0]*np.cos(gamma*self.xi)+F[1]*np.sinh(gamma*self.xi)+F[2]*np.cosh(gamma*self.xi)
+    def return_modemat_eig(self, F: np.ndarray, gamma):
+        return 1*np.sin(gamma*self.xi)+F[0]*np.cos(gamma*self.xi)+F[1]*np.sinh(gamma*self.xi)+F[2]*np.cosh(gamma*self.xi)
 
-        def return_modemat(self):
-            i = 0
-            self.phi = np.zeros((len(self.xi), len(self.gamma)))
-            for gamma in self.gamma:
-                self.phi[:, i] = self.return_modemat_eig(F[i], gamma)
-                i += 1
+    def return_modemat(self):
+        i = 0
+        self.phi = np.zeros((len(self.xi), len(self.gamma)))
+        for gamma in self.gamma:
+            self.phi[:, i] = self.return_modemat_eig(F[i], gamma)
+            i += 1
 
-        def normalize_modeshapes(self):
-            for i in np.arange(self.phi.shape[1]):
-                M = integrate.simpson(y=self.phi[:, i]**2, x=self.xi)
-                self.phi[:, i] = self.phi[:, i]/M
+    def normalize_modeshapes(self):
+        for i in np.arange(self.phi.shape[1]):
+            M = integrate.simpson(y=self.phi[:, i]**2, x=self.xi)
+            self.phi[:, i] = self.phi[:, i]/M
 
-    # Plots
-        def plot_modes(self):
-            # Notice that just the middle axis of the beam is plotted
+# Plots
+    def plot_modes(self):
+        # Notice that just the middle axis of the beam is plotted
         fig, axs = plt.subplots(self.phi.shape[1])
         self.normalize_modeshapes()
         for i in np.arange(self.phi.shape[1]):
@@ -110,52 +110,52 @@ import numpy as np
 
         return x, uy
 
-    class modal_appr:
-        def __init__(self):
-            self.m: np.ndarray
-            self.k: np.ndarray
-            self.idx: int
-            self.xi_L: float
-            self.F: float
-            self.omega: float
-            self.Q: np.ndarray
+class modal_appr:
+    def __init__(self):
+        self.m: np.ndarray
+        self.k: np.ndarray
+        self.idx: int
+        self.xi_L: float
+        self.F: float
+        self.omega: float
+        self.Q: np.ndarray
 
-        def calculate_beam_mat(self):
-            def calculate_m(self):
-                m = []
-                for i in np.arange(self.phi.shape[1]):
-                    phi = self.phi[:, i]
-                    m.append(integrate.simpson(y=phi**2, x=self.xi))
-                m = 1/2*self.rho*np.array(m)
-                m = np.diag(m)
-                return m
+    def calculate_beam_mat(self):
+        def calculate_m(self):
+            m = []
+            for i in np.arange(self.phi.shape[1]):
+                phi = self.phi[:, i]
+                m.append(integrate.simpson(y=phi**2, x=self.xi))
+            m = 1/2*self.rho*np.array(m)
+            m = np.diag(m)
+            return m
 
-            def calculate_k(self):
-                k = []
-                for i in np.arange(self.phi.shape[1]):
-                    phi = self.phi[:, i]
-                    ddw_phi = np.gradient(np.gradient(phi, self.xi), self.xi)
-                    k.append(integrate.simpson(y=ddw_phi**2, x=self.xi))
-                k = 1/2*self.E*self.J*np.array(k)
-                k = np.diag(k)
-                return k
-            self.m = calculate_m()
-            self.k = calculate_k()
+        def calculate_k(self):
+            k = []
+            for i in np.arange(self.phi.shape[1]):
+                phi = self.phi[:, i]
+                ddw_phi = np.gradient(np.gradient(phi, self.xi), self.xi)
+                k.append(integrate.simpson(y=ddw_phi**2, x=self.xi))
+            k = 1/2*self.E*self.J*np.array(k)
+            k = np.diag(k)
+            return k
+        self.m = calculate_m()
+        self.k = calculate_k()
 
-        def def_load_distr(self, xi, F, omega):
-            self.xi_L = self.xi[nearest_index]
-            self.idx = nearest_index
-            self.F = F
-            self.omega = omega
+    def def_load_distr(self, xi, F, omega):
+        self.xi_L = self.xi[nearest_index]
+        self.idx = nearest_index
+        self.F = F
+        self.omega = omega
 
-        def calculate_Q(self):
-            phi_1 = self.phi[self.idx, :]
-            self.Q = self.F*phi_1
+    def calculate_Q(self):
+        phi_1 = self.phi[self.idx, :]
+        self.Q = self.F*phi_1
 
-        def solve(self):
-            def initial_cond_to_q(self):
-                pass
+    def solve(self):
+        def initial_cond_to_q(self):
             pass
+        pass
 
 
 class Prob_Solv_Modes:
