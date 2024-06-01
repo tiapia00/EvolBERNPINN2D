@@ -1,4 +1,4 @@
-from plots import plot_initial_conditions, plot_sol, plot_midpoint_displ, plot_sol_comparison
+from plots import plot_initial_conditions, plot_sol, plot_midpoint_displ, plot_sol_comparison, plot_energy
 import numpy as np
 import os
 import torch
@@ -59,17 +59,15 @@ points = {
 
 pinn = PINN(dim_hidden, n_hidden, points).to(device)
 
-if retrain_PINN:
-
-    dir_model = pass_folder('model')
-    dir_logs = pass_folder('model/logs')
-
-    loss_fn = Loss(
+loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),
         initial_conditions,
         points,
         w0
     )
+if retrain_PINN:
+    dir_model = pass_folder('model')
+    dir_logs = pass_folder('model/logs')
 
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs, points=points, n_train=n_train)
@@ -112,3 +110,6 @@ w_ad_mid = w_ad[:, int(w_ad.shape[0]/2)]
 plot_midpoint_displ(pinn_trained, t, n_train, w_ad_mid[1:], dir_model, device)
 plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train,
                     dir_model, device)
+
+t, en, en_k, en_p = calc_energy(pinn_trained, loss_fn)
+plot_energy(t, en, en_k, en_p, dir_model)

@@ -169,6 +169,7 @@ class SineActivation(nn.Module):
     def forward(self, input):
         return torch.sin(input)
 
+
 class RBF(nn.Module):
     def __init__(self, in_features, out_features, basis_func):
         super(RBF, self).__init__()
@@ -209,15 +210,15 @@ class PINN(nn.Module):
         super().__init__()
         self.layer_in = RBF(dim_input, dim_hidden, gaussian)
         self.sine = SineActivation()
-        
+
         self.num_middle = n_hidden - 1
         self.middle_layers = nn.ModuleList()
-        
+
         for _ in range(self.num_middle):
             middle_layer = nn.Linear(dim_hidden, dim_hidden)
             self.act = act
             self.middle_layers.append(middle_layer)
-        
+
         self.layer_out = nn.Linear(dim_hidden, dim_output)
 
         self.weights = nn.ParameterList([])
@@ -292,6 +293,7 @@ class Loss:
         self.initial_condition = initial_condition
         self.points = points
         self.w0 = w0
+        self.h: float
 
     def residual_loss(self, pinn):
         x, y, t = self.points['res_points']
@@ -325,9 +327,9 @@ class Loss:
 
         vx = output[:, 2].reshape(-1, 1)
         vy = output[:, 3].reshape(-1, 1)
-        h = torch.max(y) - torch.min(y)
+        self.h = torch.max(y) - torch.min(y)
 
-        d_en = (1/2*h*(vx+vy)).pow(2) + self.z[0]*(dux_x + duy_y)**2 +\
+        d_en = (1/2*self.h*(vx+vy)).pow(2) + self.z[0]*(dux_x + duy_y)**2 +\
             self.z[1]*2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)
                          ** 2 + (duy_x + dux_y)**2)
 
@@ -342,7 +344,8 @@ class Loss:
 
     def initial_loss(self, pinn, epochs):
         x, y, t = self.points['initial_points']
-        pinn_init_ux, pinn_init_uy = self.initial_condition(x, y, x[-1], self.w0)
+        pinn_init_ux, pinn_init_uy = self.initial_condition(
+            x, y, x[-1], self.w0)
         output = f(pinn, x, y, t)
 
         ux = output[:, 0].reshape(-1, 1)
@@ -390,11 +393,11 @@ class Loss:
         duy_x_right = df(right, [x_right], 1)
         tr_right = df(right, [x_right], 0) + duy_y_right
 
-        #loss_upx = ux_up
-        #loss_upy = uy_up
+        # loss_upx = ux_up
+        # loss_upy = uy_up
 
-        #loss_downx = ux_down
-        #loss_downy = uy_down
+        # loss_downx = ux_down
+        # loss_downy = uy_down
 
         loss_left1 = 2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
         loss_left2 = 2*self.z[0]*duy_y_left + self.z[1]*tr_left
@@ -402,8 +405,8 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return pinn.forward_mask(2)*(#loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
-            #loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
+        return pinn.forward_mask(2)*(  # loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
+            # loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
             loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
             loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
@@ -471,8 +474,9 @@ def train_model(
 
             writer.add_image('res_penalty', image_penalty_res, epoch)
             writer.add_image('in_penalty', image_penalty_in, epoch)
-            
-        writer.add_scalar('bound_penalty', nn_approximator.weights[2].data, epoch)
+
+        writer.add_scalar(
+            'bound_penalty', nn_approximator.weights[2].data, epoch)
         pbar.update(1)
 
     pbar.update(1)
@@ -489,3 +493,56 @@ def return_adim(L_tild, t_tild, rho: float, mu: float, lam: float):
     z = np.array([z_1, z_2])
     z = torch.tensor(z)
     return z
+
+
+def calc_energy(pinn_trained: PINN, loss: Loss) -> tuple:
+    x, y, t = points['res_points']
+    x.to(device)
+    y.to(device)
+
+    t = torch.unique(t)
+
+    nx = n_train-2
+    ny = nx
+    nt = n_train-1
+
+    for t_raw in t:
+        t_i = t_raw*torch.ones_like(x)
+        t_i.to(device)
+
+        output = f(pinn, x, y, t_i)
+
+        dvx_t = df(output, [t_i], 2)
+        dvy_t = df(output, [t_i], 3)
+
+        dux_x = df(output, [x], 0)
+        dux_y = df(output, [y], 0)
+        duy_x = df(output, [x], 1)
+        duy_y = df(output, [y], 1)
+
+        dux_xx = df(dux_x, [x])
+        duy_yy = df(duy_y, [y])
+        duy_xx = df(duy_x, [x])
+
+        dux_yy = df(dux_y, [y])
+        dux_xy = df(dux_x, [y])
+        duy_xy = df(duy_x, [y])
+
+        d_en_k = (1/2*loss.h*(vx+vy)).pow(2)
+        d_en_p = loss.z[0]*(dux_x + duy_y)**2 +\
+            loss.z[1]*2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)
+                         ** 2 + (duy_x + dux_y)**2)
+
+        d_en_k = d_en_k.reshape(nx, ny, nt)
+        d_en_p = d_en_p.reshape(nx, ny, nt)
+
+        d_en_k = d_en_k[:, :, 0]
+        d_en_p = d_en_p[:, :, 0]
+
+        I_y_k = torch.trapz(d_en_k, y, dim=1)
+        I_y_p = torch.trapz(d_en_p, y, dim=1)
+
+        en_k = torch.trapz(I_y_k, x)
+        en_p = torch.trapz(I_y_p, x)
+
+    return (t, en, en_k, en_p)
