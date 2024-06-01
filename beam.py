@@ -1,52 +1,52 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-from scipy import integrate
-from scipy.integrate import solve_ivp
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.animation as animation
+    import matplotlib.pyplot as plt
+    import matplotlib.ticker as ticker
+    from scipy import integrate
+    from scipy.integrate import solve_ivp
+    from mpl_toolkits.mplot3d import Axes3D
+    import matplotlib.animation as animation
 
 
-class Beam:
-    def __init__(self, length, E, rho, H, b, n_points):
-        self.length = length  # m
-        self.E = E  # Nm^2
-        self.J = H**3*b/12
-        self.rho = rho  # kg/m
-        self.H = H
-        self.b = b
-        self.A = self.H*self.b
-        self.w: np.ndarray
-        self.gamma: np.ndarray
-        self.omega: np.ndarray
-        self.xi = np.linspace(0, self.length, n_points)
-        self.eps: np.ndarray
-        self.phi: np.ndarray
+    class Beam:
+        def __init__(self, length, E, rho, H, b, n_points):
+            self.length = length  # m
+            self.E = E  # Nm^2
+            self.J = H**3*b/12
+            self.rho = rho  # kg/m
+            self.H = H
+            self.b = b
+            self.A = self.H*self.b
+            self.w: np.ndarray
+            self.gamma: np.ndarray
+            self.omega: np.ndarray
+            self.xi = np.linspace(0, self.length, n_points)
+            self.eps: np.ndarray
+            self.phi: np.ndarray
 
-    def update_freq(self):
-        self.omega = (self.gamma**4/(self.rho*self.A)*self.E*self.J)**(1/2)
+        def update_freq(self):
+            self.omega = (self.gamma**4/(self.rho*self.A)*self.E*self.J)**(1/2)
 
-    def update_phi(self, phi: np.ndarray):
-        self.phi = phi
+        def update_phi(self, phi: np.ndarray):
+            self.phi = phi
 
-    def return_modemat_eig(self, F: np.ndarray, gamma):
-        return 1*np.sin(gamma*self.xi)+F[0]*np.cos(gamma*self.xi)+F[1]*np.sinh(gamma*self.xi)+F[2]*np.cosh(gamma*self.xi)
+        def return_modemat_eig(self, F: np.ndarray, gamma):
+            return 1*np.sin(gamma*self.xi)+F[0]*np.cos(gamma*self.xi)+F[1]*np.sinh(gamma*self.xi)+F[2]*np.cosh(gamma*self.xi)
 
-    def return_modemat(self):
-        i = 0
-        self.phi = np.zeros((len(self.xi), len(self.gamma)))
-        for gamma in self.gamma:
-            self.phi[:, i] = self.return_modemat_eig(F[i], gamma)
-            i += 1
+        def return_modemat(self):
+            i = 0
+            self.phi = np.zeros((len(self.xi), len(self.gamma)))
+            for gamma in self.gamma:
+                self.phi[:, i] = self.return_modemat_eig(F[i], gamma)
+                i += 1
 
-    def normalize_modeshapes(self):
-        for i in np.arange(self.phi.shape[1]):
-            M = integrate.simpson(y=self.phi[:, i]**2, x=self.xi)
-            self.phi[:, i] = self.phi[:, i]/M
+        def normalize_modeshapes(self):
+            for i in np.arange(self.phi.shape[1]):
+                M = integrate.simpson(y=self.phi[:, i]**2, x=self.xi)
+                self.phi[:, i] = self.phi[:, i]/M
 
-# Plots
-    def plot_modes(self):
-        # Notice that just the middle axis of the beam is plotted
+    # Plots
+        def plot_modes(self):
+            # Notice that just the middle axis of the beam is plotted
         fig, axs = plt.subplots(self.phi.shape[1])
         self.normalize_modeshapes()
         for i in np.arange(self.phi.shape[1]):

@@ -51,7 +51,9 @@ def obtain_analytical_trv(par: Parameters):
 
     w_ad = w/Lx
 
-    return t_ad, w_ad
+    V0_hat = calculate_ad_init_en(my_beam, t_ad)
+
+    return t_ad, w_ad, V0_hat
 
 
 def calculate_an_init_en(my_beam: Beam, t_ad) -> float:
