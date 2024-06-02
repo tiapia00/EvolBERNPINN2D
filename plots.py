@@ -63,7 +63,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     """Plot initial conditions.
     z0: tensor describing analytical initial conditions
     z: tensor describing predicted initial conditions"""
-    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10, 8))
+    fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(15, 8))
 
     x_raw = x.detach().cpu().numpy()
     y_raw = y.detach().cpu().numpy()
@@ -77,26 +77,31 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     cmap = 'viridis'
 
     norm_z0 = np.linalg.norm(z0, axis=1).reshape(-1)
-    norm_z = np.linalg.norm(z, axis=1).reshape(-1)
 
-    a_scatter = ax[0].scatter(X.reshape(-1)+z0[:, 0],
+    a_scatter = ax[0, 0].scatter(X.reshape(-1)+z0[:, 0],
                               Y.reshape(-1)+z0[:, 1], c=norm_z0, cmap=cmap)
-    ax[0].set_xlabel('$\\hat{x}$')
-    ax[0].set_ylabel('$\\hat{y}$')
-    ax[0].set_title('Analytical initial conditions')
-    cbar1 = fig.colorbar(a_scatter, ax=ax[0], orientation='vertical')
+    ax[0, 0].set_xlabel('$\\hat{x}$')
+    ax[0, 0].set_ylabel('$\\hat{y}$')
+    cbar1 = fig.colorbar(a_scatter, ax=ax[0, 0], orientation='vertical')
     cbar1.set_label('$|\\mathbf{u}|$')
 
-    p_scatter = ax[1].scatter(X.reshape(-1)+z[:, 0],
-                              Y.reshape(-1)+z[:, 1], c=norm_z, cmap=cmap)
-    ax[1].set_xlabel('$\\hat{x}$')
-    ax[1].set_ylabel('$\\hat{y}$')
-    ax[1].set_title('Predicted initial conditions')
-    cbar2 = fig.colorbar(p_scatter, ax=ax[1], orientation='vertical')
-    cbar2.set_label('$|\\mathbf{u}|$')
+    p_scatter = ax[1, 0].scatter(X.reshape(-1)+z[:, 0],
+                              Y.reshape(-1)+z[:, 1], z[:,1], cmap=cmap)
+    ax[1, 0].set_xlabel('$\\hat{x}$')
+    ax[1, 0].set_ylabel('$\\hat{y}$')
+    cbar2 = fig.colorbar(p_scatter, ax=ax[1, 0], orientation='vertical')
+    cbar2.set_label('$u_y$')
 
-    plt.tight_layout()
+    v_scatter = ax[1, 1].scatter(X.reshape(-1), Y.reshape(-1), z[:,3], cmap=cmap)
+    ax[1, 1].set_xlabel('$\\hat{x}$')
+    ax[1, 1].set_xlabel('$\\hat{y}$')
+    cbar3 = fig.colorbar(v_scatter, ax=ax[1, 1], orientation='vertical')
+    cbar3.set_label('$v_y$')
 
+    fig.text(0.5, 0.96, 'Analytical', ha='center', va='center', fontsize=16)
+    fig.text(0.5, 0.48, 'Predicted', ha='center', va='center', fontsize=16)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(f'{path}/init.png')
 
 
