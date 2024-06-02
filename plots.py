@@ -74,7 +74,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     X = x_raw
     Y = y_raw
 
-    cmap = 'viridis'
+    cmap = 'coolwarm'
 
     norm_z0 = np.linalg.norm(z0, axis=1).reshape(-1)
 
@@ -86,13 +86,14 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     cbar1.set_label('$|\\mathbf{u}|$')
 
     p_scatter = ax[1, 0].scatter(X.reshape(-1)+z[:, 0],
-                              Y.reshape(-1)+z[:, 1], z[:,1], cmap=cmap)
+                              Y.reshape(-1)+z[:, 1], c=z[:,1], cmap=cmap)
     ax[1, 0].set_xlabel('$\\hat{x}$')
     ax[1, 0].set_ylabel('$\\hat{y}$')
     cbar2 = fig.colorbar(p_scatter, ax=ax[1, 0], orientation='vertical')
     cbar2.set_label('$u_y$')
 
-    v_scatter = ax[1, 1].scatter(X.reshape(-1), Y.reshape(-1), z[:,3], cmap=cmap)
+    v_scatter = ax[1, 1].scatter(X.reshape(-1), 
+                                 Y.reshape(-1), c=z[:,3], cmap=cmap)
     ax[1, 1].set_xlabel('$\\hat{x}$')
     ax[1, 1].set_xlabel('$\\hat{y}$')
     cbar3 = fig.colorbar(v_scatter, ax=ax[1, 1], orientation='vertical')
