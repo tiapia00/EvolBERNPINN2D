@@ -293,8 +293,6 @@ class Loss:
         self.initial_condition = initial_condition
         self.points = points
         self.w0 = w0
-        self.h = torch.max(self.points['res_points'][1]) -\
-            torch.min(self.points['res_points'][1])
 
     def residual_loss(self, pinn):
         x, y, t = self.points['res_points']
@@ -329,9 +327,9 @@ class Loss:
         vx = output[:, 2].reshape(-1, 1)
         vy = output[:, 3].reshape(-1, 1)
 
-        d_en = (1/2*self.h*(vx+vy)).pow(2) + self.z[0]*(dux_x + duy_y)**2 +\
-            self.z[1]*2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)
-                         ** 2 + (duy_x + dux_y)**2)
+        d_en = (1/2(vx+vy)).pow(2) + (dux_x + duy_y)**2 +\
+            2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)
+               ** 2 + (duy_x + dux_y)**2)
 
         d_en_t = torch.autograd.grad(
             d_en,
@@ -522,8 +520,8 @@ def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
         duy_y = df(output, [y], 1)
 
         d_en_k = (1/2*(vx+vy)).pow(2)
-        d_en_p = 1/2*((dux_x + duy_y)**2 + 2*(dux_x**2 + duy_y**2 + (dux_y+duy_x) \
-                         ** 2 + (duy_x + dux_y)**2))
+        d_en_p = 1/2*((dux_x + duy_y)**2 + 2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)
+                                              ** 2 + (duy_x + dux_y)**2))
 
         d_en_k = d_en_k.reshape(nx, ny, nt)
         d_en_p = d_en_p.reshape(nx, ny, nt)
@@ -536,7 +534,7 @@ def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
 
         x_int = x.reshape(nx, ny, nt).detach()
         x_int = x_int[:, 0, 0]
-        
+
         I_x_k = torch.trapz(y=d_en_k.detach(), x=x_int)
         I_x_p = torch.trapz(y=d_en_p.detach(), x=x_int)
 
