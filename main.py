@@ -27,7 +27,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = False
+retrain_PINN = True
 delete_old = False
 
 if delete_old:
@@ -46,7 +46,7 @@ Lx, Ly, T, n_train, w0, dim_hidden, n_hidden, lr, epochs = get_params(par.pinn_p
 L_tild = Lx
 
 x_domain = np.array([0.0, Lx])/L_tild
-y_domain = np.array([-Ly/2, Ly/2])/L_tild
+y_domain = np.array([-Ly/2, Ly/2])/Ly
 t_domain = np.array([0.0, T])/t_tild
 
 grid = Grid(x_domain, y_domain, t_domain, n_train, device)

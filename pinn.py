@@ -327,9 +327,9 @@ class Loss:
         vx = output[:, 2].reshape(-1, 1)
         vy = output[:, 3].reshape(-1, 1)
 
-        d_en = (1/2(vx+vy)).pow(2) + (dux_x + duy_y)**2 +\
-            2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)
-               ** 2 + (duy_x + dux_y)**2)
+        d_en = (1/2*(vx+vy))**2 + (dux_x + duy_y)**2 + \
+               2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)** 2 + \
+                  (duy_x + dux_y)**2)
 
         d_en_t = torch.autograd.grad(
             d_en,
@@ -539,7 +539,6 @@ def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
         I_x_p = torch.trapz(y=d_en_p.detach(), x=x_int)
 
         en_k_t = torch.trapz(y=I_x_k, x=y_int)
-        print(en_k_t)
         en_p_t = torch.trapz(y=I_x_p, x=y_int)
 
         en_k.append(en_k_t)
