@@ -224,12 +224,11 @@ class PINN(nn.Module):
         self.weights = nn.ParameterList([])
 
         for i, (key, value) in enumerate(zip(points.keys(), points.values())):
-            if i == len(points)-1:
-                self.weights.append(nn.Parameter(torch.tensor([1.])))
-            elif i == 1:
+            if i != 2:
                 self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
             else:
-                self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
+                for i in range(len(value)):
+                    self.weights.append(nn.Parameter(torch.ones(value[i][0].shape)))
 
     def forward(self, x, y, t):
         x_stack = torch.cat([x, y, t], dim=1)
@@ -357,8 +356,8 @@ class Loss:
         loss1 = m*(ux - pinn_init_ux)
         loss2 = m*(uy - pinn_init_uy)
 
-        loss3 = vx
-        loss4 = vy
+        loss3 = m*vx
+        loss4 = m*vy
 
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
 
@@ -390,21 +389,26 @@ class Loss:
         dux_y_right = df(right, [y_right], 0)
         duy_x_right = df(right, [x_right], 1)
         tr_right = df(right, [x_right], 0) + duy_y_right
+        
+        m_down = pinn.forward_mask(2)
+        m_up = pinn.forward_mask(3)
+        m_left = pinn.forward_mask(4)
+        m_right = pinn.forward_mask(5)
+        
+        loss_upx = m_up*ux_up
+        loss_upy = m_up*uy_up
 
-        # loss_upx = ux_up
-        # loss_upy = uy_up
+        loss_downx = m_down*ux_down
+        loss_downy = m_down*uy_down
 
-        # loss_downx = ux_down
-        # loss_downy = uy_down
+        loss_left1 = m_left*2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
+        loss_left2 = m_left*2*self.z[0]*duy_y_left + self.z[1]*tr_left
 
-        loss_left1 = 2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
-        loss_left2 = 2*self.z[0]*duy_y_left + self.z[1]*tr_left
+        loss_right1 = m_right*2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
+        loss_right2 = m_right*2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
-        loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
-
-        return pinn.forward_mask(2)*(  # loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
-            # loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
+        return (loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
+            loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
             loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
             loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
@@ -430,12 +434,12 @@ def train_model(
     points: dict,
     n_train: int
 ) -> PINN:
-    from plots import scatter_penalty_loss2D, scatter_penalty_loss3D
+    from plots import scatter_penalty_loss2D, scatter_penalty_loss2D_bound, scatter_penalty_loss3D
 
     optimizer = optim.Adam([
         {'params': nn_approximator.layer_in.parameters()},
         {'params': nn_approximator.layer_out.parameters()},
-        {'params': nn_approximator.weights, 'lr': -0.001},
+        {'params': nn_approximator.weights, 'lr': -0.005},
     ], lr=learning_rate)
 
     writer = SummaryWriter(log_dir=path_logs)
@@ -467,12 +471,19 @@ def train_model(
                 points['res_points'][0], points['res_points'][1], points['res_points'][2], n_train, nn_approximator.weights[0].data)
             image_penalty_in = scatter_penalty_loss2D(
                 points['initial_points'][0], points['initial_points'][1], n_train, nn_approximator.weights[1].data)
+            
+            bound_weights = []
+            
+            for i in range(2, 5):
+                bound_weights.append(nn_approximator.weights[i].data)
+                
+            image_penalty_bound = scatter_penalty_loss2D_bound(
+                points['boundary_points'], n_train, bound_weights)
 
             writer.add_image('res_penalty', image_penalty_res, epoch)
             writer.add_image('in_penalty', image_penalty_in, epoch)
+            writer.add_image('bound_penalty', image_penalty_bound, epoch)
 
-        writer.add_scalar(
-            'bound_penalty', nn_approximator.weights[2].data, epoch)
         pbar.update(1)
 
     pbar.update(1)

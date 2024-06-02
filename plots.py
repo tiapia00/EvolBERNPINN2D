@@ -28,7 +28,47 @@ def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, facto
 
     return image_tensor
 
+def scatter_penalty_loss2D_bound(points: tuple, n_train: int, bound_weights: list):
+    nt = n_train - 1
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    
+    i = 0
+    
+    for (domain, weights) in zip(points, bound_weights):
+        if i==0 or i==1:
+            nx = 1
+            ny = n_train
+        else:
+            nx = n_train
+            ny = 1          
+                
+        x = domain[0]
+        y = domain[1]
+        t = domain[2]
+        
+        x = x.reshape(nx, ny, nt).detach().cpu().numpy()
+        y = y.reshape(nx, ny, nt).detach().cpu().numpy()
+        t = t.reshape(nx, ny, nt).detach().cpu().numpy()
+        weights = weights.reshape(nx, ny, nt).detach().cpu().numpy()
+        
+        ax.scatter(x, y, t, c=weights, cmap='viridis')
+        
+        i += 1
+    
+    plt.xlabel('$\\hat{x}$')
+    plt.ylabel('$\\hat{y}$')
+    fig.canvas.draw()
+    plt.tight_layout()
+    
+    image_np = np.array(fig.canvas.renderer.buffer_rgba())
+    plt.close(fig)
+    image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
+    
+    return image_tensor
 
+        
 def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_train: int, factors: torch.tensor):
     nx = n_train-2
     ny = nx
@@ -41,7 +81,7 @@ def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    sc = ax.scatter(x, y, t, c=factors, cmap=viridis)
+    sc = ax.scatter(x, y, t, c=factors, cmap='viridis')
 
     ax.set_xlabel('$\\hat{x}$')
     ax.set_ylabel('$\\hat{y}$')
