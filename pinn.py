@@ -434,8 +434,6 @@ def train_model(
 ) -> PINN:
     from plots import scatter_penalty_loss2D, scatter_penalty_loss3D
 
-    from plots import scatter_penalty_loss2D, scatter_penalty_loss3D
-
     optimizer = optim.Adam([
         {'params': nn_approximator.layer_in.parameters()},
         {'params': nn_approximator.layer_out.parameters()},
@@ -523,29 +521,27 @@ def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
         duy_x = df(output, [x], 1)
         duy_y = df(output, [y], 1)
 
-        d_en_k = (1/2*loss.h*(vx+vy)).pow(2)
-        d_en_p = loss.z[0]*(dux_x + duy_y)**2 +\
-            loss.z[1]*2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)
-                         ** 2 + (duy_x + dux_y)**2)
+        d_en_k = (1/2*(vx+vy)).pow(2)
+        d_en_p = 1/2*((dux_x + duy_y)**2 + 2*(dux_x**2 + duy_y**2 + (dux_y+duy_x) \
+                         ** 2 + (duy_x + dux_y)**2))
 
         d_en_k = d_en_k.reshape(nx, ny, nt)
         d_en_p = d_en_p.reshape(nx, ny, nt)
 
-        d_en_k = 1000*d_en_k[:, :, 0]
-        d_en_p = 1000*d_en_p[:, :, 0]
+        d_en_k = d_en_k[:, :, 0]
+        d_en_p = d_en_p[:, :, 0]
 
-        y_int = y.reshape(nx, ny, nt)
-        y_int = y_int[:, 0, 0]
+        y_int = y.reshape(nx, ny, nt).detach()
+        y_int = y_int[0, :, 0]
 
-        x_int = x.reshape(nx, ny, nt)
+        x_int = x.reshape(nx, ny, nt).detach()
         x_int = x_int[:, 0, 0]
-
-        I_x_k = torch.trapz(y=d_en_k, x=x_int, dim=0)
-        I_x_p = torch.trapz(y=d_en_p, x=x_int, dim=0)
-
-        print(torch.max(I_x_k))
+        
+        I_x_k = torch.trapz(y=d_en_k.detach(), x=x_int)
+        I_x_p = torch.trapz(y=d_en_p.detach(), x=x_int)
 
         en_k_t = torch.trapz(y=I_x_k, x=y_int)
+        print(en_k_t)
         en_p_t = torch.trapz(y=I_x_p, x=y_int)
 
         en_k.append(en_k_t)
