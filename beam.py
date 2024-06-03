@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from scipy import integrate
-from scipy.integrate import solve_ivp
+from scipy.integrate import odeint
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation as animation
 
@@ -44,7 +44,6 @@ class Beam:
             M = integrate.simpson(y=self.phi[:, i]**2, x=self.xi)
             self.phi[:, i] = self.phi[:, i]/M
 
-# Plots
     def plot_modes(self):
         # Notice that just the middle axis of the beam is plotted
         fig, axs = plt.subplots(self.phi.shape[1])
@@ -110,15 +109,12 @@ class Beam:
 
         return x, uy
 
-class modal_appr:
-    def __init__(self):
+class Modal:
+    def __init__(self, phi: np.ndarray, xi, load_dist: callable, omega: float):
+        self.phi = phi
+        self.xi = xi
         self.m: np.ndarray
         self.k: np.ndarray
-        self.idx: int
-        self.xi_L: float
-        self.F: float
-        self.omega: float
-        self.Q: np.ndarray
 
     def calculate_beam_mat(self):
         def calculate_m(self):
@@ -139,23 +135,28 @@ class modal_appr:
             k = 1/2*self.E*self.J*np.array(k)
             k = np.diag(k)
             return k
+
         self.m = calculate_m()
         self.k = calculate_k()
 
-    def def_load_distr(self, xi, F, omega):
-        self.xi_L = self.xi[nearest_index]
-        self.idx = nearest_index
-        self.F = F
-        self.omega = omega
-
-    def calculate_Q(self):
-        phi_1 = self.phi[self.idx, :]
-        self.Q = self.F*phi_1
+    def calc_Q(self):
+        for i in range(self.phi.shape[1]):
+            self.Q = integrate.simpson(load_dist(self.xi), self.phi[:,i])
 
     def solve(self):
-        def initial_cond_to_q(self):
-            pass
-        pass
+        def system(state, m, k, Q):
+            q, s = state
+            dqdt = s
+            dsdt = np.linalg.inv(m).dot(Q - k.dot(x))
+            return [dqdt, dsdt]
+
+        m = self.m
+        k = self.k
+        Q = self.Q
+
+    def to_lagr_obsv(self):
+        phi_1 = self.phi[self.idx, :]
+        self.Q = self.F*phi_1
 
 
 class Prob_Solv_Modes:
