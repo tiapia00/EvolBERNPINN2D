@@ -34,6 +34,12 @@ def scatter_penalty_loss2D_bound(points: tuple, n_train: int, bound_weights: lis
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     
+    x_all = []
+    y_all = []
+    t_all = []
+    
+    weights_all = []
+    
     i = 0
     
     for (domain, weights) in zip(points, bound_weights):
@@ -42,23 +48,33 @@ def scatter_penalty_loss2D_bound(points: tuple, n_train: int, bound_weights: lis
             ny = n_train
         else:
             nx = n_train
-            ny = 1          
+            ny = 1    
                 
         x = domain[0]
         y = domain[1]
         t = domain[2]
         
-        x = x.reshape(nx, ny, nt).detach().cpu().numpy()
-        y = y.reshape(nx, ny, nt).detach().cpu().numpy()
-        t = t.reshape(nx, ny, nt).detach().cpu().numpy()
-        weights = weights.reshape(nx, ny, nt).detach().cpu().numpy()
-        
-        ax.scatter(x, y, t, c=weights, cmap='viridis')
+        x_all.append(np.squeeze(x.detach().cpu().numpy()))
+        y_all.append(np.squeeze(y.detach().cpu().numpy()))
+        t_all.append(np.squeeze(t.detach().cpu().numpy()))
+                     
+        weights_all.append(np.squeeze(weights.detach().cpu().numpy()))
         
         i += 1
     
-    plt.xlabel('$\\hat{x}$')
-    plt.ylabel('$\\hat{y}$')
+    x_all = np.concatenate(x_all)
+    y_all = np.concatenate(y_all)
+    t_all = np.concatenate(t_all)
+    
+    weights_all = np.concatenate(weights_all)
+ 
+    sc = ax.scatter(x_all, y_all, t_all, c=weights_all, cmap='viridis')
+    cbar = fig.colorbar(sc, ax=ax)
+    
+    ax.set_xlabel('$\\hat{x}$')
+    ax.set_ylabel('$\\hat{y}$')
+    ax.set_zlabel('$\\hat{t}$')
+    
     fig.canvas.draw()
     plt.tight_layout()
     

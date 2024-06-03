@@ -474,7 +474,7 @@ def train_model(
             
             bound_weights = []
             
-            for i in range(2, 5):
+            for i in range(2, len(nn_approximator.weights)):
                 bound_weights.append(nn_approximator.weights[i].data)
                 
             image_penalty_bound = scatter_penalty_loss2D_bound(
