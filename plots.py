@@ -28,63 +28,64 @@ def scatter_penalty_loss2D(x: torch.tensor, y: torch.tensor, n_train: int, facto
 
     return image_tensor
 
+
 def scatter_penalty_loss2D_bound(points: tuple, n_train: int, bound_weights: list):
     nt = n_train - 1
-    
+
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    
+
     x_all = []
     y_all = []
     t_all = []
-    
+
     weights_all = []
-    
+
     i = 0
-    
+
     for (domain, weights) in zip(points, bound_weights):
-        if i==0 or i==1:
+        if i == 0 or i == 1:
             nx = 1
             ny = n_train
         else:
             nx = n_train
-            ny = 1    
-                
+            ny = 1
+
         x = domain[0]
         y = domain[1]
         t = domain[2]
-        
+
         x_all.append(np.squeeze(x.detach().cpu().numpy()))
         y_all.append(np.squeeze(y.detach().cpu().numpy()))
         t_all.append(np.squeeze(t.detach().cpu().numpy()))
-                     
+
         weights_all.append(np.squeeze(weights.detach().cpu().numpy()))
-        
+
         i += 1
-    
+
     x_all = np.concatenate(x_all)
     y_all = np.concatenate(y_all)
     t_all = np.concatenate(t_all)
-    
+
     weights_all = np.concatenate(weights_all)
- 
+
     sc = ax.scatter(x_all, y_all, t_all, c=weights_all, cmap='viridis')
     cbar = fig.colorbar(sc, ax=ax)
-    
+
     ax.set_xlabel('$\\hat{x}$')
     ax.set_ylabel('$\\hat{y}$')
     ax.set_zlabel('$\\hat{t}$')
-    
+
     fig.canvas.draw()
     plt.tight_layout()
-    
+
     image_np = np.array(fig.canvas.renderer.buffer_rgba())
     plt.close(fig)
     image_tensor = torch.from_numpy(image_np).permute(2, 0, 1)
-    
+
     return image_tensor
 
-        
+
 def scatter_penalty_loss3D(x: torch.tensor, y: torch.tensor, t: torch.tensor, n_train: int, factors: torch.tensor):
     nx = n_train-2
     ny = nx
@@ -135,21 +136,21 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     norm_z0 = np.linalg.norm(z0, axis=1).reshape(-1)
 
     a_scatter = ax[0, 0].scatter(X.reshape(-1)+z0[:, 0],
-                              Y.reshape(-1)+z0[:, 1], c=norm_z0, cmap=cmap)
+                                 Y.reshape(-1)+z0[:, 1], c=norm_z0, cmap=cmap)
     ax[0, 0].set_xlabel('$\\hat{x}$')
     ax[0, 0].set_ylabel('$\\hat{y}$')
     cbar1 = fig.colorbar(a_scatter, ax=ax[0, 0], orientation='vertical')
     cbar1.set_label('$|\\mathbf{u}|$')
 
     p_scatter = ax[1, 0].scatter(X.reshape(-1)+z[:, 0],
-                              Y.reshape(-1)+z[:, 1], c=z[:,1], cmap=cmap)
+                                 Y.reshape(-1)+z[:, 1], c=z[:, 1], cmap=cmap)
     ax[1, 0].set_xlabel('$\\hat{x}$')
     ax[1, 0].set_ylabel('$\\hat{y}$')
     cbar2 = fig.colorbar(p_scatter, ax=ax[1, 0], orientation='vertical')
     cbar2.set_label('$u_y$')
 
-    v_scatter = ax[1, 1].scatter(X.reshape(-1), 
-                                 Y.reshape(-1), c=z[:,3], cmap=cmap)
+    v_scatter = ax[1, 1].scatter(X.reshape(-1),
+                                 Y.reshape(-1), c=z[:, 3], cmap=cmap)
     ax[1, 1].set_xlabel('$\\hat{x}$')
     ax[1, 1].set_xlabel('$\\hat{y}$')
     cbar3 = fig.colorbar(v_scatter, ax=ax[1, 1], orientation='vertical')
@@ -164,9 +165,9 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
 
 def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, w_ad: np.ndarray, n_train:
                         int, path: str, device):
-    
+
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
-    
+
     nx = n_train - 2
     ny = nx
     nt = n_train - 1
@@ -184,10 +185,10 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
     x = x.reshape(-1, 1).to(device)
     y = y.reshape(-1, 1).to(device)
-    
-    x_mid = torch.unique(x).reshape(-1,1)
+
+    x_mid = torch.unique(x).reshape(-1, 1)
     y_mid = torch.zeros_like(x_mid)
-    
+
     t_shaped = torch.ones_like(x)
     t = t_shaped*t_raw[0].to(device)
 
@@ -197,7 +198,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
     y_plot = 1/4*y.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
 
     z0 = output.cpu().detach().numpy()
-    
+
     sc = ax.scatter(x_plot+z0[:, 0], y_plot+z0[:, 1])
     ax.scatter(np.unique(x_plot), w_ad[1:-1, 0])
     t_value = float(t_raw[0])
@@ -208,10 +209,10 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
             frame,
             x: torch.tensor,
             y: torch.tensor,
-            x_mid : torch.tensor,
-            y_mid : torch.tensor,
+            x_mid: torch.tensor,
+            y_mid: torch.tensor,
             n: int,
-            w_ad : np.ndarray,
+            w_ad: np.ndarray,
             x_plot: np.ndarray,
             y_plot: np.ndarray,
             t_raw: torch.tensor,
@@ -229,12 +230,12 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
         z = output.cpu().detach().numpy()
         z_mid = output_mid.cpu().detach().numpy()
-        
-        diff = z_mid[:,1] - w_ad[1:-1, frame]
+
+        diff = z_mid[:, 1] - w_ad[1:-1, frame]
         diff = np.tile(diff, (nx, 1))
-        
+
         t_value = float(t[0])
-        
+
         ax.clear()
 
         ax.set_xlabel('$\\hat{x}$')
@@ -243,14 +244,15 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
-        sc = ax.scatter(x_plot+z[:, 0], y_plot+z[:, 1], c=diff.T, cmap='viridis')
+        sc = ax.scatter(x_plot+z[:, 0], y_plot +
+                        z[:, 1], c=diff.T, cmap='viridis')
         ax.scatter(np.unique(x_plot), w_ad[1:-1, frame])
 
         return ax
-    
+
     cbar = plt.colorbar(sc, ax=ax)
     cbar.set_label('$u_{y,PINN} - u_{y,an}$')
-    
+
     n_frames = len(t_raw)
     ani = FuncAnimation(fig, update, frames=n_frames,
                         fargs=(x, y, x_mid, y_mid, nx, w_ad, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
@@ -261,9 +263,9 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
 def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train:
              int, path: str, device):
-    
+
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
-    
+
     nx = n_train - 2
     ny = nx
     nt = n_train - 1
@@ -281,7 +283,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
 
     x = x.reshape(-1, 1).to(device)
     y = y.reshape(-1, 1).to(device)
-    
+
     t_shaped = torch.ones_like(x)
     t = t_shaped*t_raw[0].to(device)
 
@@ -317,7 +319,6 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
 
         z = output.cpu().detach().numpy()
         norm = np.linalg.norm(z, axis=1).reshape(-1)
-
         t_value = float(t[0])
 
         ax.clear()
@@ -329,6 +330,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
         ax.scatter(x_plot+z[:, 0], y_plot+z[:, 1], c=norm, cmap='viridis')
+        ax.scatter(np.unique(x_plot), w_ad[1:-1, frame])
 
         return ax
 
@@ -336,7 +338,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
     ani = FuncAnimation(fig, update, frames=n_frames,
                         fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
 
-    file = f'{path}/sol_time.gif'
+    file = f'{path}/sol_time_comparison.gif'
     ani.save(file, fps=5)
 
 
@@ -393,8 +395,8 @@ def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: tor
 
     file = f'{path}/energy.png'
     plt.savefig(file)
-    
-    fig = plt.figure(figsize=(10,8))
+
+    fig = plt.figure(figsize=(10, 8))
 
     plt.plot(t, e0 - en)
 

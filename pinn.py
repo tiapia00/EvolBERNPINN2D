@@ -235,12 +235,12 @@ class PINN(nn.Module):
         out = self.sine(self.layer_in(x_stack))
         logits = self.layer_out(out)
 
-        hard_enc = torch.sin(x*np.pi)
-        hard_enc = hard_enc.view(-1, 1)
-        hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
+        #hard_enc = torch.sin(x*np.pi)
+        #hard_enc = hard_enc.view(-1, 1)
+        #hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
 
-        out = logits*hard_enc_both
-        return out
+        #out = logits*hard_enc_both
+        return logits
 
     def forward_mask(self, idx: int):
         masked_weights = torch.sigmoid(self.weights[idx])
