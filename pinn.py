@@ -228,19 +228,20 @@ class PINN(nn.Module):
                 self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
             else:
                 for i in range(len(value)):
-                    self.weights.append(nn.Parameter(torch.ones(value[i][0].shape)))
+                    self.weights.append(nn.Parameter(
+                        torch.ones(value[i][0].shape)))
 
     def forward(self, x, y, t):
         x_stack = torch.cat([x, y, t], dim=1)
         out = self.sine(self.layer_in(x_stack))
         logits = self.layer_out(out)
 
-        #hard_enc = torch.sin(x*np.pi)
-        #hard_enc = hard_enc.view(-1, 1)
-        #hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
+        hard_enc = torch.sin(x*np.pi)
+        hard_enc = hard_enc.view(-1, 1)
+        hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
 
-        #out = logits*hard_enc_both
-        return logits
+        out = logits*hard_enc_both
+        return out
 
     def forward_mask(self, idx: int):
         masked_weights = torch.sigmoid(self.weights[idx])
@@ -327,8 +328,8 @@ class Loss:
         vy = output[:, 3].reshape(-1, 1)
 
         d_en = (1/2*(vx+vy))**2 + (dux_x + duy_y)**2 + \
-               2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)** 2 + \
-                  (duy_x + dux_y)**2)
+            2*(dux_x**2 + duy_y**2 + (dux_y+duy_x) ** 2 +
+               (duy_x + dux_y)**2)
 
         d_en_t = torch.autograd.grad(
             d_en,
@@ -389,12 +390,12 @@ class Loss:
         dux_y_right = df(right, [y_right], 0)
         duy_x_right = df(right, [x_right], 1)
         tr_right = df(right, [x_right], 0) + duy_y_right
-        
+
         m_down = pinn.forward_mask(2)
         m_up = pinn.forward_mask(3)
         m_left = pinn.forward_mask(4)
         m_right = pinn.forward_mask(5)
-        
+
         loss_upx = m_up*ux_up
         loss_upy = m_up*uy_up
 
@@ -408,9 +409,9 @@ class Loss:
         loss_right2 = m_right*2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
         return (loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
-            loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
-            loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
-            loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
+                loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
+                loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
+                loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
     def verbose(self, pinn, epoch):
         residual_loss, en_crit = self.residual_loss(pinn)
@@ -471,12 +472,12 @@ def train_model(
                 points['res_points'][0], points['res_points'][1], points['res_points'][2], n_train, nn_approximator.weights[0].data)
             image_penalty_in = scatter_penalty_loss2D(
                 points['initial_points'][0], points['initial_points'][1], n_train, nn_approximator.weights[1].data)
-            
+
             bound_weights = []
-            
+
             for i in range(2, len(nn_approximator.weights)):
                 bound_weights.append(nn_approximator.weights[i].data)
-                
+
             image_penalty_bound = scatter_penalty_loss2D_bound(
                 points['boundary_points'], n_train, bound_weights)
 
