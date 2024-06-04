@@ -199,53 +199,66 @@ def gaussian(alpha):
 
 
 class PINN(nn.Module):
-    """Simple neural network accepting two features as input and returning a single output
-
-    In the context of PINNs, the neural network is used as universal function approximator
-    to approximate the solution of the differential equation
-    """
-
-    def __init__(self, dim_hidden: int, n_hidden: int, points: dict, dim_input: int = 3, dim_output: int = 4, act=nn.Sigmoid()):
-
+    def __init__(self, dim_hidden: tuple, n_hidden: tuple, points: dict, w0: float, act=nn.tanh()):
         super().__init__()
-        self.layer_in = RBF(dim_input, dim_hidden, gaussian)
-        self.sine = SineActivation()
+        self.n_hidden = (0, n_hidden[1], n_hidden[2])
+        self.in_space = nn.Linear(2, dim_hidden[0])
 
-        self.num_middle = n_hidden - 1
-        self.middle_layers = nn.ModuleList()
+        self.in_time_disp = nn.Linear(1, (int) (0.5*dim_hidden[1]+0.5))
+        self.in_time_speed = nn.Linear(1, (int) (0.5*dim_hidden[1]+0.5))
 
-        for _ in range(self.num_middle):
-            middle_layer = nn.Linear(dim_hidden, dim_hidden)
-            self.act = act
-            self.middle_layers.append(middle_layer)
+        self.mid_space_layers = RBF(dim_hidden_[0], 2)
 
-        self.layer_out = nn.Linear(dim_hidden, dim_output)
+        self.hidden_time_layers = nn.ModuleList()
 
-        self.weights = nn.ParameterList([])
+        for i in range(self.n_hidden[1]-1):
+            self.hidden_time_layers.append(nn.Linear(dim_hidden[1], dim_hidden[1])
+            self.hidden_time_layers.append(act)
 
-        for i, (key, value) in enumerate(zip(points.keys(), points.values())):
-            if i != 2:
-                self.weights.append(nn.Parameter(torch.ones(value[0].shape)))
-            else:
-                for i in range(len(value)):
-                    self.weights.append(nn.Parameter(
-                        torch.ones(value[i][0].shape)))
+        self.mid_time_layer = nn.Linear(dim_hidden[1], 2)
+
+        self.pre_out_layer = nn.Linear(4, dim_hidden[2])
+
+        self.pre_out_layers = nn.ModuleList()
+        for i in range(self.n_hidden[2]-1):
+            self.pre_out_layers.append(nn.Linear(dim_hidden[2], dim_hidden[2])
+            self.pre_out_layers.append(act)
+
+        self.out_layer = nn.Linear(dim_hidden[2], 4)
 
     def forward(self, x, y, t):
-        x_stack = torch.cat([x, y, t], dim=1)
-        out = self.sine(self.layer_in(x_stack))
-        logits = self.layer_out(out)
+        space = torch.cat([x, y], dim=1)
+        time = t.reshape(-1,1)
 
-        hard_enc = torch.sin(x*np.pi)
-        hard_enc = hard_enc.view(-1, 1)
-        hard_enc_both = hard_enc.expand(hard_enc.shape[0], 4)
+        x = self.in_space(space)
+        mid_x = self.mid_space(x)
 
-        out = logits*hard_enc_both
+        # wx+b -> sin(wx+b) can also represent derivative -> speed
+        # No need to divide also the hidden layers
+
+        t_disp = self.in_time_disp(time)
+        t_speed = self.in_time_speed(time)
+
+        for layer_t in self.hidden_time:
+            t_disp = layer_t(t_disp)
+            t_speed = layer_t(t_speed)
+
+        t_disp = self.mid_time_layer(t_disp)
+        t_speed = self.mid_time_layer(t_speed)
+
+        mid_t = torch.cat([t_disp, t_speed], dim=1)
+
+        transf_x = w0*torch.sin(mid_x*np.pi)
+        transf_x = transf_x.repeat(1,2)
+
+        merged = transf_x*mid_t
+
+        out = self.pre_out_layer(merged)
+        for layer in self.pre_out_layers:
+            out = layer(out)
+
+        out = self.out_layer(out)
         return out
-
-    def forward_mask(self, idx: int):
-        masked_weights = torch.sigmoid(self.weights[idx])
-        return masked_weights
 
     def device(self):
         return next(self.parameters()).device
@@ -314,15 +327,13 @@ class Loss:
         dux_xy = df(dux_x, [y])
         duy_xy = df(duy_x, [y])
 
-        m = pinn.forward_mask(0)
-
-        loss1 = m*(dvx_t - 2*self.z[0]*(dux_xx + 1/2 *
+        loss1 = (dvx_t - 2*self.z[0]*(dux_xx + 1/2 *
                    (dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy))
-        loss2 = m*(dvy_t - 2 * self.z[0]*(1/2*(duy_xx +
+        loss2 = (dvy_t - 2 * self.z[0]*(1/2*(duy_xx +
                    dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy))
 
-        loss3 = m*(dvx_t - df(output, [t, t], 0))
-        loss4 = m*(dvy_t - df(output, [t, t], 1))
+        loss3 = (dvx_t - df(output, [t, t], 0))
+        loss4 = (dvy_t - df(output, [t, t], 1))
 
         vx = output[:, 2].reshape(-1, 1)
         vy = output[:, 3].reshape(-1, 1)
@@ -340,29 +351,7 @@ class Loss:
 
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean(), d_en_t.pow(2).mean())
 
-    def initial_loss(self, pinn, epochs):
-        x, y, t = self.points['initial_points']
-        pinn_init_ux, pinn_init_uy = self.initial_condition(
-            x, y, x[-1], self.w0)
-        output = f(pinn, x, y, t)
-
-        ux = output[:, 0].reshape(-1, 1)
-        uy = output[:, 1].reshape(-1, 1)
-
-        vx = output[:, 2].reshape(-1, 1)
-        vy = output[:, 3].reshape(-1, 1)
-
-        m = pinn.forward_mask(1)
-
-        loss1 = m*(ux - pinn_init_ux)
-        loss2 = m*(uy - pinn_init_uy)
-
-        loss3 = m*vx
-        loss4 = m*vy
-
-        return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean())
-
-    def boundary_loss(self, pinn):
+   def boundary_loss(self, pinn):
         down, up, left, right = self.points['boundary_points']
         x_down, y_down, t_down = down
         x_up, y_up, t_up = up
@@ -391,36 +380,22 @@ class Loss:
         duy_x_right = df(right, [x_right], 1)
         tr_right = df(right, [x_right], 0) + duy_y_right
 
-        m_down = pinn.forward_mask(2)
-        m_up = pinn.forward_mask(3)
-        m_left = pinn.forward_mask(4)
-        m_right = pinn.forward_mask(5)
-
-        loss_upx = m_up*ux_up
-        loss_upy = m_up*uy_up
-
-        loss_downx = m_down*ux_down
-        loss_downy = m_down*uy_down
-
         loss_left1 = m_left*2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
         loss_left2 = m_left*2*self.z[0]*duy_y_left + self.z[1]*tr_left
 
         loss_right1 = m_right*2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = m_right*2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return (loss_upx.pow(2).mean() + loss_upy.pow(2).mean() +
-                loss_downx.pow(2).mean() + loss_downy.pow(2).mean() +
-                loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
+        return (loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
                 loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
 
     def verbose(self, pinn, epoch):
         residual_loss, en_crit = self.residual_loss(pinn)
-        initial_loss = self.initial_loss(pinn, epoch)
         boundary_loss = self.boundary_loss(pinn)
 
-        final_loss = residual_loss + initial_loss + boundary_loss
+        final_loss = residual_loss + boundary_loss
 
-        return final_loss, residual_loss, initial_loss, boundary_loss, en_crit
+        return final_loss, residual_loss, boundary_loss, en_crit
 
     def __call__(self, pinn, epoch):
         return self.verbose(pinn, epoch)[0]
@@ -437,11 +412,7 @@ def train_model(
 ) -> PINN:
     from plots import scatter_penalty_loss2D, scatter_penalty_loss2D_bound, scatter_penalty_loss3D
 
-    optimizer = optim.Adam([
-        {'params': nn_approximator.layer_in.parameters()},
-        {'params': nn_approximator.layer_out.parameters()},
-        {'params': nn_approximator.weights, 'lr': -0.005},
-    ], lr=learning_rate)
+    optimizer = optim.Adam(nn_approximator.parameters(), lr=learning_rate)
 
     writer = SummaryWriter(log_dir=path_logs)
 
@@ -449,7 +420,7 @@ def train_model(
 
     for epoch in range(max_epochs):
         optimizer.zero_grad()
-        _, residual_loss, initial_loss, boundary_loss, en_crit = loss_fn.verbose(
+        _, residual_loss, boundary_loss, en_crit = loss_fn.verbose(
             nn_approximator, epoch)
         loss: torch.Tensor = loss_fn(nn_approximator, epoch)
 
@@ -461,29 +432,10 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': residual_loss.item(),
-            'initial': initial_loss.item(),
             'boundary': boundary_loss.item(),
         }, epoch)
 
         writer.add_scalar('Energy_cons', en_crit.item(), epoch)
-
-        if epoch % 100 == 0:
-            image_penalty_res = scatter_penalty_loss3D(
-                points['res_points'][0], points['res_points'][1], points['res_points'][2], n_train, nn_approximator.weights[0].data)
-            image_penalty_in = scatter_penalty_loss2D(
-                points['initial_points'][0], points['initial_points'][1], n_train, nn_approximator.weights[1].data)
-
-            bound_weights = []
-
-            for i in range(2, len(nn_approximator.weights)):
-                bound_weights.append(nn_approximator.weights[i].data)
-
-            image_penalty_bound = scatter_penalty_loss2D_bound(
-                points['boundary_points'], n_train, bound_weights)
-
-            writer.add_image('res_penalty', image_penalty_res, epoch)
-            writer.add_image('in_penalty', image_penalty_in, epoch)
-            writer.add_image('bound_penalty', image_penalty_bound, epoch)
 
         pbar.update(1)
 
