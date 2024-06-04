@@ -238,11 +238,13 @@ class PINN(nn.Module):
             self.pre_out_layers.append(act)
 
         self.out_layer = nn.Linear(dim_hidden[2], 4)
-
-    def filter(alpha):
+        
+    @staticmethod
+    def apply_filter(alpha):
         return (torch.tanh(alpha))
-
-    def compl_filter(alpha):
+    
+    @staticmethod
+    def apply_compl_filter(alpha):
         return (1-torch.tanh(alpha))
 
     def forward(self, x, y, t):
@@ -268,10 +270,10 @@ class PINN(nn.Module):
         transf_x = transf_x.repeat(1, 2)
 
         merged = transf_x * mid_t
-        act_global = filter(time.repeat(1, 4)) * merged
+        act_global = apply_filter(time.repeat(1, 4)) * merged
 
         init = initial_conditions(x, self.w0)
-        act_init = compl_filter(alpha) * init
+        act_init = apply_compl_filter(alpha) * init
 
         summed = act_global + act_init
 
