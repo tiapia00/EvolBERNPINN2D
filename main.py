@@ -57,7 +57,7 @@ points = {
     'boundary_points': grid.get_boundary_points()
 }
 
-pinn = PINN(dim_hidden, n_hidden, points).to(device)
+pinn = PINN(dim_hidden, n_hidden, points, w0).to(device)
 
 loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),

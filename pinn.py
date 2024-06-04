@@ -199,47 +199,47 @@ def gaussian(alpha):
 
 
 class PINN(nn.Module):
-    def __init__(self, dim_hidden: tuple, n_hidden: tuple, points: dict, w0: float, act=nn.tanh()):
+    def __init__(self, dim_hidden: tuple, n_hidden: tuple, points: dict, w0: float, act=nn.Tanh()):
         super().__init__()
+        
+        self.w0 = w0
+        
         self.n_hidden = (0, n_hidden[1], n_hidden[2])
         self.in_space = nn.Linear(2, dim_hidden[0])
+        
+        time_dim = int(0.5 * dim_hidden[1] + 0.5)
+        self.in_time_disp = nn.Linear(1, time_dim)
+        self.in_time_speed = nn.Linear(1, time_dim)
 
-        self.in_time_disp = nn.Linear(1, (int) (0.5*dim_hidden[1]+0.5))
-        self.in_time_speed = nn.Linear(1, (int) (0.5*dim_hidden[1]+0.5))
-
-        self.mid_space_layers = RBF(dim_hidden_[0], 2)
+        # Assuming RBF is correctly defined or imported
+        self.mid_space_layers = RBF(dim_hidden[0], 2, gaussian)
 
         self.hidden_time_layers = nn.ModuleList()
-
-        for i in range(self.n_hidden[1]-1):
-            self.hidden_time_layers.append(nn.Linear(dim_hidden[1], dim_hidden[1])
+        for i in range(self.n_hidden[1] - 1):
+            self.hidden_time_layers.append(nn.Linear(time_dim, time_dim))
             self.hidden_time_layers.append(act)
 
-        self.mid_time_layer = nn.Linear(dim_hidden[1], 2)
+        self.mid_time_layer = nn.Linear(time_dim, 2)
 
         self.pre_out_layer = nn.Linear(4, dim_hidden[2])
-
         self.pre_out_layers = nn.ModuleList()
-        for i in range(self.n_hidden[2]-1):
-            self.pre_out_layers.append(nn.Linear(dim_hidden[2], dim_hidden[2])
+        for i in range(self.n_hidden[2] - 1):
+            self.pre_out_layers.append(nn.Linear(dim_hidden[2], dim_hidden[2]))
             self.pre_out_layers.append(act)
 
         self.out_layer = nn.Linear(dim_hidden[2], 4)
 
     def forward(self, x, y, t):
         space = torch.cat([x, y], dim=1)
-        time = t.reshape(-1,1)
+        time = t.reshape(-1, 1)
 
         x = self.in_space(space)
-        mid_x = self.mid_space(x)
-
-        # wx+b -> sin(wx+b) can also represent derivative -> speed
-        # No need to divide also the hidden layers
+        mid_x = self.mid_space_layers(x)
 
         t_disp = self.in_time_disp(time)
         t_speed = self.in_time_speed(time)
 
-        for layer_t in self.hidden_time:
+        for layer_t in self.hidden_time_layers:
             t_disp = layer_t(t_disp)
             t_speed = layer_t(t_speed)
 
@@ -248,10 +248,10 @@ class PINN(nn.Module):
 
         mid_t = torch.cat([t_disp, t_speed], dim=1)
 
-        transf_x = w0*torch.sin(mid_x*np.pi)
-        transf_x = transf_x.repeat(1,2)
+        transf_x = self.w0 * torch.sin(mid_x * torch.pi)
+        transf_x = transf_x.repeat(1, 2)
 
-        merged = transf_x*mid_t
+        merged = transf_x * mid_t
 
         out = self.pre_out_layer(merged)
         for layer in self.pre_out_layers:
@@ -351,7 +351,7 @@ class Loss:
 
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean(), d_en_t.pow(2).mean())
 
-   def boundary_loss(self, pinn):
+    def boundary_loss(self, pinn):
         down, up, left, right = self.points['boundary_points']
         x_down, y_down, t_down = down
         x_up, y_up, t_up = up
@@ -380,11 +380,11 @@ class Loss:
         duy_x_right = df(right, [x_right], 1)
         tr_right = df(right, [x_right], 0) + duy_y_right
 
-        loss_left1 = m_left*2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
-        loss_left2 = m_left*2*self.z[0]*duy_y_left + self.z[1]*tr_left
+        loss_left1 = 2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
+        loss_left2 = 2*self.z[0]*duy_y_left + self.z[1]*tr_left
 
-        loss_right1 = m_right*2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
-        loss_right2 = m_right*2*self.z[0]*duy_y_right + self.z[1]*tr_right
+        loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
+        loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
         return (loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
                 loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
@@ -410,8 +410,7 @@ def train_model(
     points: dict,
     n_train: int
 ) -> PINN:
-    from plots import scatter_penalty_loss2D, scatter_penalty_loss2D_bound, scatter_penalty_loss3D
-
+    
     optimizer = optim.Adam(nn_approximator.parameters(), lr=learning_rate)
 
     writer = SummaryWriter(log_dir=path_logs)
