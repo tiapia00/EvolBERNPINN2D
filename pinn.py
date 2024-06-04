@@ -14,10 +14,12 @@ import os
 from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 
 
-def initial_conditions(x: torch.tensor, y: torch.tensor, w0: float, i: float = 1) -> torch.tensor:
-    res_ux = torch.zeros_like(x)
-    res_uy = w0*torch.sin(torch.pi*i/x[-1]*x)
-    return res_ux, res_uy
+def initial_conditions(x: torch.tensor, w0: float, i: float = 1) -> torch.tensor:
+    ux0 = torch.zeros_like(x)
+    uy0 = w0*torch.sin(torch.pi*i*x)
+    dotux0 = torch.zeros_like(x)
+    dotuy0 = torch.zeros_like(x)
+    return ux0, uy0, dotux0, dotuy0
 
 
 class Grid:
@@ -199,14 +201,21 @@ def gaussian(alpha):
 
 
 class PINN(nn.Module):
-    def __init__(self, dim_hidden: tuple, n_hidden: tuple, points: dict, w0: float, act=nn.Tanh()):
+    def __init__(self,
+                 dim_hidden: tuple,
+                 n_hidden: tuple,
+                 points: dict,
+                 w0: float,
+                 initial_conditions: callable,
+                 act=nn.Tanh()):
+
         super().__init__()
-        
+
         self.w0 = w0
-        
+
         self.n_hidden = (0, n_hidden[1], n_hidden[2])
         self.in_space = nn.Linear(2, dim_hidden[0])
-        
+
         time_dim = int(0.5 * dim_hidden[1] + 0.5)
         self.in_time_disp = nn.Linear(1, time_dim)
         self.in_time_speed = nn.Linear(1, time_dim)
@@ -222,12 +231,19 @@ class PINN(nn.Module):
         self.mid_time_layer = nn.Linear(time_dim, 2)
 
         self.pre_out_layer = nn.Linear(4, dim_hidden[2])
+
         self.pre_out_layers = nn.ModuleList()
         for i in range(self.n_hidden[2] - 1):
             self.pre_out_layers.append(nn.Linear(dim_hidden[2], dim_hidden[2]))
             self.pre_out_layers.append(act)
 
         self.out_layer = nn.Linear(dim_hidden[2], 4)
+
+    def filter(alpha):
+        return (torch.tanh(alpha))
+
+    def compl_filter(alpha):
+        return (1-torch.tanh(alpha))
 
     def forward(self, x, y, t):
         space = torch.cat([x, y], dim=1)
@@ -252,8 +268,15 @@ class PINN(nn.Module):
         transf_x = transf_x.repeat(1, 2)
 
         merged = transf_x * mid_t
+        act_global = filter(time.repeat(1, 4)) * merged
 
-        out = self.pre_out_layer(merged)
+        init = initial_conditions(x, self.w0)
+        act_init = compl_filter(alpha) * init
+
+        summed = act_global + act_init
+
+        out = self.pre_out_layer(summed)
+
         for layer in self.pre_out_layers:
             out = layer(out)
 
@@ -328,9 +351,9 @@ class Loss:
         duy_xy = df(duy_x, [y])
 
         loss1 = (dvx_t - 2*self.z[0]*(dux_xx + 1/2 *
-                   (dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy))
+                                      (dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy))
         loss2 = (dvy_t - 2 * self.z[0]*(1/2*(duy_xx +
-                   dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy))
+                                             dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy))
 
         loss3 = (dvx_t - df(output, [t, t], 0))
         loss4 = (dvy_t - df(output, [t, t], 1))
@@ -410,7 +433,7 @@ def train_model(
     points: dict,
     n_train: int
 ) -> PINN:
-    
+
     optimizer = optim.Adam(nn_approximator.parameters(), lr=learning_rate)
 
     writer = SummaryWriter(log_dir=path_logs)
