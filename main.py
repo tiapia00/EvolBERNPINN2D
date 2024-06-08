@@ -96,10 +96,9 @@ x = x.to(device)
 y = y.to(device)
 t = t.to(device)
 z = f(pinn_trained, x, y, t)
-ux0, uy0 = initial_conditions(x, y, w0)
-z0 = torch.cat((ux0, uy0), dim=1)
+cond0 = initial_conditions(x, y, w0)
 
-plot_initial_conditions(z, z0, x, y, n_train, dir_model)
+plot_initial_conditions(z, cond0, x, y, n_train, dir_model)
 
 x, y, t = grid.get_interior_points()
 plot_sol(pinn_trained, x, y, t, n_train, dir_model, device)
