@@ -38,13 +38,11 @@ par = Parameters()
 
 t_tild, w_ad, en0 = obtain_analytical_trv(par)
 E, rho, _, nu = get_params(par.mat_par)
-
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_train, w0, dim_hidden, n_hidden, lr, epochs = get_params(par.pinn_par)
 
 L_tild = Lx
-
 x_domain = np.array([0.0, Lx])/L_tild
 y_domain = np.array([-Ly/2, Ly/2])/Ly
 t_domain = np.array([0.0, T])/t_tild

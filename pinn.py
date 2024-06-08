@@ -1,17 +1,10 @@
 from torch.utils.tensorboard import SummaryWriter
-from mpl_toolkits.mplot3d import Axes3D
-import pytz
-import datetime
-from datetime import date
 from tqdm import tqdm
 from typing import Callable
 import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
-from typing import Tuple
-import os
-from read_write import pass_folder, get_current_time, get_last_modified_file, get_current_time, create_folder_date
 
 
 def initial_conditions(x: torch.tensor, w0: float, i: float = 1) -> torch.tensor:
@@ -19,7 +12,7 @@ def initial_conditions(x: torch.tensor, w0: float, i: float = 1) -> torch.tensor
     uy0 = w0*torch.sin(torch.pi*i*x)
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
-    return ux0, uy0, dotux0, dotuy0
+    return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
 
 
 class Grid:
@@ -38,7 +31,7 @@ class Grid:
 
         for vector in self.grid_init:
             comparison = torch.all(tensor == vector, dim=1)
-            filtered_tensor = tensor[comparison == False]
+            filtered_tensor = tensor[~comparison]
             tensor = filtered_tensor
 
         return filtered_tensor
@@ -47,7 +40,7 @@ class Grid:
 
         for vector in self.grid_bound[4]:
             comparison = torch.all(tensor == vector, dim=1)
-            filtered_tensor = tensor[comparison == False]
+            filtered_tensor = tensor[~comparison]
             tensor = filtered_tensor
 
         return filtered_tensor
@@ -238,11 +231,11 @@ class PINN(nn.Module):
             self.pre_out_layers.append(act)
 
         self.out_layer = nn.Linear(dim_hidden[2], 4)
-        
+
     @staticmethod
     def apply_filter(alpha):
         return (torch.tanh(alpha))
-    
+
     @staticmethod
     def apply_compl_filter(alpha):
         return (1-torch.tanh(alpha))
@@ -251,8 +244,8 @@ class PINN(nn.Module):
         space = torch.cat([x, y], dim=1)
         time = t.reshape(-1, 1)
 
-        x = self.in_space(space)
-        mid_x = self.mid_space_layers(x)
+        x_in = self.in_space(space)
+        mid_x = self.mid_space_layers(x_in)
 
         t_disp = self.in_time_disp(time)
         t_speed = self.in_time_speed(time)
@@ -270,10 +263,10 @@ class PINN(nn.Module):
         transf_x = transf_x.repeat(1, 2)
 
         merged = transf_x * mid_t
-        act_global = apply_filter(time.repeat(1, 4)) * merged
+        act_global = self.apply_filter(time.repeat(1, 4)) * merged
 
         init = initial_conditions(x, self.w0)
-        act_init = apply_compl_filter(alpha) * init
+        act_init = self.apply_compl_filter(time.repeat(1, 4)) * init
 
         summed = act_global + act_init
 
@@ -289,7 +282,7 @@ class PINN(nn.Module):
         return next(self.parameters()).device
 
 
-def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.tensor:
     return pinn(x, y, t)
 
 
@@ -377,17 +370,9 @@ class Loss:
         return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean(), d_en_t.pow(2).mean())
 
     def boundary_loss(self, pinn):
-        down, up, left, right = self.points['boundary_points']
-        x_down, y_down, t_down = down
-        x_up, y_up, t_up = up
+        _, _, left, right = self.points['boundary_points']
         x_left, y_left, t_left = left
         x_right, y_right, t_right = right
-
-        ux_down = f(pinn, x_down, y_down, t_down)[:, 0]
-        uy_down = f(pinn, x_down, y_down, t_down)[:, 1]
-
-        ux_up = f(pinn, x_up, y_up, t_up)[:, 0]
-        uy_up = f(pinn, x_up, y_up, t_up)[:, 1]
 
         ux_left = f(pinn, x_left, y_left, t_left)[:, 0]
         uy_left = f(pinn, x_left, y_left, t_left)[:, 1]

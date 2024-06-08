@@ -22,7 +22,7 @@ class Parameters:
             'x_end': self.x_end,
             't_end': self.t_end,
             'n': self.n,
-            'w0' : self.w0
+            'w0': self.w0
         }
         self.mat_par = {
             'E': 68.0e9,

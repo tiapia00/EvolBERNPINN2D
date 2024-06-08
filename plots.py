@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib.cm import viridis
 from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.ticker import MaxNLocator, FuncFormatter
 import torch
 from matplotlib.animation import FuncAnimation
 from pinn import PINN, f
@@ -153,8 +152,8 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
     ani.save(file, fps=5)
 
 
-def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_train:
-             int, path: str, device):
+def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor,
+             n_train: int, path: str, device):
 
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
 
@@ -222,7 +221,6 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
         ax.scatter(x_plot+z[:, 0], y_plot+z[:, 1], c=norm, cmap='viridis')
-        ax.scatter(np.unique(x_plot), w_ad[1:-1, frame])
 
         return ax
 

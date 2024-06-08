@@ -1,17 +1,6 @@
 import numpy as np
-import torch
-from torch import nn
-from typing import Tuple
 from beam import Beam, Prob_Solv_Modes, In_Cond
 from par import Parameters, get_params
-import os
-import pytz
-import datetime
-from read_write import get_current_time, pass_folder
-from tqdm import tqdm
-from typing import Callable
-import pytz
-from nn import *
 from scipy import integrate
 
 
@@ -61,7 +50,7 @@ def calculate_ad_init_en(my_beam: Beam, t_ad) -> float:
     x_ad = my_beam.xi/Lx
 
     EJ = my_beam.E*my_beam.J
-    w_ad = my_beam.w[:,0]/Lx
+    w_ad = my_beam.w[:, 0]/Lx
 
     dw_dxx = df_num(x_ad, df_num(x_ad, w_ad))
 
@@ -69,6 +58,7 @@ def calculate_ad_init_en(my_beam: Beam, t_ad) -> float:
     V_ad = V/(my_beam.rho*Lx**2/t_ad**2)
 
     return V_ad
+
 
 def df_num(x: np.ndarray, y: np.ndarray):
     dx = np.diff(x)
