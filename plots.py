@@ -86,7 +86,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
     output = f(pinn, x, y, t)
 
     x_plot = x.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
-    y_plot = 1/4*y.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
+    y_plot = 1/5*y.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
 
     z0 = output.cpu().detach().numpy()
 
@@ -181,7 +181,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor,
     output = f(pinn, x, y, t)
 
     x_plot = x.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
-    y_plot = 1/4*y.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
+    y_plot = 1/5*y.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
 
     z0 = output.cpu().detach().numpy()
     norm = np.linalg.norm(z0, axis=1).reshape(-1)

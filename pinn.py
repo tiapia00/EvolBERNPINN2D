@@ -1,4 +1,5 @@
 from torch.utils.tensorboard import SummaryWriter
+import torch.nn.functional as F
 from tqdm import tqdm
 from typing import Callable
 import numpy as np
@@ -7,7 +8,8 @@ from torch import nn
 import torch.optim as optim
 
 
-def initial_conditions(x: torch.tensor, w0: float, i: float = 1) -> torch.tensor:
+def initial_conditions(initial_points: tuple, w0: float, i: float = 1) -> torch.tensor:
+    x, y, _ = initial_points
     ux0 = torch.zeros_like(x)
     uy0 = w0*torch.sin(torch.pi*i*x)
     dotux0 = torch.zeros_like(x)
@@ -231,6 +233,7 @@ class PINN(nn.Module):
             self.pre_out_layers.append(act)
 
         self.out_layer = nn.Linear(dim_hidden[2], 4)
+        self.initial_points = points['initial_points']
 
     @staticmethod
     def apply_filter(alpha):
@@ -242,7 +245,7 @@ class PINN(nn.Module):
 
     def forward(self, x, y, t):
         space = torch.cat([x, y], dim=1)
-        time = t.reshape(-1, 1)
+        time = t
 
         x_in = self.in_space(space)
         mid_x = self.mid_space_layers(x_in)
@@ -259,23 +262,17 @@ class PINN(nn.Module):
 
         mid_t = torch.cat([t_disp, t_speed], dim=1)
 
-        transf_x = self.w0 * torch.sin(mid_x * torch.pi)
-        transf_x = transf_x.repeat(1, 2)
+        mid_x = mid_x.repeat(1, 2)
 
-        merged = transf_x * mid_t
+        merged = mid_x * mid_t
+
         act_global = self.apply_filter(time.repeat(1, 4)) * merged
 
-        init = initial_conditions(x, self.w0)
-        act_init = self.apply_compl_filter(time.repeat(1, 4)) * init
+        init = initial_conditions((x,y,t), self.w0)
+        act_init = self.apply_compl_filter(t.repeat(1, 4)) * init
 
-        summed = act_global + act_init
+        out = act_global + act_init
 
-        out = self.pre_out_layer(summed)
-
-        for layer in self.pre_out_layers:
-            out = layer(out)
-
-        out = self.out_layer(out)
         return out
 
     def device(self):
@@ -325,36 +322,60 @@ class Loss:
         self.points = points
         self.w0 = w0
 
-    def residual_loss(self, pinn):
-        x, y, t = self.points['res_points']
+    def overall_loss(self, pinn):
+        x_in, y_in, t_in = self.points['initial_points']
+        down, up, left, right = self.points['boundary_points']
+
+        x_down, y_down, t_down = down
+        x_up, y_up, t_up = up
+        x_left, y_left, t_left = left
+        x_right, y_right, t_right = right
+
+        x_bound = torch.cat((x_down, x_up,
+                             x_left, x_right), dim=0)
+        y_bound = torch.cat((y_down, y_up,
+                             y_left, y_right), dim=0)
+        t_bound = torch.cat((t_down, t_up,
+                             t_left, t_right), dim=0)
+
+        x_res, y_res, t_res = self.points['res_points']
+
+        x = torch.cat((x_in, x_bound, x_res), dim=0)
+        y = torch.cat((y_in, y_bound, y_res), dim=0)
+        t = torch.cat((t_in, t_bound, t_res), dim=0)
+
         output = f(pinn, x, y, t)
 
-        dvx_t = df(output, [t], 2)
-        dvy_t = df(output, [t], 3)
+        output_in = output[:x_in.shape[0],:]
+        output_bound = output[x_in.shape[0]:x_in.shape[0]+x_bound.shape[0],:]
+        output_res = output[x_in.shape[0]+x_bound.shape[0]:, :]
 
-        dux_x = df(output, [x], 0)
-        dux_y = df(output, [y], 0)
-        duy_x = df(output, [x], 1)
-        duy_y = df(output, [y], 1)
+        dvx_t = df(output_res, [t_res], 2)
+        dvy_t = df(output_res, [t_res], 3)
 
-        dux_xx = df(dux_x, [x])
-        duy_yy = df(duy_y, [y])
-        duy_xx = df(duy_x, [x])
+        dux_x = df(output_res, [x_res], 0)
+        dux_y = df(output_res, [y_res], 0)
+        duy_x = df(output_res, [x_res], 1)
+        duy_y = df(output_res, [y_res], 1)
 
-        dux_yy = df(dux_y, [y])
-        dux_xy = df(dux_x, [y])
-        duy_xy = df(duy_x, [y])
+        dux_xx = df(dux_x, [x_res])
+        duy_yy = df(duy_y, [y_res])
+        duy_xx = df(duy_x, [x_res])
 
-        loss1 = (dvx_t - 2*self.z[0]*(dux_xx + 1/2 *
+        dux_yy = df(dux_y, [y_res])
+        dux_xy = df(dux_x, [y_res])
+        duy_xy = df(duy_x, [y_res])
+
+        lossres_1 = (dvx_t - 2*self.z[0]*(dux_xx + 1/2 *
                                       (dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy))
-        loss2 = (dvy_t - 2 * self.z[0]*(1/2*(duy_xx +
+        lossres_2 = (dvy_t - 2 * self.z[0]*(1/2*(duy_xx +
                                              dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy))
 
-        loss3 = (dvx_t - df(output, [t, t], 0))
-        loss4 = (dvy_t - df(output, [t, t], 1))
+        lossres_3 = (dvx_t - df(output_res, [t_res, t_res], 0))
+        lossres_4 = (dvy_t - df(output_res, [t_res, t_res], 1))
 
-        vx = output[:, 2].reshape(-1, 1)
-        vy = output[:, 3].reshape(-1, 1)
+        vx = output_res[:, 2].reshape(-1, 1)
+        vy = output_res[:, 3].reshape(-1, 1)
 
         d_en = (1/2*(vx+vy))**2 + (dux_x + duy_y)**2 + \
             2*(dux_x**2 + duy_y**2 + (dux_y+duy_x) ** 2 +
@@ -362,28 +383,26 @@ class Loss:
 
         d_en_t = torch.autograd.grad(
             d_en,
-            t,
-            grad_outputs=torch.ones_like(t),
+            t_res,
+            grad_outputs=torch.ones_like(t_res),
             create_graph=True,
         )[0]
 
-        return (loss1.pow(2).mean() + loss2.pow(2).mean() + loss3.pow(2).mean() + loss4.pow(2).mean(), d_en_t.pow(2).mean())
+        output_down = output_bound[:x_down.shape[0],:]
+        output_up = output_bound[x_down.shape[0]:x_down.shape[0]+x_up.shape[0],:]
+        output_left = output_bound[x_down.shape[0]+x_up.shape[0]:x_down.shape[0]+x_up.shape[0]+x_left.shape[0],:]
+        output_right = output_bound[x_down.shape[0]+x_up.shape[0]+x_left.shape[0]:,:]
 
-    def boundary_loss(self, pinn):
-        _, _, left, right = self.points['boundary_points']
-        x_left, y_left, t_left = left
-        x_right, y_right, t_right = right
-
-        ux_left = f(pinn, x_left, y_left, t_left)[:, 0]
-        uy_left = f(pinn, x_left, y_left, t_left)[:, 1]
+        ux_left = output_left[:, 0]
+        uy_left = output_left[:, 1]
         left = torch.cat([ux_left[..., None], uy_left[..., None]], -1)
         duy_y_left = df(left, [y_left], 1)
         dux_y_left = df(left, [y_left], 0)
         duy_x_left = df(left, [x_left], 1)
         tr_left = df(left, [x_left], 0) + duy_y_left
 
-        ux_right = f(pinn, x_right, y_right, t_right)[:, 0]
-        uy_right = f(pinn, x_right, y_right, t_right)[:, 1]
+        ux_right = output_right[:, 0]
+        uy_right = output_right[:, 1]
         right = torch.cat([ux_right[..., None], uy_right[..., None]], -1)
         duy_y_right = df(right, [y_right], 1)
         dux_y_right = df(right, [y_right], 0)
@@ -396,19 +415,39 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        return (loss_left1.pow(2).mean() + loss_left2.pow(2).mean() +
-                loss_right1.pow(2).mean() + loss_right2.pow(2).mean())
+        ux_down = output_down[:,0]
+        uy_down = output_down[:,1]
+        vx_down = output_down[:,2]
+        vy_down = output_down[:,3]
+
+        ux_up = output_up[:,0]
+        uy_up = output_up[:,1]
+        vx_up = output_up[:,2]
+        vy_up = output_up[:,3]
+
+        lossdown_1 = ux_down
+        lossdown_2 = uy_down
+        lossdown_3 = vx_down
+        lossdown_4 = vy_down
+
+        lossup_1 = ux_up
+        lossup_2 = uy_up
+        lossup_3 = vx_up
+        lossup_4 = vy_up
+
+        return (lossres_1.pow(2).mean() + lossres_2.pow(2).mean() + lossres_3.pow(2).mean() + lossres_4.pow(2).mean() +
+                lossdown_1.pow(2).mean() + lossdown_2.pow(2).mean() + lossdown_3.pow(2).mean() + lossdown_4.pow(2).mean() +
+                lossup_1.pow(2).mean() + lossup_2.pow(2).mean() + lossup_3.pow(2).mean() + lossup_4.pow(2).mean(),
+                d_en_t.pow(2).mean())
+
 
     def verbose(self, pinn, epoch):
-        residual_loss, en_crit = self.residual_loss(pinn)
-        boundary_loss = self.boundary_loss(pinn)
+        overall_loss, en_crit = self.overall_loss(pinn)
 
-        final_loss = residual_loss + boundary_loss
-
-        return final_loss, residual_loss, boundary_loss, en_crit
+        return overall_loss, en_crit
 
     def __call__(self, pinn, epoch):
-        return self.verbose(pinn, epoch)[0]
+        return self.verbose(pinn, epoch)
 
 
 def train_model(
@@ -429,20 +468,12 @@ def train_model(
 
     for epoch in range(max_epochs):
         optimizer.zero_grad()
-        _, residual_loss, boundary_loss, en_crit = loss_fn.verbose(
-            nn_approximator, epoch)
-        loss: torch.Tensor = loss_fn(nn_approximator, epoch)
+        loss, en_crit = loss_fn(nn_approximator, epoch)
 
         loss.backward()
         optimizer.step()
 
         pbar.set_description(f"Global loss: {loss.item():.3e}")
-
-        writer.add_scalars('Loss', {
-            'global': loss.item(),
-            'residual': residual_loss.item(),
-            'boundary': boundary_loss.item(),
-        }, epoch)
 
         writer.add_scalar('Energy_cons', en_crit.item(), epoch)
 

@@ -89,14 +89,12 @@ print(pinn_trained)
 
 pinn_trained.eval()
 
-x, y, _ = grid.get_initial_points()
-t_value = 0.0
-t = torch.full_like(x, t_value)
+x, y, t = points['initial_points']
 x = x.to(device)
 y = y.to(device)
 t = t.to(device)
 z = f(pinn_trained, x, y, t)
-cond0 = initial_conditions(x, y, w0)
+cond0 = initial_conditions(points['initial_points'], w0)
 
 plot_initial_conditions(z, cond0, x, y, n_train, dir_model)
 
