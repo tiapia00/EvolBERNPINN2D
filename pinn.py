@@ -194,6 +194,9 @@ def gaussian(alpha):
     phi = torch.exp(-1*alpha.pow(2))
     return phi
 
+class TrigAct(nn.Module):
+    def forward(self, x):
+        return torch.sin(x)
 
 class PINN(nn.Module):
     def __init__(self,
@@ -202,7 +205,7 @@ class PINN(nn.Module):
                  points: dict,
                  w0: float,
                  initial_conditions: callable,
-                 act=nn.Tanh()):
+                 act=TrigAct()):
 
         super().__init__()
 
@@ -214,26 +217,11 @@ class PINN(nn.Module):
         time_dim = int(0.5 * dim_hidden[1] + 0.5)
         self.in_time_disp = nn.Linear(1, time_dim)
         self.in_time_speed = nn.Linear(1, time_dim)
+        self.act_time = TrigAct()
 
         # Assuming RBF is correctly defined or imported
         self.mid_space_layers = RBF(dim_hidden[0], 2, gaussian)
-
-        self.hidden_time_layers = nn.ModuleList()
-        for i in range(self.n_hidden[1] - 1):
-            self.hidden_time_layers.append(nn.Linear(time_dim, time_dim))
-            self.hidden_time_layers.append(act)
-
         self.mid_time_layer = nn.Linear(time_dim, 2)
-
-        self.pre_out_layer = nn.Linear(4, dim_hidden[2])
-
-        self.pre_out_layers = nn.ModuleList()
-        for i in range(self.n_hidden[2] - 1):
-            self.pre_out_layers.append(nn.Linear(dim_hidden[2], dim_hidden[2]))
-            self.pre_out_layers.append(act)
-
-        self.out_layer = nn.Linear(dim_hidden[2], 4)
-        self.initial_points = points['initial_points']
 
     @staticmethod
     def apply_filter(alpha):
@@ -252,10 +240,9 @@ class PINN(nn.Module):
 
         t_disp = self.in_time_disp(time)
         t_speed = self.in_time_speed(time)
-
-        for layer_t in self.hidden_time_layers:
-            t_disp = layer_t(t_disp)
-            t_speed = layer_t(t_speed)
+        
+        t_disp_act = self.act_time(t_disp)
+        t_speed_act = self.act_time(t_speed)
 
         t_disp = self.mid_time_layer(t_disp)
         t_speed = self.mid_time_layer(t_speed)
@@ -474,7 +461,8 @@ def train_model(
         optimizer.step()
 
         pbar.set_description(f"Global loss: {loss.item():.3e}")
-
+        
+        writer.add_scalar('global', loss.item(), epoch)
         writer.add_scalar('Energy_cons', en_crit.item(), epoch)
 
         pbar.update(1)
