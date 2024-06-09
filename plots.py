@@ -330,7 +330,6 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, n_tr
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
         ax.scatter(x_plot+z[:, 0], y_plot+z[:, 1], c=norm, cmap='viridis')
-        ax.scatter(np.unique(x_plot), w_ad[1:-1, frame])
 
         return ax
 
