@@ -38,11 +38,9 @@ def obtain_analytical_trv(par: Parameters):
     my_beam.calculate_solution(A, B, t_lin)
     w = my_beam.w
 
-    w_ad = w/Lx
-
     V0_hat = calculate_ad_init_en(my_beam, t_ad)
 
-    return t_ad, w_ad, V0_hat
+    return t_ad, w, V0_hat
 
 
 def calculate_ad_init_en(my_beam: Beam, t_ad) -> float:

@@ -16,7 +16,7 @@ class Parameters:
             'neuron_per_layer': self.neurons_per_layer,
             'n_hidden': self.num_hidden,
             'lr': 0.001,
-            'epochs': 20
+            'epochs': 10
         }
         self.beam_par = {
             'x_end': self.x_end,
