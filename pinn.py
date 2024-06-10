@@ -189,6 +189,9 @@ class RBF(nn.Module):
             torch.exp(self.log_sigmas).unsqueeze(0)
         return self.basis_func(distances)
 
+def inverse_multiquadric(alpha):
+    phi = torch.ones_like(alpha) / (torch.ones_like(alpha) + alpha.pow(2)).pow(0.5)
+    return phi
 
 def gaussian(alpha):
     phi = torch.exp(-1*alpha.pow(2))
@@ -218,7 +221,7 @@ class PINN(nn.Module):
         self.act_time = TrigAct()
 
         # Assuming RBF is correctly defined or imported
-        self.mid_space_layers = RBF(dim_hidden[0], 2, gaussian)
+        self.mid_space_layers = RBF(dim_hidden[0], 2, inverse_multiquadric)
         self.mid_time_layer = nn.Linear(time_dim, 2)
 
     @staticmethod
@@ -238,7 +241,7 @@ class PINN(nn.Module):
 
         t_disp = self.in_time_disp(time)
         t_speed = self.in_time_speed(time)
-        
+
         t_disp_act = self.act_time(t_disp)
         t_speed_act = self.act_time(t_speed)
 
