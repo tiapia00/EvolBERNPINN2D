@@ -201,7 +201,6 @@ class TrigAct(nn.Module):
 class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: tuple,
-                 n_hidden: tuple,
                  points: dict,
                  w0: float,
                  initial_conditions: callable,
@@ -211,7 +210,6 @@ class PINN(nn.Module):
 
         self.w0 = w0
 
-        self.n_hidden = (0, n_hidden[1], n_hidden[2])
         self.in_space = nn.Linear(2, dim_hidden[0])
 
         time_dim = int(0.5 * dim_hidden[1] + 0.5)
@@ -332,13 +330,13 @@ class Loss:
         t = torch.cat((t_in, t_bound, t_res), dim=0)
 
         output = f(pinn, x, y, t)
-
+        
         output_in = output[:x_in.shape[0],:]
         output_bound = output[x_in.shape[0]:x_in.shape[0]+x_bound.shape[0],:]
         output_res = output[x_in.shape[0]+x_bound.shape[0]:, :]
 
-        dvx_t = df(output_res, [t_res], 2)
-        dvy_t = df(output_res, [t_res], 3)
+        dvx_t = df(output_res, [t_res, t_res], 0)
+        dvy_t = df(output_res, [t_res, t_res], 1)
 
         dux_x = df(output_res, [x_res], 0)
         dux_y = df(output_res, [y_res], 0)
@@ -471,6 +469,8 @@ def train_model(
     pbar.close()
 
     writer.close()
+    
+
 
     return nn_approximator
 

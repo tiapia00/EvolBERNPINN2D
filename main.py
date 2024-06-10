@@ -40,7 +40,7 @@ t_tild, w_ad, en0 = obtain_analytical_trv(par)
 E, rho, _, nu = get_params(par.mat_par)
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_train, w0, dim_hidden, n_hidden, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_train, w0, dim_hidden, lr, epochs = get_params(par.pinn_par)
 
 L_tild = Lx
 x_domain = np.array([0.0, Lx])/L_tild
@@ -55,7 +55,7 @@ points = {
     'boundary_points': grid.get_boundary_points()
 }
 
-pinn = PINN(dim_hidden, n_hidden, points, w0, initial_conditions).to(device)
+pinn = PINN(dim_hidden, points, w0, initial_conditions).to(device)
 
 loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),
