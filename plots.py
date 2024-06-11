@@ -59,9 +59,9 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
 
-    nx = n_train - 2
-    ny = nx
-    nt = n_train - 1
+    nx = n_train
+    ny = n_train
+    nt = n_train
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
 
@@ -91,7 +91,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
     z0 = output.cpu().detach().numpy()
 
     sc = ax.scatter(x_plot+z0[:, 0], y_plot+z0[:, 1])
-    ax.scatter(np.unique(x_plot), w_ad[1:-1, 0])
+    ax.scatter(np.unique(x_plot), w_ad[:, 0])
     t_value = float(t_raw[0])
 
     ax.set_title(f'$\\hat{{t}} = {t_value:.2f}$')
@@ -122,7 +122,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
         z = output.cpu().detach().numpy()
         z_mid = output_mid.cpu().detach().numpy()
 
-        diff = z_mid[:, 1] - w_ad[1:-1, frame]
+        diff = z_mid[:, 1] - w_ad[:, frame]
         diff = np.tile(diff, (nx, 1))
 
         t_value = float(t[0])
@@ -137,7 +137,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
         sc = ax.scatter(x_plot+z[:, 0], y_plot +
                         z[:, 1], c=diff.T, cmap='viridis')
-        ax.scatter(np.unique(x_plot), w_ad[1:-1, frame])
+        ax.scatter(np.unique(x_plot), w_ad[:, frame])
 
         return ax
 
@@ -157,9 +157,9 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor,
 
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
 
-    nx = n_train - 2
-    ny = nx
-    nt = n_train - 1
+    nx = n_train
+    ny = n_train
+    nt = n_train
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
 

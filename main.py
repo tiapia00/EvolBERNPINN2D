@@ -43,11 +43,11 @@ lam, mu = par.to_matpar_PINN()
 Lx, Ly, T, n_train, w0, dim_hidden, lr, epochs = get_params(par.pinn_par)
 
 L_tild = Lx
-x_domain = np.array([0.0, Lx])/L_tild
-y_domain = np.array([-Ly/2, Ly/2])/Ly
-t_domain = np.array([0.0, T])/t_tild
+x_domain = torch.linspace(0, Lx, n_train)/L_tild
+y_domain = torch.linspace(-Ly/2, Ly/2, n_train)/Ly
+t_domain = torch.linspace(0, T, n_train)/t_tild
 
-grid = Grid(x_domain, y_domain, t_domain, n_train, device)
+grid = Grid(x_domain, y_domain, t_domain, device)
 
 points = {
     'res_points': grid.get_interior_points(),
@@ -98,11 +98,12 @@ cond0 = initial_conditions(points['initial_points'], w0)
 
 plot_initial_conditions(z, cond0, x, y, n_train, dir_model)
 
-x, y, t = grid.get_interior_points()
+x, y, t = grid.get_all_points()
+
 plot_sol(pinn_trained, x, y, t, n_train, dir_model, device)
 
 w_ad_mid = w_ad[:, int(w_ad.shape[0]/2)]
-plot_midpoint_displ(pinn_trained, t, n_train, w_ad_mid[1:], dir_model, device)
+plot_midpoint_displ(pinn_trained, t, n_train, w_ad_mid, dir_model, device)
 plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train,
                     dir_model, device)
 

@@ -1,5 +1,4 @@
 from torch.utils.tensorboard import SummaryWriter
-import torch.nn.functional as F
 from tqdm import tqdm
 from typing import Callable
 import numpy as np
@@ -18,46 +17,23 @@ def initial_conditions(initial_points: tuple, w0: float, i: float = 1) -> torch.
 
 
 class Grid:
-    def __init__(self, x_domain, y_domain, t_domain, n_points, device):
+    def __init__(self, x_domain, y_domain, t_domain, device):
         self.x_domain = x_domain
         self.y_domain = y_domain
         self.t_domain = t_domain
-        self.n_points = n_points
         self.device = device
         self.requires_grad = True
         self.grid_init = self.generate_grid_init()
         self.grid_bound = self.generate_grid_bound()
 
-    def delete_init(self, tensor) -> torch.tensor:
-        """matching_indices: print idx of rows which are identical"""
-
-        for vector in self.grid_init:
-            comparison = torch.all(tensor == vector, dim=1)
-            filtered_tensor = tensor[~comparison]
-            tensor = filtered_tensor
-
-        return filtered_tensor
-
-    def delete_bound(self, tensor) -> torch.tensor:
-
-        for vector in self.grid_bound[4]:
-            comparison = torch.all(tensor == vector, dim=1)
-            filtered_tensor = tensor[~comparison]
-            tensor = filtered_tensor
-
-        return filtered_tensor
-
     def generate_grid_init(self):
-        x_linspace = torch.linspace(
-            self.x_domain[0], self.x_domain[1], self.n_points)
-        y_linspace = torch.linspace(
-            self.y_domain[0], self.y_domain[1], self.n_points)
-        x_grid, y_grid = torch.meshgrid(x_linspace, y_linspace, indexing="ij")
+        x = self.x_domain
+        y = self.y_domain
+        x_grid, y_grid = torch.meshgrid(x, y, indexing="ij")
 
         x_grid = x_grid.reshape(-1, 1)
         y_grid = y_grid.reshape(-1, 1)
-        t0 = torch.full_like(
-            x_grid, self.t_domain[0])
+        t0 = torch.zeros_like(x_grid)
 
         grid_init = torch.cat((x_grid, y_grid, t0), dim=1)
 
@@ -76,12 +52,9 @@ class Grid:
         down , up : extremes of the beam
         """
 
-        x_linspace = torch.linspace(
-            self.x_domain[0], self.x_domain[1], self.n_points)
-        y_linspace = torch.linspace(
-            self.y_domain[0], self.y_domain[1], self.n_points)
-        t_linspace = torch.linspace(
-            self.t_domain[0], self.t_domain[1], self.n_points)
+        x_linspace = self.x_domain
+        y_linspace = self.y_domain
+        t_linspace = self.t_domain[1:]
 
         x_grid, t_grid = torch.meshgrid(x_linspace, t_linspace, indexing="ij")
         y_grid, _ = torch.meshgrid(y_linspace, t_linspace, indexing="ij")
@@ -100,28 +73,21 @@ class Grid:
             t_grid, self.y_domain[1])
 
         down = torch.cat((x0, y_grid, t_grid), dim=1)
-        down = self.delete_init(down)
 
         up = torch.cat((x1, y_grid, t_grid), dim=1)
-        up = self.delete_init(up)
 
         left = torch.cat((x_grid, y0, t_grid), dim=1)
-        left = self.delete_init(left)
 
         right = torch.cat((x_grid, y1, t_grid), dim=1)
-        right = self.delete_init(right)
-
         bound_points = torch.cat((down, up, left, right), dim=0)
 
         return (down, up, left, right, bound_points)
 
     def get_initial_points(self):
         x_grid = self.grid_init[:, 0].unsqueeze(1).to(self.device)
-        x_grid.requires_grad = True
         y_grid = self.grid_init[:, 1].unsqueeze(1).to(self.device)
-        y_grid.requires_grad = True
         t0 = self.grid_init[:, 2].unsqueeze(1).to(self.device)
-        t0.requires_grad = True
+
         return (x_grid, y_grid, t0)
 
     def get_boundary_points(self):
@@ -136,12 +102,9 @@ class Grid:
         return (down, up, left, right)
 
     def get_interior_points(self):
-        x_raw = torch.linspace(
-            self.x_domain[0], self.x_domain[1], steps=self.n_points)
-        y_raw = torch.linspace(
-            self.y_domain[0], self.y_domain[1], steps=self.n_points)
-        t_raw = torch.linspace(
-            self.t_domain[0], self.t_domain[1], steps=self.n_points)
+        x_raw = self.x_domain[1:-1]
+        y_raw = self.y_domain[1:-1]
+        t_raw = self.t_domain[1:]
         grids = torch.meshgrid(x_raw, y_raw, t_raw, indexing="ij")
 
         x = grids[0].reshape(-1, 1)
@@ -149,8 +112,6 @@ class Grid:
         t = grids[2].reshape(-1, 1)
 
         grid = torch.cat((x, y, t), dim=1)
-        grid = self.delete_init(grid)
-        grid = self.delete_bound(grid)
 
         x = grid[:, 0].unsqueeze(1).to(self.device)
         x.requires_grad = True
@@ -160,6 +121,12 @@ class Grid:
         t.requires_grad = True
 
         return (x, y, t)
+
+    def get_all_points(self):
+
+        x_all, y_all, t_all = torch.meshgrid(self.x_domain, self.y_domain,
+                                             self.t_domain, indexing='ij')
+        return (x_all, y_all, t_all)
 
 
 class SineActivation(nn.Module):
@@ -250,8 +217,8 @@ class PINN(nn.Module):
 
         mid_t = torch.cat([t_disp, t_speed], dim=1)
 
+        mid_x = torch.sin(space[:,0].reshape(-1,1)*np.pi)*mid_x
         mid_x = mid_x.repeat(1, 2)
-        mid_x = torch.sin(mid_x*torch.pi)
 
         merged = mid_x * mid_t
 
@@ -311,60 +278,38 @@ class Loss:
         self.points = points
         self.w0 = w0
 
-    def overall_loss(self, pinn):
-        x_in, y_in, t_in = self.points['initial_points']
-        down, up, left, right = self.points['boundary_points']
-
-        x_down, y_down, t_down = down
-        x_up, y_up, t_up = up
-        x_left, y_left, t_left = left
-        x_right, y_right, t_right = right
-
-        x_bound = torch.cat((x_down, x_up,
-                             x_left, x_right), dim=0)
-        y_bound = torch.cat((y_down, y_up,
-                             y_left, y_right), dim=0)
-        t_bound = torch.cat((t_down, t_up,
-                             t_left, t_right), dim=0)
-
-        x_res, y_res, t_res = self.points['res_points']
-
-        x = torch.cat((x_in, x_bound, x_res), dim=0)
-        y = torch.cat((y_in, y_bound, y_res), dim=0)
-        t = torch.cat((t_in, t_bound, t_res), dim=0)
-
+    def res_loss(self, pinn):
+        x, y, t = self.points['res_points']
         output = f(pinn, x, y, t)
 
-        output_in = output[:x_in.shape[0],:]
-        output_bound = output[x_in.shape[0]:x_in.shape[0]+x_bound.shape[0],:]
-        output_res = output[x_in.shape[0]+x_bound.shape[0]:, :]
+        dvx_t = df(output, [t], 2)
+        dvy_t = df(output, [t], 3)
 
-        dvx_t = df(output_res, [t_res, t_res], 0)
-        dvy_t = df(output_res, [t_res, t_res], 1)
+        dux_x = df(output, [x], 0)
+        dux_y = df(output, [y], 0)
+        duy_x = df(output, [x], 1)
+        duy_y = df(output, [y], 1)
 
-        dux_x = df(output_res, [x_res], 0)
-        dux_y = df(output_res, [y_res], 0)
-        duy_x = df(output_res, [x_res], 1)
-        duy_y = df(output_res, [y_res], 1)
+        dux_xx = df(dux_x, [x])
+        duy_yy = df(duy_y, [y])
+        duy_xx = df(duy_x, [x])
 
-        dux_xx = df(dux_x, [x_res])
-        duy_yy = df(duy_y, [y_res])
-        duy_xx = df(duy_x, [x_res])
+        dux_yy = df(dux_y, [y])
+        dux_xy = df(dux_x, [y])
+        duy_xy = df(duy_x, [y])
 
-        dux_yy = df(dux_y, [y_res])
-        dux_xy = df(dux_x, [y_res])
-        duy_xy = df(duy_x, [y_res])
+        loss_v = []
 
-        lossres_1 = (dvx_t - 2*self.z[0]*(dux_xx + 1/2 *
+        loss_v.append(dvx_t - 2*self.z[0]*(dux_xx + 1/2 *
                                       (dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy))
-        lossres_2 = (dvy_t - 2 * self.z[0]*(1/2*(duy_xx +
+        loss_v.append(dvy_t - 2 * self.z[0]*(1/2*(duy_xx +
                                              dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy))
 
-        lossres_3 = (dvx_t - df(output_res, [t_res, t_res], 0))
-        lossres_4 = (dvy_t - df(output_res, [t_res, t_res], 1))
+        loss_v.append(dvx_t - df(output, [t, t], 0))
+        loss_v.append(dvy_t - df(output, [t, t], 1))
 
-        vx = output_res[:, 2].reshape(-1, 1)
-        vy = output_res[:, 3].reshape(-1, 1)
+        vx = output[:, 2].reshape(-1, 1)
+        vy = output[:, 3].reshape(-1, 1)
 
         d_en = (1/2*(vx+vy))**2 + (dux_x + duy_y)**2 + \
             2*(dux_x**2 + duy_y**2 + (dux_y+duy_x) ** 2 +
@@ -372,50 +317,70 @@ class Loss:
 
         d_en_t = torch.autograd.grad(
             d_en,
-            t_res,
-            grad_outputs=torch.ones_like(t_res),
+            t,
+            grad_outputs=torch.ones_like(t),
             create_graph=True,
         )[0]
 
-        output_down = output_bound[:x_down.shape[0],:]
-        output_up = output_bound[x_down.shape[0]:x_down.shape[0]+x_up.shape[0],:]
-        output_left = output_bound[x_down.shape[0]+x_up.shape[0]:x_down.shape[0]+x_up.shape[0]+x_left.shape[0],:]
-        output_right = output_bound[x_down.shape[0]+x_up.shape[0]+x_left.shape[0]:,:]
+        d_en_t = d_en_t.pow(2).mean()
 
-        ux_left = output_left[:, 0]
-        uy_left = output_left[:, 1]
+        loss = 0
+
+        for loss_res in loss_v:
+            loss += loss_res.pow(2).mean()
+
+        return (loss, d_en_t)
+
+
+    def bound_loss(self, pinn):
+        down, up, left, right = self.points['boundary_points']
+        x_down, y_down, t_down = down
+        x_up, y_up, t_up = up
+        x_left, y_left, t_left = left
+        x_right, y_right, t_right = right
+
+        ux_down = f(pinn, x_down, y_down, t_down)[:, 0]
+        uy_down = f(pinn, x_down, y_down, t_down)[:, 1]
+
+        ux_left = f(pinn, x_left, y_left, t_left)[:, 0]
+        uy_left = f(pinn, x_left, y_left, t_left)[:, 1]
         left = torch.cat([ux_left[..., None], uy_left[..., None]], -1)
         duy_y_left = df(left, [y_left], 1)
         dux_y_left = df(left, [y_left], 0)
         duy_x_left = df(left, [x_left], 1)
         tr_left = df(left, [x_left], 0) + duy_y_left
 
-        ux_right = output_right[:, 0]
-        uy_right = output_right[:, 1]
+        ux_right = f(pinn, x_right, y_right, t_right)[:, 0]
+        uy_right = f(pinn, x_right, y_right, t_right)[:, 1]
         right = torch.cat([ux_right[..., None], uy_right[..., None]], -1)
         duy_y_right = df(right, [y_right], 1)
         dux_y_right = df(right, [y_right], 0)
         duy_x_right = df(right, [x_right], 1)
         tr_right = df(right, [x_right], 0) + duy_y_right
 
-        loss_left1 = 2*self.z[0]*(1/2*(dux_y_left + duy_x_left))
-        loss_left2 = 2*self.z[0]*duy_y_left + self.z[1]*tr_left
+        loss_v = []
 
-        loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
-        loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
+        loss_v.append(2*self.z[0]*(1/2*(dux_y_left + duy_x_left)))
+        loss_v.append(2*self.z[0]*duy_y_left + self.z[1]*tr_left)
 
-        return (lossres_1.pow(2).mean() + lossres_2.pow(2).mean() + lossres_3.pow(2).mean() + lossres_4.pow(2).mean() +
-                loss_left1.pow(2).mean() + loss_left2.pow(2).mean() + loss_right1.pow(2).mean() + loss_right2.pow(2).mean(),
-                d_en_t.pow(2).mean())
+        loss_v.append(2*self.z[0]*(1/2*(dux_y_right + duy_x_right)))
+        loss_v.append(2*self.z[0]*duy_y_right + self.z[1]*tr_right)
 
+        loss = 0
 
-    def verbose(self, pinn, epoch):
-        overall_loss, en_crit = self.overall_loss(pinn)
+        for loss_bound in loss_v:
+            loss += loss_bound.pow(2).mean()
 
-        return overall_loss, en_crit
+        return loss
 
-    def __call__(self, pinn, epoch):
-        return self.verbose(pinn, epoch)
+    def verbose(self, pinn):
+        res_loss, en_crit = self.res_loss(pinn)
+        loss = res_loss + self.bound_loss(pinn)
+
+        return loss, en_crit
+
+    def __call__(self, pinn):
+        return self.verbose(pinn)
 
 
 def train_model(
@@ -436,7 +401,7 @@ def train_model(
 
     for epoch in range(max_epochs):
         optimizer.zero_grad()
-        loss, en_crit = loss_fn(nn_approximator, epoch)
+        loss, en_crit = loss_fn(nn_approximator)
 
         loss.backward()
         optimizer.step()
@@ -452,8 +417,6 @@ def train_model(
     pbar.close()
 
     writer.close()
-    
-
 
     return nn_approximator
 
