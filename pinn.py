@@ -251,6 +251,7 @@ class PINN(nn.Module):
         mid_t = torch.cat([t_disp, t_speed], dim=1)
 
         mid_x = mid_x.repeat(1, 2)
+        mid_x = torch.sin(mid_x*torch.pi)
 
         merged = mid_x * mid_t
 
@@ -333,7 +334,7 @@ class Loss:
         t = torch.cat((t_in, t_bound, t_res), dim=0)
 
         output = f(pinn, x, y, t)
-        
+
         output_in = output[:x_in.shape[0],:]
         output_bound = output[x_in.shape[0]:x_in.shape[0]+x_bound.shape[0],:]
         output_res = output[x_in.shape[0]+x_bound.shape[0]:, :]
@@ -403,29 +404,8 @@ class Loss:
         loss_right1 = 2*self.z[0]*(1/2*(dux_y_right + duy_x_right))
         loss_right2 = 2*self.z[0]*duy_y_right + self.z[1]*tr_right
 
-        ux_down = output_down[:,0]
-        uy_down = output_down[:,1]
-        vx_down = output_down[:,2]
-        vy_down = output_down[:,3]
-
-        ux_up = output_up[:,0]
-        uy_up = output_up[:,1]
-        vx_up = output_up[:,2]
-        vy_up = output_up[:,3]
-
-        lossdown_1 = ux_down
-        lossdown_2 = uy_down
-        lossdown_3 = vx_down
-        lossdown_4 = vy_down
-
-        lossup_1 = ux_up
-        lossup_2 = uy_up
-        lossup_3 = vx_up
-        lossup_4 = vy_up
-
         return (lossres_1.pow(2).mean() + lossres_2.pow(2).mean() + lossres_3.pow(2).mean() + lossres_4.pow(2).mean() +
-                lossdown_1.pow(2).mean() + lossdown_2.pow(2).mean() + lossdown_3.pow(2).mean() + lossdown_4.pow(2).mean() +
-                lossup_1.pow(2).mean() + lossup_2.pow(2).mean() + lossup_3.pow(2).mean() + lossup_4.pow(2).mean(),
+                loss_left1.pow(2).mean() + loss_left2.pow(2).mean() + loss_right1.pow(2).mean() + loss_right2.pow(2).mean(),
                 d_en_t.pow(2).mean())
 
 
@@ -462,7 +442,7 @@ def train_model(
         optimizer.step()
 
         pbar.set_description(f"Global loss: {loss.item():.3e}")
-        
+
         writer.add_scalar('global', loss.item(), epoch)
         writer.add_scalar('Energy_cons', en_crit.item(), epoch)
 
