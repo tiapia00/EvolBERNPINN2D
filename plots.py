@@ -222,31 +222,32 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor,
     ani.save(file, fps=5)
 
 
-def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, uy_mid: np.ndarray, path: str, device):
+def plot_compliance(pinn: PINN, x: torch.tensor, y: torch.tensor,
+                    t: torch.Tensor, n_train: int, w_ad: np.ndarray, path: str, device):
+
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10, 8))
-    fig.suptitle('Midpoint displacement')
+    fig.suptitle('Compliance')
+
+    x.to(device)
+    y.to(device)
 
     t_raw = torch.unique(t, sorted=True)
-
-    x = torch.tensor([0.5]).to(device).reshape(-1, 1)
-    y = torch.tensor([0.]).to(device).reshape(-1, 1)
-
-    uy_mid_PINN = []
+    mean_y = []
 
     for t in t_raw:
         t = t.reshape(-1, 1).to(device)
         output = f(pinn, x, y, t)
-        uy = output[0, 1].cpu().detach().numpy()
-        uy_mid_PINN.append(uy)
+        uy = output[:, 1].cpu().detach().numpy()
+        mean_y.append(uy.mean().detach().numpy())
 
-    ax[0].plot(t_raw.cpu().detach().numpy(),
-               np.array(uy_mid_PINN), color='blue')
+    mean_y = np.array(mean_y)
+
+    ax[0].plot(t_raw.cpu().detach().numpy(), mean_y, color='blue')
     ax[0].set_title('Prediction from PINN')
     ax[0].set_xlabel('$\\hat{t}$')
     ax[0].set_ylabel('$\\hat{u}_y$')
 
-    ax[1].plot(t_raw.cpu().detach().numpy(), uy_mid -
-               np.array(uy_mid_PINN), color='red')
+    ax[1].plot(t_raw.cpu().detach().numpy(), mean_y - np.mean(w_ad, axis=0, color='red')
     ax[1].set_title('Deviation from analytical')
     ax[1].set_xlabel('$\\hat{t}$')
     ax[1].set_ylabel('$\\hat{u}_\\text{y,an}-\\hat{u}_\\text{y,PINN}$')

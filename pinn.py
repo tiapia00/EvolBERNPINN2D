@@ -129,11 +129,6 @@ class Grid:
         return (x_all, y_all, t_all)
 
 
-class SineActivation(nn.Module):
-    def forward(self, input):
-        return torch.sin(input)
-
-
 class RBF(nn.Module):
     def __init__(self, in_features, out_features, basis_func):
         super(RBF, self).__init__()

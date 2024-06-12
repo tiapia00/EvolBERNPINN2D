@@ -102,8 +102,7 @@ x, y, t = grid.get_all_points()
 
 plot_sol(pinn_trained, x, y, t, n_train, dir_model, device)
 
-w_ad_mid = w_ad[:, int(w_ad.shape[0]/2)]
-plot_midpoint_displ(pinn_trained, t, n_train, w_ad_mid, dir_model, device)
+plot_compliance(pinn_trained, x, y, t, n_train, w_ad, dir_model, device)
 plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train,
                     dir_model, device)
 
