@@ -164,6 +164,10 @@ def gaussian(alpha):
     phi = torch.exp(-1*alpha.pow(2))
     return phi
 
+def matern52(alpha):
+    phi = (torch.ones_like(alpha) + 5 ** 0.5 * alpha + (5 / 3) * alpha.pow(2)) * torch.exp(-5 ** 0.5 * alpha)
+    return phi
+
 class TrigAct(nn.Module):
     def forward(self, x):
         return torch.sin(x)
@@ -198,6 +202,10 @@ class PINN(nn.Module):
     @staticmethod
     def apply_compl_filter(alpha):
         return (1-torch.tanh(alpha))
+    
+    @staticmethod
+    def parabolic(alpha):
+        return (0.1*alpha**2-0.1*alpha)
 
     def forward(self, x, y, t):
         space = torch.cat([x, y], dim=1)
@@ -217,7 +225,7 @@ class PINN(nn.Module):
 
         mid_t = torch.cat([t_disp, t_speed], dim=1)
 
-        mid_x = torch.sin(space[:,0].reshape(-1,1)*np.pi)*mid_x
+        mid_x = self.parabolic(space[:,0].reshape(-1,1))*mid_x
         mid_x = mid_x.repeat(1, 2)
 
         merged = mid_x * mid_t
@@ -413,7 +421,7 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
-            'boundary': boundary_loss.item(),
+            'boundary': bound_loss.item(),
         }, epoch)
 
         writer.add_scalar('Energy_cons', en_crit.item(), epoch)

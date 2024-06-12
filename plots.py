@@ -80,7 +80,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
     x_mid = torch.unique(x).reshape(-1, 1)
     y_mid = torch.zeros_like(x_mid)
 
-    t_shaped = torch.ones_like(x)
+    t_shaped = torch.ones_like(x).to(device)
     t = t_shaped*t_raw[0].to(device)
 
     output = f(pinn, x, y, t)
@@ -113,17 +113,11 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
         x_limts = np.array([0, 2])
         y_limts = np.array([-0.5, 0.5])
-        t = t_shaped*t_raw[frame]
-        t_mid = torch.ones_like(x_mid)*t_raw[frame]
+        t = t_shaped*t_raw[frame].to(device)
 
         output = f(pinn, x, y, t)
-        output_mid = f(pinn, x_mid, y_mid, t_mid)
 
         z = output.cpu().detach().numpy()
-        z_mid = output_mid.cpu().detach().numpy()
-
-        diff = z_mid[:, 1] - w_ad[:, frame]
-        diff = np.tile(diff, (nx, 1))
 
         t_value = float(t[0])
 
@@ -135,14 +129,10 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
-        sc = ax.scatter(x_plot+z[:, 0], y_plot +
-                        z[:, 1], c=diff.T, cmap='viridis')
+        sc = ax.scatter(x_plot+z[:, 0], y_plot+z[:, 1])
         ax.scatter(np.unique(x_plot), w_ad[:, frame])
 
         return ax
-
-    cbar = plt.colorbar(sc, ax=ax)
-    cbar.set_label('$u_{y,PINN} - u_{y,an}$')
 
     n_frames = len(t_raw)
     ani = FuncAnimation(fig, update, frames=n_frames,
@@ -175,7 +165,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor,
     x = x.reshape(-1, 1).to(device)
     y = y.reshape(-1, 1).to(device)
 
-    t_shaped = torch.ones_like(x)
+    t_shaped = torch.ones_like(x).to(device)
     t = t_shaped*t_raw[0].to(device)
 
     output = f(pinn, x, y, t)
@@ -204,7 +194,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor,
 
         x_limts = np.array([0, 2])
         y_limts = np.array([-0.5, 0.5])
-        t = t_shaped*t_raw[frame]
+        t = t_shaped*t_raw[frame].to(device)
 
         output = f(pinn, x, y, t)
 
@@ -244,7 +234,7 @@ def plot_midpoint_displ(pinn: PINN, t: torch.Tensor, n_train: int, uy_mid: np.nd
     uy_mid_PINN = []
 
     for t in t_raw:
-        t = t.reshape(-1, 1)
+        t = t.reshape(-1, 1).to(device)
         output = f(pinn, x, y, t)
         uy = output[0, 1].cpu().detach().numpy()
         uy_mid_PINN.append(uy)
