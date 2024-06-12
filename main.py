@@ -1,4 +1,4 @@
-from plots import plot_initial_conditions, plot_sol, plot_midpoint_displ, plot_sol_comparison, plot_energy
+from plots import plot_initial_conditions, plot_sol, plot_compliance, plot_sol_comparison, plot_energy
 import numpy as np
 import os
 import torch
@@ -27,7 +27,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = True
+retrain_PINN = False
 delete_old = False
 
 if delete_old:

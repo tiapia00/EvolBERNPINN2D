@@ -228,26 +228,26 @@ def plot_compliance(pinn: PINN, x: torch.tensor, y: torch.tensor,
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10, 8))
     fig.suptitle('Compliance')
 
-    x.to(device)
-    y.to(device)
+    x = x.to(device)
+    y = y.to(device)
 
     t_raw = torch.unique(t, sorted=True)
     mean_y = []
 
     for t in t_raw:
-        t = t.reshape(-1, 1).to(device)
+        t = t*torch.ones_like(x).to(device)
         output = f(pinn, x, y, t)
         uy = output[:, 1].cpu().detach().numpy()
-        mean_y.append(uy.mean().detach().numpy())
+        mean_y.append(np.mean(uy))
 
     mean_y = np.array(mean_y)
 
-    ax[0].plot(t_raw.cpu().detach().numpy(), mean_y, color='blue')
+    ax[0].plot(t_raw.numpy(), mean_y, color='blue')
     ax[0].set_title('Prediction from PINN')
     ax[0].set_xlabel('$\\hat{t}$')
     ax[0].set_ylabel('$\\hat{u}_y$')
 
-    ax[1].plot(t_raw.cpu().detach().numpy(), mean_y - np.mean(w_ad, axis=0, color='red')
+    ax[1].plot(t_raw.cpu().detach().numpy(), mean_y - np.mean(w_ad, axis=0), color='red')
     ax[1].set_title('Deviation from analytical')
     ax[1].set_xlabel('$\\hat{t}$')
     ax[1].set_ylabel('$\\hat{u}_\\text{y,an}-\\hat{u}_\\text{y,PINN}$')
@@ -255,7 +255,7 @@ def plot_compliance(pinn: PINN, x: torch.tensor, y: torch.tensor,
     plt.grid()
     plt.tight_layout()
 
-    file = f'{path}/midpoint_time.png'
+    file = f'{path}/compliance.png'
     plt.savefig(file)
 
 

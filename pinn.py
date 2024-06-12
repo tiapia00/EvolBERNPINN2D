@@ -123,9 +123,12 @@ class Grid:
         return (x, y, t)
 
     def get_all_points(self):
-
         x_all, y_all, t_all = torch.meshgrid(self.x_domain, self.y_domain,
                                              self.t_domain, indexing='ij')
+        x_all = x_all.reshape(-1,1)
+        y_all = y_all.reshape(-1,1)
+        t_all = t_all.reshape(-1,1)
+        
         return (x_all, y_all, t_all)
 
 
