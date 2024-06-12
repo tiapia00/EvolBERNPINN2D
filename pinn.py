@@ -324,6 +324,8 @@ class Loss:
 
         d_en_t = d_en_t.pow(2).mean()
 
+        loss_v.append(d_en_t)
+
         loss = 0
 
         for loss_res in loss_v:
@@ -377,7 +379,7 @@ class Loss:
         res_loss, en_crit = self.res_loss(pinn)
         loss = res_loss + self.bound_loss(pinn)
 
-        return loss, en_crit
+        return (loss, res_loss, self.bound_loss(pinn), en_crit)
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -401,14 +403,19 @@ def train_model(
 
     for epoch in range(max_epochs):
         optimizer.zero_grad()
-        loss, en_crit = loss_fn(nn_approximator)
+        loss, res_loss, bound_loss, en_crit = loss_fn(nn_approximator)
 
         loss.backward()
         optimizer.step()
 
-        pbar.set_description(f"Global loss: {loss.item():.3e}")
+        pbar.set_description(f"Loss: {loss.item():.3e}")
 
-        writer.add_scalar('global', loss.item(), epoch)
+        writer.add_scalars('Loss', {
+            'global': loss.item(),
+            'residual': res_loss.item(),
+            'boundary': boundary_loss.item(),
+        }, epoch)
+
         writer.add_scalar('Energy_cons', en_crit.item(), epoch)
 
         pbar.update(1)
