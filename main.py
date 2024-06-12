@@ -1,19 +1,11 @@
-from plots import plot_initial_conditions, plot_sol, plot_compliance, plot_sol_comparison, plot_energy
-import numpy as np
+from plots import *
+from beam import Beam
 import os
 import torch
-from torch import nn
-from typing import Tuple
-from beam import Beam, Prob_Solv_Modes, In_Cond
-import pytz
-import datetime
-from read_write import get_current_time, get_last_modified_file, pass_folder, delete_old_files
-from tqdm import tqdm
-from typing import Callable
-from nn import *
+from read_write import get_last_modified_file, pass_folder, delete_old_files
 from pinn import *
 from par import Parameters, get_params
-from analytical import obtain_analytical_trv
+from analytical import obtain_analytical_free, obtain_analytical_forced
 
 torch.set_default_dtype(torch.float32)
 
@@ -36,7 +28,15 @@ if delete_old:
 
 par = Parameters()
 
-t_tild, w_ad, en0 = obtain_analytical_trv(par)
+Lx, t, n, w0 = get_params(par.beam_par)
+E, rho, _, h = get_params(par.mat_par)
+my_beam = Beam(Lx, E, rho, h/1000, 40e-3, n)
+
+t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n)
+
+load_dist = np.sin
+sol = obtain_analytical_forced(par, my_beam, load_dist, t, n)
+
 E, rho, _, nu = get_params(par.mat_par)
 lam, mu = par.to_matpar_PINN()
 

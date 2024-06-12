@@ -4,11 +4,7 @@ from par import Parameters, get_params
 from scipy import integrate
 
 
-def obtain_analytical_trv(par: Parameters):
-    Lx, t, n, w0 = get_params(par.beam_par)
-    E, rho, _, h = get_params(par.mat_par)
-    my_beam = Beam(Lx, E, rho, h/1000, 40e-3, n)  # h: m
-
+def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: float, n: int):
     prob = Prob_Solv_Modes(my_beam)
     gamma_max = 5  # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
 
@@ -28,20 +24,30 @@ def obtain_analytical_trv(par: Parameters):
     my_beam.update_phi(phi)
     my_In_Cond = In_Cond(my_beam)
 
-    w_0 = w0*my_beam.phi[:, 0]
-    w_dot_0 = np.zeros(len(w_0))
+    w0 = w0*my_beam.phi[:, 0]
+    wdot_0 = np.zeros(len(w0))
 
-    my_In_Cond.pass_init_cond(w_0, w_dot_0)
+    my_In_Cond.pass_init_cond(w0, wdot_0)
     A, B = my_In_Cond.compute_coeff()
 
-    t_lin = np.linspace(0, t, n)
-    my_beam.calculate_solution(A, B, t_lin)
+    t_lin = np.linspace(0, t_ad_f, n)
+
+    my_beam.calculate_solution_free(A, B, t_lin)
     w = my_beam.w
 
     V0_hat = calculate_ad_init_en(my_beam, t_ad)
 
     return t_ad, w, V0_hat
 
+def obtain_analytical_forced(par, my_beam: Beam, load_dist: callable, t_ad_f: float, n: int):
+    my_beam.calculate_beam_mat()
+
+    my_beam.calculate_Q(load_dist)
+
+    t = np.linspace(0, t_ad_f, n)
+    sol = my_beam.calculate_solution_forced(t)
+
+    return sol
 
 def calculate_ad_init_en(my_beam: Beam, t_ad) -> float:
     Lx = my_beam.xi[-1]

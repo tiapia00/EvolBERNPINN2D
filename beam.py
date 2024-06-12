@@ -22,6 +22,10 @@ class Beam:
         self.xi = np.linspace(0, self.length, n_points)
         self.eps: np.ndarray
         self.phi: np.ndarray
+        self.m: np.ndarray
+        self.k: np.ndarray
+        self.Q: np.ndarray
+        self.load_dist: callable
 
     def update_freq(self):
         self.omega = (self.gamma**4/(self.rho*self.A)*self.E*self.J)**(1/2)
@@ -69,7 +73,7 @@ class Beam:
         plt.tight_layout()
         plt.show()
 
-    def calculate_solution(self, A, B, t: np.ndarray):
+    def calculate_solution_free(self, A, B, t: np.ndarray):
         self.w = np.zeros((self.phi.shape[0], len(t)))
         j = 0
         for t_s in t:
@@ -81,6 +85,57 @@ class Beam:
                 w = w + w_mode_i
             self.w[:, j] = w
             j += 1
+
+    def calculate_m(self):
+        m = []
+        for i in np.arange(self.phi.shape[1]):
+            phi = self.phi[:, i]
+            m.append(integrate.simpson(y=phi**2, x=self.xi))
+        m = 1/2*self.rho*np.array(m)
+        m = np.diag(m)
+        return m
+
+    def calculate_k(self):
+        k = []
+        for i in np.arange(self.phi.shape[1]):
+            phi = self.phi[:, i]
+            ddw_phi = np.gradient(np.gradient(phi, self.xi), self.xi)
+            k.append(integrate.simpson(y=ddw_phi**2, x=self.xi))
+        k = 1/2*self.E*self.J*np.array(k)
+        k = np.diag(k)
+        return k
+
+    def calculate_beam_mat(self):
+        self.m = self.calculate_m()
+        self.k = self.calculate_k()
+
+    def calculate_Q(self, load_dist: callable):
+        self.load_dist = load_dist
+        self.Q = np.zeros(self.phi.shape[1])
+        for i in range(self.phi.shape[1]):
+            self.Q[i] = integrate.simpson(self.load_dist(self.xi), self.phi[:,i])
+
+    def calculate_solution_forced(self, time_points):
+        def system(state, t, m, k, Q):
+            q = state[:n]
+            s = state[n:]
+            dqdt = s
+            dsdt = (np.linalg.inv(m).dot(k)).dot(q) + np.linalg.inv(m).dot(Q)
+            return np.hstack((dqdt, dsdt))
+
+        m = self.m
+        k = self.k
+        Q = self.Q
+
+        n = m.shape[0]  # Number of degrees of freedom
+        q0 = np.zeros(n)
+        s0 = np.zeros(n)
+
+        initial_conditions = np.concatenate([q0, s0]).flatten()
+        sol = odeint(system, initial_conditions, time_points, args=(m, k, Q))
+
+        return sol
+
 
     def plot_sol(self, path):
 
@@ -108,55 +163,6 @@ class Beam:
         uy = self.w
 
         return x, uy
-
-class Modal:
-    def __init__(self, phi: np.ndarray, xi, load_dist: callable, omega: float):
-        self.phi = phi
-        self.xi = xi
-        self.m: np.ndarray
-        self.k: np.ndarray
-
-    def calculate_beam_mat(self):
-        def calculate_m(self):
-            m = []
-            for i in np.arange(self.phi.shape[1]):
-                phi = self.phi[:, i]
-                m.append(integrate.simpson(y=phi**2, x=self.xi))
-            m = 1/2*self.rho*np.array(m)
-            m = np.diag(m)
-            return m
-
-        def calculate_k(self):
-            k = []
-            for i in np.arange(self.phi.shape[1]):
-                phi = self.phi[:, i]
-                ddw_phi = np.gradient(np.gradient(phi, self.xi), self.xi)
-                k.append(integrate.simpson(y=ddw_phi**2, x=self.xi))
-            k = 1/2*self.E*self.J*np.array(k)
-            k = np.diag(k)
-            return k
-
-        self.m = calculate_m()
-        self.k = calculate_k()
-
-    def calc_Q(self):
-        for i in range(self.phi.shape[1]):
-            self.Q = integrate.simpson(load_dist(self.xi), self.phi[:,i])
-
-    def solve(self):
-        def system(state, m, k, Q):
-            q, s = state
-            dqdt = s
-            dsdt = np.linalg.inv(m).dot(Q - k.dot(x))
-            return [dqdt, dsdt]
-
-        m = self.m
-        k = self.k
-        Q = self.Q
-
-    def to_lagr_obsv(self):
-        phi_1 = self.phi[self.idx, :]
-        self.Q = self.F*phi_1
 
 
 class Prob_Solv_Modes:

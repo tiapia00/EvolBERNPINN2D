@@ -245,12 +245,12 @@ def plot_compliance(pinn: PINN, x: torch.tensor, y: torch.tensor,
     ax[0].plot(t_raw.numpy(), mean_y, color='blue')
     ax[0].set_title('Prediction from PINN')
     ax[0].set_xlabel('$\\hat{t}$')
-    ax[0].set_ylabel('$\\hat{u}_y$')
+    ax[0].set_ylabel('$\\overline{u}_y$')
 
     ax[1].plot(t_raw.cpu().detach().numpy(), mean_y - np.mean(w_ad, axis=0), color='red')
     ax[1].set_title('Deviation from analytical')
     ax[1].set_xlabel('$\\hat{t}$')
-    ax[1].set_ylabel('$\\hat{u}_\\text{y,an}-\\hat{u}_\\text{y,PINN}$')
+    ax[1].set_ylabel('$\\overline{u}_\\text{y,an}-\\overline{u}_\\text{y,PINN}$')
 
     plt.grid()
     plt.tight_layout()
