@@ -128,7 +128,7 @@ class Grid:
         x_all = x_all.reshape(-1,1)
         y_all = y_all.reshape(-1,1)
         t_all = t_all.reshape(-1,1)
-        
+
         return (x_all, y_all, t_all)
 
 
@@ -170,12 +170,21 @@ class TrigAct(nn.Module):
     def forward(self, x):
         return torch.sin(x)
 
+class Parabolic(nn.Module):
+    def __init__(self, initial_a=1.0):
+        super(Parabolic, self).__init__()
+        self.a = nn.Parameter(torch.tensor(initial_a))
+
+    def forward(self, x):
+        return (self.a * x ** 2 - self.a * x)
+
 class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: tuple,
                  points: dict,
                  w0: float,
                  initial_conditions: callable,
+                 a0: float = 0.1,
                  act=nn.Tanh()):
 
         super().__init__()
@@ -192,6 +201,7 @@ class PINN(nn.Module):
         # Assuming RBF is correctly defined or imported
         self.mid_space_layers = RBF(dim_hidden[0], 2, matern52)
         self.mid_time_layer = nn.Linear(time_dim, 2)
+        self.parabolic = Parabolic(a0)
 
     @staticmethod
     def apply_filter(alpha):
@@ -200,10 +210,6 @@ class PINN(nn.Module):
     @staticmethod
     def apply_compl_filter(alpha):
         return (1-torch.tanh(alpha))
-
-    @staticmethod
-    def parabolic(alpha):
-        return (0.1*alpha**2-0.1*alpha)
 
     def forward(self, x, y, t):
         space = torch.cat([x, y], dim=1)
