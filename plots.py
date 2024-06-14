@@ -1,10 +1,29 @@
 import matplotlib.pyplot as plt
-from matplotlib.cm import viridis
 from mpl_toolkits.mplot3d import Axes3D
 import torch
 from matplotlib.animation import FuncAnimation
 from pinn import PINN, f
 import numpy as np
+
+""" Plots for analytical """
+
+
+def plot_forced(x: np.ndarray, t: np.ndarray, w: np.ndarray):
+    X, T = np.meshgrid(x, t, indexing='ij')
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.plot_surface(X, T, w)
+
+    ax.set_xlabel('x')
+    ax.set_ylabel('t')
+    ax.set_zlabel('$u_y$')
+
+    plt.show()
+
+
+""" Plots for PINN output """
 
 
 def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, n_train: int, path: str):

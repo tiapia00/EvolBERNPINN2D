@@ -10,7 +10,7 @@ import matplotlib.animation as animation
 class Beam:
     def __init__(self, length, E, rho, H, b, n_points):
         self.length = length  # m
-        self.E = E  # Nm^2
+        self.E = E  # Nm^-2
         self.J = H**3*b/12
         self.rho = rho  # kg/m
         self.H = H
@@ -26,6 +26,7 @@ class Beam:
         self.k: np.ndarray
         self.Q: np.ndarray
         self.load_dist: callable
+        self.time_points: np.ndarray
 
     def update_freq(self):
         self.omega = (self.gamma**4/(self.rho*self.A)*self.E*self.J)**(1/2)
@@ -44,9 +45,11 @@ class Beam:
             i += 1
 
     def normalize_modeshapes(self):
-        for i in np.arange(self.phi.shape[1]):
-            M = integrate.simpson(y=self.phi[:, i]**2, x=self.xi)
-            self.phi[:, i] = self.phi[:, i]/M
+        from analytical import df_num
+        print(self.J)
+        for i in range(self.phi.shape[1]):
+            A = 1/(self.rho * self.A * integrate.simpson(y=self.phi[:,i]**2, x=self.xi))
+            self.phi[:, i] = self.phi[:, i] * A
 
     def plot_modes(self):
         # Notice that just the middle axis of the beam is plotted
@@ -115,7 +118,7 @@ class Beam:
         Q = np.zeros((self.time_points.shape[0], self.phi.shape[1]))
 
         def f(x,t):
-            return (load_dist[0](x)*load_dist[1](t))
+            return (load_dist[1](np.pi/np.max(x)*x))
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
@@ -131,11 +134,31 @@ class Beam:
             Q[:,i] = integrate.simpson(force*mode.reshape(-1,1), np.unique(x), axis=0)
             i += 1
 
+        return Q
 
-    def calculate_solution_forced_analytical(self, time_points, w0dotwo0: tuple):
-        sol = np.zeros(self.xi.shape, time_points.shape)
-        x, t = np.meshgrid(self.xi, time_points, indexing='ij')
-        uy = np.sum(self.phi*1/self.omega, axis=0)
+    def calculate_modal_initial(self, w0: np.ndarray, dotw0: np.ndarray):
+        m = self.rho * self.A
+        q0 = m * integrate.simpson(w0.reshape(-1,1) * self.phi, self.xi, axis=0)
+        dotq0 = m * integrate.simpson(dotw0.reshape(-1,1) * self.phi, self.xi, axis=0)
+
+        return (q0, dotq0)
+
+    def calculate_solution_forced_analytical(self, w0: np.ndarray, dotw0: np.ndarray, Q: np.ndarray):
+        sol = np.zeros((self.xi.shape[0], self.time_points.shape[0]))
+        omega = self.omega
+        q0, dotq0 = self.calculate_modal_initial(w0, dotw0)
+        sol_i = np.zeros_like(sol)
+
+        for i in range(0, self.phi.shape[1]):
+            for j in range(0, self.time_points.shape[0]):
+                tau_range = self.time_points[:j+1]
+                sol_i[:,j] = self.phi[:,i]*1/omega[i]*integrate.simpson(Q[:j+1,i] * np.sin(omega[i] *
+                        (tau_range[-1] - tau_range)), tau_range) + q0[i] * np.cos(omega[i] *
+                            tau_range[-1]) + dotq0[i]/omega[i] * np.sin(omega[i] * tau_range[-1])
+
+                sol += sol_i
+
+        return sol
 
 
     def calculate_solution_forced_discrete(self, time_points, w0dotw0: tuple):

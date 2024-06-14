@@ -4,7 +4,7 @@ from par import Parameters, get_params
 from scipy import integrate
 
 
-def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: float, n: int):
+def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float,  dotw0: float, t_ad_f: float, n: int):
     prob = Prob_Solv_Modes(my_beam)
     gamma_max = 5 # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
 
@@ -15,19 +15,22 @@ def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: fl
     my_beam.update_freq()
 
     omega_1 = my_beam.omega[0]
-    t_ad = 2*np.pi/omega_1
+    t_ad = 2 * np.pi/omega_1
 
     # Just one parameter independent for gamma (order of the system reduced)
     F = prob.find_all_F(my_beam)
     prob.update_gamma(my_beam)
+
     phi = prob.return_modemat(F)
     my_beam.update_phi(phi)
+    my_beam.normalize_modeshapes()
+
     my_In_Cond = In_Cond(my_beam)
 
-    w0 = w0*my_beam.phi[:, 0]
-    wdot_0 = np.zeros(len(w0))
+    w0 = w0 * my_beam.phi[:, 0]
+    dotw0 = dotw0 * np.ones(len(w0))
 
-    my_In_Cond.pass_init_cond(w0, wdot_0)
+    my_In_Cond.pass_init_cond(w0, dotw0)
     A, B = my_In_Cond.compute_coeff()
 
     t_lin = np.linspace(0, t_ad_f, n)
@@ -39,14 +42,24 @@ def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: fl
 
     return t_ad, w, V0_hat
 
-def obtain_analytical_forced(par, my_beam: Beam, load_dist: tuple, t_ad_f: float, n: int):
+def obtain_analytical_forced(par: Parameters,
+        my_beam: Beam,
+        load_dist: tuple,
+        w0: np.ndarray,
+        dotw0: np.ndarray,
+        t_ad_f: float,
+        n: int):
+
     my_beam.calculate_beam_mat()
 
-    my_beam.calculate_Q(load_dist, t_ad_f, n)
+    Q = my_beam.calculate_Q(load_dist, t_ad_f, n)
+    t = np.linspace(0, t_ad_f, n)
 
-    t_points, sol = my_beam.calculate_solution_forced(t, w0dotw0)
+    sol = my_beam.calculate_solution_forced_analytical(w0, dotw0, Q)
 
-    return (t_points, sol)
+    x = my_beam.xi
+
+    return (x, t, sol)
 
 def calculate_ad_init_en(my_beam: Beam, t_ad) -> float:
     Lx = my_beam.xi[-1]
