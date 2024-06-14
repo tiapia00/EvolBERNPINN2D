@@ -200,7 +200,7 @@ class PINN(nn.Module):
     @staticmethod
     def apply_compl_filter(alpha):
         return (1-torch.tanh(alpha))
-    
+
     @staticmethod
     def parabolic(alpha):
         return (0.1*alpha**2-0.1*alpha)

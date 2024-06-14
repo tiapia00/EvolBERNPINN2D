@@ -109,33 +109,72 @@ class Beam:
         self.m = self.calculate_m()
         self.k = self.calculate_k()
 
-    def calculate_Q(self, load_dist: callable):
-        self.load_dist = load_dist
-        self.Q = np.zeros(self.phi.shape[1])
-        for i in range(self.phi.shape[1]):
-            self.Q[i] = integrate.simpson(self.load_dist(self.xi), self.phi[:,i])
+    def calculate_Q(self, load_dist: tuple, t_f: int, n: int):
+        self.time_points = np.linspace(0, t_f, n)
+        x, t = np.meshgrid(self.xi, self.time_points, indexing='ij')
+        Q = np.zeros((self.time_points.shape[0], self.phi.shape[1]))
 
-    def calculate_solution_forced(self, time_points):
+        def f(x,t):
+            return (load_dist[0](x)*load_dist[1](t))
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        surf = ax.plot_surface(x, t, f(x,t))
+        ax.set_xlabel('x')
+        ax.set_ylabel('t')
+        plt.show()
+
+        i = 0
+
+        for mode in self.phi.T:
+            force = f(x, t)
+            Q[:,i] = integrate.simpson(force*mode.reshape(-1,1), np.unique(x), axis=0)
+            i += 1
+
+
+    def calculate_solution_forced_analytical(self, time_points, w0dotwo0: tuple):
+        sol = np.zeros(self.xi.shape, time_points.shape)
+        x, t = np.meshgrid(self.xi, time_points, indexing='ij')
+        uy = np.sum(self.phi*1/self.omega, axis=0)
+
+
+    def calculate_solution_forced_discrete(self, time_points, w0dotw0: tuple):
         def system(state, t, m, k, Q):
+            n = m.shape[0]
             q = state[:n]
             s = state[n:]
             dqdt = s
-            dsdt = (np.linalg.inv(m).dot(k)).dot(q) + np.linalg.inv(m).dot(Q)
+            dsdt = np.linalg.inv(m).dot(k).dot(q) + np.linalg.inv(m).dot(Q)
             return np.hstack((dqdt, dsdt))
 
         m = self.m
         k = self.k
         Q = self.Q
 
-        n = m.shape[0]  # Number of degrees of freedom
-        q0 = np.zeros(n)
-        s0 = np.zeros(n)
+        n = self.phi.shape[1]
+        print(self.phi.shape)
 
+        q0, s0 = (np.zeros(n), np.zeros(n))
         initial_conditions = np.concatenate([q0, s0]).flatten()
         sol = odeint(system, initial_conditions, time_points, args=(m, k, Q))
 
-        return sol
+        sol_X = self.to_physical(sol[:,:n])
+        sol_V = self.to_physical(sol[:,n:])
 
+        sol = (sol_X, sol_V)
+
+        return (time_points, sol)
+
+    def to_lagrang(self, vecx: np.ndarray):
+        return (np.linalg.inv(self.phi).dot(vecx))
+
+    def to_physical(self, vecq: np.ndarray):
+        return self.phi.dot(vecq)
+
+    def state0(self, w0: np.ndarray, dotw0: np.ndarray):
+        q0 = self.to_lagrang(w0)
+        s0 = self.to_lagrang(dotw0)
+        return (q0, s0)
 
     def plot_sol(self, path):
 
@@ -188,7 +227,7 @@ class Prob_Solv_Modes:
 
     def find_eig(self):
         # Put high otherwise no convergence
-        gamma_loop = np.linspace(0, self.g_max, 100000)
+        gamma_loop = np.linspace(0, self.g_max, int(1e+5))
         gm = []
         H = self.return_H(gamma_loop[0])
         deter = self.return_det(H)

@@ -6,7 +6,7 @@ from scipy import integrate
 
 def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: float, n: int):
     prob = Prob_Solv_Modes(my_beam)
-    gamma_max = 5  # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
+    gamma_max = 5 # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
 
     prob.pass_g_max(gamma_max)
     eig_gam = prob.find_eig()
@@ -39,15 +39,14 @@ def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: fl
 
     return t_ad, w, V0_hat
 
-def obtain_analytical_forced(par, my_beam: Beam, load_dist: callable, t_ad_f: float, n: int):
+def obtain_analytical_forced(par, my_beam: Beam, load_dist: tuple, t_ad_f: float, n: int):
     my_beam.calculate_beam_mat()
 
-    my_beam.calculate_Q(load_dist)
+    my_beam.calculate_Q(load_dist, t_ad_f, n)
 
-    t = np.linspace(0, t_ad_f, n)
-    sol = my_beam.calculate_solution_forced(t)
+    t_points, sol = my_beam.calculate_solution_forced(t, w0dotw0)
 
-    return sol
+    return (t_points, sol)
 
 def calculate_ad_init_en(my_beam: Beam, t_ad) -> float:
     Lx = my_beam.xi[-1]

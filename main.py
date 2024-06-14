@@ -30,12 +30,12 @@ par = Parameters()
 
 Lx, t, n, w0 = get_params(par.beam_par)
 E, rho, _, h = get_params(par.mat_par)
-my_beam = Beam(Lx, E, rho, h/1000, 40e-3, n)
+my_beam = Beam(Lx, E, rho, h/1000, 40e-3, 500)
 
 t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n)
 
-load_dist = np.sin
-sol = obtain_analytical_forced(par, my_beam, load_dist, t, n)
+load_dist = (np.sin, np.sin)
+t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
 
 E, rho, _, nu = get_params(par.mat_par)
 lam, mu = par.to_matpar_PINN()
