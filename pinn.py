@@ -176,7 +176,7 @@ class PINN(nn.Module):
                  points: dict,
                  w0: float,
                  initial_conditions: callable,
-                 act=TrigAct()):
+                 act=nn.Tanh()):
 
         super().__init__()
 
@@ -190,7 +190,7 @@ class PINN(nn.Module):
         self.act_time = TrigAct()
 
         # Assuming RBF is correctly defined or imported
-        self.mid_space_layers = RBF(dim_hidden[0], 2, inverse_multiquadric)
+        self.mid_space_layers = RBF(dim_hidden[0], 2, matern52)
         self.mid_time_layer = nn.Linear(time_dim, 2)
 
     @staticmethod
