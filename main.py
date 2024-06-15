@@ -19,7 +19,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = False
+retrain_PINN = True
 delete_old = False
 
 if delete_old:
@@ -51,14 +51,13 @@ grid = Grid(x_domain, y_domain, t_domain, device)
 points = {
     'res_points': grid.get_interior_points(),
     'initial_points': grid.get_initial_points(),
-    'boundary_points': grid.get_boundary_points()
+    'boundary_points': grid.get_boundary_points(),
     'all_points': grid.get_all_points()
 }
 
 pinn = PINN(dim_hidden, n_hid_space, points, w0, initial_conditions).to(device)
 
 En0 = calc_initial_energy(pinn, n_train, points, device)
-print(En0)
 
 loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),
@@ -113,5 +112,5 @@ plot_compliance(pinn_trained, x, y, t, n_train, w_ad, dir_model, device)
 plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train,
                     dir_model, device)
 
-t, en_k, en_p, en = calc_energy(pinn_trained, grid, n_train, device)
+t, en_k, en_p, en = calc_energy(pinn_trained, points, n_train, device)
 plot_energy(t, en_k, en_p, en, En0, dir_model)
