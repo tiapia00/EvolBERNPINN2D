@@ -242,7 +242,7 @@ def plot_compliance(pinn: PINN, x: torch.tensor, y: torch.tensor,
 
     mean_y = np.array(mean_y)
 
-    ax[0].plot(t_raw.numpy(), mean_y, color='blue')
+    ax[0].plot(t_raw.cpu().detach().numpy(), mean_y, color='blue')
     ax[0].set_title('Prediction from PINN')
     ax[0].set_xlabel('$\\hat{t}$')
     ax[0].set_ylabel('$\\overline{u}_y$')
