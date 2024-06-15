@@ -3,7 +3,7 @@ class Parameters:
         self.x_end = 1
         self.y_end = 1e-3
         self.t_end = 0.5
-        self.n = 10
+        self.n = 15
         self.dim_hidden = (128, 30)
         self.n_hidden : int = 3
         self.w0 = 0.3

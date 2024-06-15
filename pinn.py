@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
+from integrator import Simps
 
 
 def initial_conditions(initial_points: tuple, w0: float, i: float = 1) -> torch.tensor:
@@ -132,6 +133,10 @@ class Grid:
         x_all = x_all.reshape(-1,1)
         y_all = y_all.reshape(-1,1)
         t_all = t_all.reshape(-1,1)
+
+        x_all.requires_grad_(True).to(self.device)
+        y_all.requires_grad_(True).to(self.device)
+        t_all.requires_grad_(True).to(self.device)
 
         return (x_all, y_all, t_all)
 
@@ -305,6 +310,7 @@ class Loss:
         n_train: int,
         w0: float,
         E0: float,
+        steps_int: tuple,
         verbose: bool = False
     ):
         self.z = z
@@ -313,24 +319,27 @@ class Loss:
         self.w0 = w0
         self.E0: float = E0
         self.n_train = n_train
+        self.steps = steps_int
 
     def en_loss(self, pinn):
-        x, y, t = self.points['res_points']
+        x, y, t = self.points['all_points']
+
         output = f(pinn, x, y, t)
 
-        nx = self.n_train - 2
-        ny = nx
-        nt = self.n_train - 1
+        n = self.n_train
 
-        d_en = calc_den(x, y, output)
-        d_en = d_en.reshape(nx, ny, nt)
+        d_en, _, _ = calc_den(x, y, output)
+        d_en = d_en.reshape(n, n, n)
 
-        x = x.reshape(nx, ny, nt)
-        y = y.reshape(nx, ny, nt)
-        t = t.reshape(nx, ny, nt)
+        x = x.reshape(n, n, n)
+        y = y.reshape(n, n, n)
+        t = t.reshape(n, n, n)
 
-        en_y = torch.trapezoid(d_en, y, dim=1)
-        En = torch.trapezoid(en_y, x, dim=0)
+        dx = self.steps[0]
+        dy = self.steps[1]
+
+        d_en_x = torch.trapz(y=d_en, dx=dy, dim=1)
+        En = torch.trapz(y=d_en_x, dx=dx, dim=0)
 
         loss = (self.E0 * torch.ones_like(En) - En).pow(2).mean()
 
@@ -436,7 +445,7 @@ class Loss:
 
     def verbose(self, pinn):
         res_loss, en_crit = self.res_loss(pinn)
-        loss = res_loss + self.bound_loss(pinn)
+        loss = res_loss + self.bound_loss(pinn) + self.en_loss(pinn)
 
         return (loss, res_loss, self.bound_loss(pinn), en_crit)
 
@@ -526,15 +535,12 @@ def calc_initial_energy(pinn_trained: PINN, n: int, points: dict, device):
 
     en_x = torch.trapezoid(d_en, y[0,:], dim=1)
     En = torch.trapezoid(en_x, x[:,0], dim=0)
+    En = En.detach()
 
     return En
 
 def calc_energy(pinn_trained: PINN, points: Grid, n_train, device) -> tuple:
     x, y, t = points['all_points']
-
-    x.requires_grad_(True).to(device)
-    y.requires_grad_(True).to(device)
-    t.requires_grad_(True).to(device)
 
     output = f(pinn_trained, x, y, t)
 
