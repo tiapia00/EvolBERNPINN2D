@@ -51,8 +51,8 @@ lam, mu = par.to_matpar_PINN()
 Lx, Ly, T, n_train, w0, dim_hidden, n_hid_space, lr, epochs = get_params(par.pinn_par)
 
 L_tild = Lx
-x_domain = torch.linspace(0, Lx, n_train)
-y_domain = torch.linspace(-Lx/2, Lx/2, n_train)
+x_domain = torch.linspace(0, Lx, n_train)/Lx
+y_domain = torch.linspace(-Lx/2, Lx/2, n_train)/Ly
 t_domain = torch.linspace(0, T, n_train)/t_tild
 
 steps = get_step((x_domain, y_domain, t_domain))
