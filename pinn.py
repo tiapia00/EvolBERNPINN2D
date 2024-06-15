@@ -5,7 +5,6 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
-from integrator import Simps
 
 
 def initial_conditions(initial_points: tuple, w0: float, i: float = 1) -> torch.tensor:
@@ -130,13 +129,13 @@ class Grid:
     def get_all_points(self):
         x_all, y_all, t_all = torch.meshgrid(self.x_domain, self.y_domain,
                                              self.t_domain, indexing='ij')
-        x_all = x_all.reshape(-1,1)
-        y_all = y_all.reshape(-1,1)
-        t_all = t_all.reshape(-1,1)
+        x_all = x_all.reshape(-1,1).to(self.device)
+        y_all = y_all.reshape(-1,1).to(self.device)
+        t_all = t_all.reshape(-1,1).to(self.device)
 
-        x_all.requires_grad_(True).to(self.device)
-        y_all.requires_grad_(True).to(self.device)
-        t_all.requires_grad_(True).to(self.device)
+        x_all.requires_grad_(True)
+        y_all.requires_grad_(True)
+        t_all.requires_grad_(True)
 
         return (x_all, y_all, t_all)
 
@@ -189,10 +188,12 @@ class PINN(nn.Module):
                  points: dict,
                  w0: float,
                  initial_conditions: callable,
+                 device,
                  a: float = 0.1,
                  act=nn.Tanh(),
                  fourier_scale: float = 0.1,
-                 n_hidden: int = 3):
+                 n_hidden: int = 3,
+                 ):
 
         super().__init__()
 
@@ -201,8 +202,8 @@ class PINN(nn.Module):
 
         self.fourier_dim = dim_hidden[0]
         self.fourier_scale = fourier_scale
-        self.B = torch.randn((2, self.fourier_dim)) * self.fourier_scale
-        self.b = 2 * np.pi * torch.rand(self.fourier_dim)
+        self.B = torch.randn((2, self.fourier_dim), device=device) * self.fourier_scale
+        self.b = 2 * np.pi * torch.rand((self.fourier_dim,), device=device)
 
         time_dim = int(0.5 * dim_hidden[1] + 0.5)
         self.in_time_disp = nn.Linear(1, time_dim)
@@ -229,7 +230,7 @@ class PINN(nn.Module):
         return (1-torch.tanh(alpha))
 
     def fourier_features(self, x):
-        x_proj = x @ self.B + self.b  # (batch_size, fourier_dim)
+        x_proj = x @ self.B + self.b
         return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
 
     def forward(self, x, y, t):

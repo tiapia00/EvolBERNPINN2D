@@ -66,7 +66,7 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-pinn = PINN(dim_hidden, n_hid_space, points, w0, initial_conditions).to(device)
+pinn = PINN(dim_hidden, n_hid_space, points, w0, initial_conditions, device).to(device)
 
 En0 = calc_initial_energy(pinn, n_train, points, device)
 
@@ -94,7 +94,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, n_hid_space, points, w0, initial_conditions).to(device)
+    pinn_trained = PINN(dim_hidden, n_hid_space, points, w0, initial_conditions, device).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
