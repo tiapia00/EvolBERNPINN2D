@@ -267,6 +267,7 @@ def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: tor
     en = en.detach().cpu().numpy()
     en_k = en_k.detach().cpu().numpy()
     en_p = en_p.detach().cpu().numpy()
+    e0 = e0.detach().cpu().numpy()
 
     plt.plot(t, en, label='Total energy')
     plt.plot(t, en_k, label='Kinetic energy')

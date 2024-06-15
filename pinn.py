@@ -85,7 +85,11 @@ class Grid:
 
     def get_initial_points(self):
         x_grid = self.grid_init[:, 0].unsqueeze(1).to(self.device)
+        x_grid.requires_grad_(True)
+
         y_grid = self.grid_init[:, 1].unsqueeze(1).to(self.device)
+        y_grid.requires_grad_(True)
+
         t0 = self.grid_init[:, 2].unsqueeze(1).to(self.device)
 
         return (x_grid, y_grid, t0)
@@ -176,26 +180,36 @@ def parabolic(a, x):
 class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: tuple,
+                 n_hidden_space: int,
                  points: dict,
                  w0: float,
                  initial_conditions: callable,
                  a: float = 0.1,
-                 act=nn.Tanh()):
+                 act=nn.Tanh(),
+                 fourier_scale: float = 0.1,
+                 n_hidden: int = 3):
 
         super().__init__()
 
         self.w0 = w0
         self.a = a
 
-        self.in_space = nn.Linear(2, dim_hidden[0])
+        self.fourier_dim = dim_hidden[0]
+        self.fourier_scale = fourier_scale
+        self.B = torch.randn((2, self.fourier_dim)) * self.fourier_scale
+        self.b = 2 * np.pi * torch.rand(self.fourier_dim)
 
         time_dim = int(0.5 * dim_hidden[1] + 0.5)
         self.in_time_disp = nn.Linear(1, time_dim)
         self.in_time_speed = nn.Linear(1, time_dim)
         self.act_time = TrigAct()
 
-        # Assuming RBF is correctly defined or imported
-        self.mid_space_layers = RBF(dim_hidden[0], 2, matern52)
+        self.hid_space_layers = nn.ModuleList()
+        for i in range(n_hidden - 1):
+            self.hid_space_layers.append(nn.Linear(2 * self.fourier_dim, 2 * self.fourier_dim))
+            self.hid_space_layers.append(act)
+        self.outFC_space = nn.Linear(2 * self.fourier_dim, 2)
+
         self.mid_time_layer = nn.Linear(dim_hidden[1], 4)
 
     def parabolic(self, x):
@@ -209,12 +223,21 @@ class PINN(nn.Module):
     def apply_compl_filter(alpha):
         return (1-torch.tanh(alpha))
 
+    def fourier_features(self, x):
+        x_proj = x @ self.B + self.b  # (batch_size, fourier_dim)
+        return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
+
     def forward(self, x, y, t):
         space = torch.cat([x, y], dim=1)
         time = t
 
-        x_in = self.in_space(space)
-        mid_x = self.mid_space_layers(x_in)
+        fourier_space = self.fourier_features(space)
+        x_in = fourier_space
+
+        for layer in self.hid_space_layers:
+            x_in = layer(x_in)
+
+        x_FC = self.outFC_space(x_in)
 
         t_disp = self.in_time_disp(time)
         t_speed = self.in_time_speed(time)
@@ -226,7 +249,7 @@ class PINN(nn.Module):
 
         mid_t = self.mid_time_layer(t_stack)
 
-        mid_x = self.parabolic(space[:,0].reshape(-1,1))*mid_x
+        mid_x = self.parabolic(space[:,0].reshape(-1,1)) * x_FC
         mid_x = mid_x.repeat(1, 2)
 
         merged = mid_x * mid_t
@@ -279,13 +302,40 @@ class Loss:
         z: torch.Tensor,
         initial_condition: Callable,
         points: dict,
+        n_train: int,
         w0: float,
+        E0: float,
         verbose: bool = False
     ):
         self.z = z
         self.initial_condition = initial_condition
         self.points = points
         self.w0 = w0
+        self.E0: float = E0
+        self.n_train = n_train
+
+    def en_loss(self, pinn):
+        x, y, t = self.points['res_points']
+        output = f(pinn, x, y, t)
+
+        nx = self.n_train - 2
+        ny = nx
+        nt = self.n_train - 1
+
+        d_en = calc_den(x, y, output)
+        d_en = d_en.reshape(nx, ny, nt)
+
+        x = x.reshape(nx, ny, nt)
+        y = y.reshape(nx, ny, nt)
+        t = t.reshape(nx, ny, nt)
+
+        en_y = torch.trapezoid(d_en, y, dim=1)
+        En = torch.trapezoid(en_y, x, dim=0)
+
+        loss = (self.E0 * torch.ones_like(En) - En).pow(2).mean()
+
+        return loss
+
 
     def res_loss(self, pinn):
         x, y, t = self.points['res_points']
@@ -320,9 +370,9 @@ class Loss:
         vx = output[:, 2].reshape(-1, 1)
         vy = output[:, 3].reshape(-1, 1)
 
-        d_en = (1/2*(vx+vy))**2 + (dux_x + duy_y)**2 + \
-            2*(dux_x**2 + duy_y**2 + (dux_y+duy_x) ** 2 +
-               (duy_x + dux_y)**2)
+        d_en = (1/2*(vx+vy))**2 + 1/2*(dux_x + duy_y)**2 + \
+            (dux_x**2 + duy_y**2 + (1/2*(dux_y+duy_x)) ** 2 +
+               (1/2*(duy_x + dux_y)) ** 2)
 
         d_en_t = torch.autograd.grad(
             d_en,
@@ -444,64 +494,69 @@ def return_adim(L_tild, t_tild, rho: float, mu: float, lam: float):
     z = torch.tensor(z)
     return z
 
+def calc_den(x, y, output):
+
+    vx = output[:,2].reshape(-1)
+    vy = output[:,3].reshape(-1)
+
+    dux_x = df(output, [x], 0).reshape(-1)
+    dux_y = df(output, [y], 0).reshape(-1)
+    duy_x = df(output, [x], 1).reshape(-1)
+    duy_y = df(output, [y], 1).reshape(-1)
+
+    d_en_k = (1/2*(vx+vy))**2
+    d_en_p = 1/2*(dux_x + duy_y)**2 + \
+        (dux_x**2 + duy_y**2 + (1/2*(dux_y+duy_x)) ** 2 +
+           (1/2*(duy_x + dux_y)**2))
+
+    d_en = d_en_k + d_en_p
+
+    return (d_en, d_en_k, d_en_k)
+
+def calc_initial_energy(pinn_trained: PINN, n: int, points: dict, device):
+    x, y, t = points['initial_points']
+
+    output = f(pinn_trained, x, y, t)
+
+    d_en, d_en_k, d_en_p = calc_den(x, y, output)
+    d_en = d_en.reshape(n, n)
+
+    x = x.reshape(n, n)
+    y = y.reshape(n, n)
+
+    en_x = torch.trapezoid(d_en, y[0,:], dim=1)
+    En = torch.trapezoid(en_x, x[:,0], dim=0)
+
+    return En
 
 def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
     x, y, t = loss.points['res_points']
     x.to(device)
     y.to(device)
+    t.to(device)
 
-    t = torch.unique(t)
     nx = n_train-2
     ny = nx
     nt = n_train-1
 
-    en = []
-    en_k = []
-    en_p = []
+    output = f(pinn_trained, x, y, t)
 
-    for t_raw in t:
-        t_i = t_raw*torch.ones_like(x)
-        t_i.to(device)
+    d_en, d_en_k, d_en_p = calc_den(x, y, output)
 
-        output = f(pinn_trained, x, y, t_i)
+    x = x.reshape(nx, ny, nt)
+    y = y.reshape(nx, ny, nt)
+    t = t.reshape(nx, ny, nt)
 
-        vx = output[:, 2]
-        vy = output[:, 3]
+    d_en_k = d_en_k.reshape(nx, ny, nt)
+    d_en_p = d_en_p.reshape(nx, ny, nt)
+    d_en = d_en.reshape(nx, ny, nt)
 
-        dux_x = df(output, [x], 0)
-        dux_y = df(output, [y], 0)
-        duy_x = df(output, [x], 1)
-        duy_y = df(output, [y], 1)
+    d_en_k_y = torch.trapz(d_en_k, y[0,:,0], dim=1)
+    d_en_p_y = torch.trapz(d_en_p, y[0,:,0], dim=1)
+    d_en_y = torch.trapz(d_en, y[0,:,0], dim=1)
 
-        d_en_k = (1/2*(vx+vy)).pow(2)
-        d_en_p = 1/2*((dux_x + duy_y)**2 + 2*(dux_x**2 + duy_y**2 + (dux_y+duy_x)
-                                              ** 2 + (duy_x + dux_y)**2))
+    En_k_t = torch.trapz(d_en_k_y, x[:,0,0], dim=0)
+    En_p_t = torch.trapz(d_en_p_y, x[:,0,0], dim=0)
+    En_t = torch.trapz(d_en_y, x[:,0,0], dim=0)
 
-        d_en_k = d_en_k.reshape(nx, ny, nt)
-        d_en_p = d_en_p.reshape(nx, ny, nt)
-
-        d_en_k = d_en_k[:, :, 0]
-        d_en_p = d_en_p[:, :, 0]
-
-        y_int = y.reshape(nx, ny, nt).detach()
-        y_int = y_int[0, :, 0]
-
-        x_int = x.reshape(nx, ny, nt).detach()
-        x_int = x_int[:, 0, 0]
-
-        I_x_k = torch.trapz(y=d_en_k.detach(), x=x_int)
-        I_x_p = torch.trapz(y=d_en_p.detach(), x=x_int)
-
-        en_k_t = torch.trapz(y=I_x_k, x=y_int)
-        en_p_t = torch.trapz(y=I_x_p, x=y_int)
-
-        en_k.append(en_k_t)
-        en_p.append(en_p_t)
-
-        en.append(en_k_t + en_p_t)
-
-    en_k = torch.stack(en_k)
-    en_p = torch.stack(en_p)
-    en = torch.stack(en)
-
-    return (t, en_k, en_p, en)
+    return (t, En_k_t, En_p_t, En_t)

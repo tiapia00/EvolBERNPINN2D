@@ -19,7 +19,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = True
+retrain_PINN = False
 delete_old = False
 
 if delete_old:
@@ -33,14 +33,13 @@ E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, 4e-3, n)
 
 t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n)
-print(my_beam.omega)
 
 load_dist = (np.sin, np.sin)
 #t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_train, w0, dim_hidden, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_train, w0, dim_hidden, n_hid_space, lr, epochs = get_params(par.pinn_par)
 
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_train)/L_tild
@@ -55,14 +54,20 @@ points = {
     'boundary_points': grid.get_boundary_points()
 }
 
-pinn = PINN(dim_hidden, points, w0, initial_conditions).to(device)
+pinn = PINN(dim_hidden, n_hid_space, points, w0, initial_conditions).to(device)
+
+En0 = calc_initial_energy(pinn, n_train, points, device)
 
 loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),
         initial_conditions,
         points,
-        w0
+        n_train,
+        w0,
+        En0
     )
+
+
 if retrain_PINN:
     dir_model = pass_folder('model')
     dir_logs = pass_folder('model/logs')
@@ -76,7 +81,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, points, w0, initial_conditions).to(device)
+    pinn_trained = PINN(dim_hidden, n_hid_space, points, w0, initial_conditions).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
@@ -107,4 +112,4 @@ plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train,
                     dir_model, device)
 
 t, en_k, en_p, en = calc_energy(pinn_trained, loss_fn, n_train, device)
-plot_energy(t, en_k, en_p, en, en0, dir_model)
+plot_energy(t, en_k, en_p, en, En0, dir_model)
