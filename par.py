@@ -1,8 +1,8 @@
 class Parameters:
     def __init__(self):
         self.x_end = 2
-        self.y_end = 0.2
-        self.t_end = 5
+        self.y_end = 1e-3
+        self.t_end = 0.5
         self.n = 10
         self.dim_hidden = (100, 30)
         self.w0 = 0.3
@@ -13,19 +13,19 @@ class Parameters:
             'n': self.n,
             'w0': self.w0,
             'dim_hidden': self.dim_hidden,
-            'lr': 0.005,
-            'epochs': 2000
+            'lr': 0.001,
+            'epochs': 1000
         }
         self.beam_par = {
             'x_end': self.x_end,
             't_end': self.t_end,
+            'h': self.y_end,
             'n': self.n,
             'w0': self.w0
         }
         self.mat_par = {
             'E': 68.0e9,
             'rho': 2700.,
-            'h': self.y_end,
             'nu': 0.26
         }
 

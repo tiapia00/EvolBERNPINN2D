@@ -170,13 +170,8 @@ class TrigAct(nn.Module):
     def forward(self, x):
         return torch.sin(x)
 
-class Parabolic(nn.Module):
-    def __init__(self, initial_a=1.0):
-        super(Parabolic, self).__init__()
-        self.a = nn.Parameter(torch.tensor(initial_a))
-
-    def forward(self, x):
-        return (self.a * x ** 2 - self.a * x)
+def parabolic(a, x):
+    return (a * x ** 2 - a * x)
 
 class PINN(nn.Module):
     def __init__(self,
@@ -184,12 +179,13 @@ class PINN(nn.Module):
                  points: dict,
                  w0: float,
                  initial_conditions: callable,
-                 a0: float = 0.1,
+                 a: float = 0.1,
                  act=nn.Tanh()):
 
         super().__init__()
 
         self.w0 = w0
+        self.a = a
 
         self.in_space = nn.Linear(2, dim_hidden[0])
 
@@ -200,8 +196,10 @@ class PINN(nn.Module):
 
         # Assuming RBF is correctly defined or imported
         self.mid_space_layers = RBF(dim_hidden[0], 2, matern52)
-        self.mid_time_layer = nn.Linear(time_dim, 2)
-        self.parabolic = Parabolic(a0)
+        self.mid_time_layer = nn.Linear(dim_hidden[1], 4)
+
+    def parabolic(self, x):
+        return (self.a * x ** 2 - self.a * x)
 
     @staticmethod
     def apply_filter(alpha):
@@ -224,10 +222,9 @@ class PINN(nn.Module):
         t_disp_act = self.act_time(t_disp)
         t_speed_act = self.act_time(t_speed)
 
-        t_disp = self.mid_time_layer(t_disp)
-        t_speed = self.mid_time_layer(t_speed)
+        t_stack = torch.cat([t_disp_act, t_speed_act], dim=1)
 
-        mid_t = torch.cat([t_disp, t_speed], dim=1)
+        mid_t = self.mid_time_layer(t_stack)
 
         mid_x = self.parabolic(space[:,0].reshape(-1,1))*mid_x
         mid_x = mid_x.repeat(1, 2)
