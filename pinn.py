@@ -529,27 +529,24 @@ def calc_initial_energy(pinn_trained: PINN, n: int, points: dict, device):
 
     return En
 
-def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
-    x, y, t = loss.points['res_points']
-    x.to(device)
-    y.to(device)
-    t.to(device)
+def calc_energy(pinn_trained: PINN, points: Grid, n_train, device) -> tuple:
+    x, y, t = points['all_points']
 
-    nx = n_train-2
-    ny = nx
-    nt = n_train-1
+    x.requires_grad_(True).to(device)
+    y.requires_grad_(True).to(device)
+    t.requires_grad_(True).to(device)
 
     output = f(pinn_trained, x, y, t)
 
     d_en, d_en_k, d_en_p = calc_den(x, y, output)
 
-    x = x.reshape(nx, ny, nt)
-    y = y.reshape(nx, ny, nt)
-    t = t.reshape(nx, ny, nt)
+    x = x.reshape(n_train, n_train, n_train)
+    y = y.reshape(n_train, n_train, n_train)
+    t = t.reshape(n_train, n_train, n_train)
 
-    d_en_k = d_en_k.reshape(nx, ny, nt)
-    d_en_p = d_en_p.reshape(nx, ny, nt)
-    d_en = d_en.reshape(nx, ny, nt)
+    d_en_k = d_en_k.reshape(n_train, n_train, n_train)
+    d_en_p = d_en_p.reshape(n_train, n_train, n_train)
+    d_en = d_en.reshape(n_train, n_train, n_train)
 
     d_en_k_y = torch.trapz(d_en_k, y[0,:,0], dim=1)
     d_en_p_y = torch.trapz(d_en_p, y[0,:,0], dim=1)
@@ -558,5 +555,7 @@ def calc_energy(pinn_trained: PINN, loss: Loss, n_train, device) -> tuple:
     En_k_t = torch.trapz(d_en_k_y, x[:,0,0], dim=0)
     En_p_t = torch.trapz(d_en_p_y, x[:,0,0], dim=0)
     En_t = torch.trapz(d_en_y, x[:,0,0], dim=0)
+
+    t = torch.unique(t)
 
     return (t, En_k_t, En_p_t, En_t)

@@ -265,6 +265,7 @@ def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: tor
 
     t = t.detach().cpu().numpy()
     en = en.detach().cpu().numpy()
+    print(en[0])
     en_k = en_k.detach().cpu().numpy()
     en_p = en_p.detach().cpu().numpy()
     e0 = e0.detach().cpu().numpy()
