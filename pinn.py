@@ -446,9 +446,10 @@ class Loss:
 
     def verbose(self, pinn):
         res_loss, en_crit = self.res_loss(pinn)
-        loss = res_loss + self.bound_loss(pinn) + self.en_loss(pinn)
+        en_dev = self.en_loss(pinn)
+        loss = res_loss + self.bound_loss(pinn) + en_dev
 
-        return (loss, res_loss, self.bound_loss(pinn), en_crit)
+        return (loss, res_loss, self.bound_loss(pinn), en_crit, en_dev)
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -472,7 +473,7 @@ def train_model(
 
     for epoch in range(max_epochs):
         optimizer.zero_grad()
-        loss, res_loss, bound_loss, en_crit = loss_fn(nn_approximator)
+        loss, res_loss, bound_loss, en_crit, en_dev = loss_fn(nn_approximator)
 
         loss.backward()
         optimizer.step()
@@ -483,6 +484,7 @@ def train_model(
             'global': loss.item(),
             'residual': res_loss.item(),
             'boundary': bound_loss.item(),
+            'en_dev': en_dev.item()
         }, epoch)
 
         writer.add_scalar('Energy_cons', en_crit.item(), epoch)
