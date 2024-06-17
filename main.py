@@ -115,6 +115,9 @@ x = x.to(device)
 y = y.to(device)
 t = t.to(device)
 z = f(pinn_trained, x, y, t)
+v = calculate_speed(pinn_trained, (x, y, t))
+z = torch.cat([z, v], dim=1)
+
 cond0 = initial_conditions(points['initial_points'], w0)
 
 plot_initial_conditions(z, cond0, x, y, n_train, dir_model)

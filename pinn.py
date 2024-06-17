@@ -217,13 +217,13 @@ class PINN(nn.Module):
         self.hid_space_layers_x = nn.ModuleList()
         for i in range(n_hidden - 1):
             self.hid_space_layers_x.append(nn.Linear(2 * self.fourier_dim, 2 * self.fourier_dim))
-            #self.hid_space_layers_x.append(act)
+            self.hid_space_layers_x.append(act)
         self.outFC_space_x = nn.Linear(2 * self.fourier_dim, 1)
 
         self.hid_space_layers_y = nn.ModuleList()
         for i in range(n_hidden - 1):
             self.hid_space_layers_y.append(nn.Linear(2 * self.fourier_dim, 2 * self.fourier_dim))
-            #self.hid_space_layers_y.append(act)
+            self.hid_space_layers_y.append(act)
         self.outFC_space_y = nn.Linear(2 * self.fourier_dim, 1)
 
         self.mid_time_layer = nn.Linear(dim_hidden[1], 2)
@@ -391,7 +391,8 @@ class Loss:
         loss = m * loss
 
         return loss
-    
+
+
     def initial_loss(self, pinn):
         init_points = self.points['initial_points']
         x, y, t = init_points
@@ -449,8 +450,8 @@ class Loss:
         loss = m * loss
 
         return loss
-    
-    
+
+
     def en_loss(self, pinn):
         x, y, t = self.points['all_points']
 
@@ -488,6 +489,8 @@ class Loss:
         loss = m * (self.E0 * torch.ones_like(En) - En).pow(2).mean()
 
         return loss
+
+
     def verbose(self, pinn):
         res_loss = self.res_loss(pinn)
         en_dev = self.en_loss(pinn)
@@ -510,16 +513,16 @@ def train_model(
     points: dict,
     n_train: int
 ) -> PINN:
-    
-    params_to_optimize = [
+
+    params = [
         {'params': [param for name, param in nn_approximator.named_parameters() if 
             'penalty_terms' not in name], 'lr': learning_rate},
         {'params': nn_approximator.penalty_terms, 'lr': -10*learning_rate}
     ]
 
     writer = SummaryWriter(log_dir=path_logs)
-    
-    optimizer = optim.Adam(params_to_optimize)
+
+    optimizer = optim.Adam(params)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
@@ -538,7 +541,7 @@ def train_model(
             'boundary': bound_loss.item(),
             'en_dev': en_dev.item()
         }, epoch)
-        
+
         writer.add_scalars('Penalty_terms', {
             'residual': nn_approximator.penalty_terms[0].item(),
             'init': nn_approximator.penalty_terms[1].item(),
@@ -598,7 +601,7 @@ def calc_initial_energy(pinn_trained: PINN, n: int, points: dict, device):
 
     return En
 
-def calc_energy(pinn_trained: PINN, points: Grid, n_train, device) -> tuple:
+def calc_energy(pinn_trained: PINN, points: dict, n_train, device) -> tuple:
     x, y, t = points['all_points']
 
     output = f(pinn_trained, x, y, t)
@@ -624,6 +627,16 @@ def calc_energy(pinn_trained: PINN, points: Grid, n_train, device) -> tuple:
     t = torch.unique(t)
 
     return (t, En_t, En_p_t, En_k_t)
+
+def calculate_speed(pinn_trained: PINN, points: tuple) -> torch.tensor:
+    x, y, t = points
+
+    output = f(pinn, x, y, t)
+
+    vx = df(output, [t], 0)
+    vy = df(output, [t], 1)
+
+    return torch.cat([vx, vy], dim=1)
 
 def df_num_torch(dx: float, y: torch.tensor):
     dy = torch.diff(y)
