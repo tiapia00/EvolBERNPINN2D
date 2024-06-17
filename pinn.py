@@ -228,8 +228,19 @@ class PINN(nn.Module):
 
         self.mid_time_layer = nn.Linear(dim_hidden[1], 2)
 
+        self.penalty_terms = nn.ParameterList([
+                nn.Parameter(torch.tensor(1.0)),  # In 
+                nn.Parameter(torch.tensor(1.0)),  # Bound
+                nn.Parameter(torch.tensor(1.0)),  # Res
+                nn.Parameter(torch.tensor(2.0))   # En
+        ])
+
     def parabolic(self, x):
         return (self.a * x ** 2 - self.a * x)
+
+    def forward_mask(self, idx: int):
+        masked_weights = torch.sigmoid(self.penalty_terms[idx])
+        return masked_weights
 
     @staticmethod
     def apply_filter(alpha):
@@ -372,8 +383,9 @@ class Loss:
         dEn_p = df_num_torch(dt, En_p)
         dEn_k = df_num_torch(dt, En_k)
 
-        loss = (self.E0 * torch.ones_like(En) - En).pow(2).mean()
-               # - (dEn_p * dEn_k).mean())
+        m = pinn.forward_mask(-1)
+
+        loss = m * (self.E0 * torch.ones_like(En) - En).pow(2).mean()
 
         return loss
 
@@ -384,7 +396,9 @@ class Loss:
         output = f(pinn, x, y, t)
 
         initial_speed = initial_conditions(init_points, pinn.w0)[:,2:]
-        loss = (output - initial_speed).pow(2).mean()
+
+        m = pinn.forward_mask(0)
+        loss = m * (output - initial_speed).pow(2).mean()
 
         return loss
 
@@ -422,6 +436,10 @@ class Loss:
 
         for loss_res in loss_v:
             loss += loss_res.pow(2).mean()
+
+        m = pinn.forward_mask(2)
+
+        loss = m * loss
 
         return loss
 
@@ -465,6 +483,10 @@ class Loss:
         for loss_bound in loss_v:
             loss += loss_bound.pow(2).mean()
 
+        m = pinn.forward_mask(1)
+
+        loss = m * loss
+
         return loss
 
     def verbose(self, pinn):
@@ -472,7 +494,7 @@ class Loss:
         en_dev = self.en_loss(pinn)
         init_loss = self.initial_loss(pinn)
         bound_loss = self.bound_loss(pinn)
-        loss = res_loss + bound_loss + init_loss + 3*en_dev
+        loss = res_loss + bound_loss + init_loss + en_dev
 
         return (loss, res_loss, bound_loss, init_loss, en_dev)
 
