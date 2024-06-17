@@ -229,9 +229,9 @@ class PINN(nn.Module):
         self.mid_time_layer = nn.Linear(dim_hidden[1], 2)
 
         self.penalty_terms = nn.ParameterList([
-                nn.Parameter(torch.tensor(1.0)),  # In 
+                nn.Parameter(torch.tensor(1.0)),  # Res 
+                nn.Parameter(torch.tensor(1.0)),  # Init
                 nn.Parameter(torch.tensor(1.0)),  # Bound
-                nn.Parameter(torch.tensor(1.0)),  # Res
                 nn.Parameter(torch.tensor(2.0))   # En
         ])
 
@@ -351,57 +351,6 @@ class Loss:
         self.n_train = n_train
         self.steps = steps_int
 
-    def en_loss(self, pinn):
-        x, y, t = self.points['all_points']
-
-        output = f(pinn, x, y, t)
-
-        n = self.n_train
-
-        d_en, d_en_p, d_en_k = calc_den(x, y, t, output)
-
-        d_en = d_en.reshape(n, n, n)
-        d_en_p = d_en_p.reshape(n, n, n)
-        d_en_k = d_en_k.reshape(n, n, n)
-
-        x = x.reshape(n, n, n)
-        y = y.reshape(n, n, n)
-        t = t.reshape(n, n, n)
-
-        dx = self.steps[0]
-        dy = self.steps[1]
-        dt = self.steps[2]
-
-        d_en_y = torch.trapz(y=d_en, dx=dy, dim=1)
-        d_en_p_y = torch.trapz(y=d_en_p, dx=dy, dim=1)
-        d_en_k_y = torch.trapz(y=d_en_k, dx=dy, dim=1)
-
-        En = torch.trapz(y=d_en_y, dx=dx, dim=0)
-        En_p = torch.trapz(y=d_en_p_y, dx=dx, dim=0)
-        En_k = torch.trapz(y=d_en_k_y, dx=dx, dim=0)
-
-        dEn_p = df_num_torch(dt, En_p)
-        dEn_k = df_num_torch(dt, En_k)
-
-        m = pinn.forward_mask(-1)
-
-        loss = m * (self.E0 * torch.ones_like(En) - En).pow(2).mean()
-
-        return loss
-
-
-    def initial_loss(self, pinn):
-        init_points = self.points['initial_points']
-        x, y, t = init_points
-        output = f(pinn, x, y, t)
-
-        initial_speed = initial_conditions(init_points, pinn.w0)[:,2:]
-
-        m = pinn.forward_mask(0)
-        loss = m * (output - initial_speed).pow(2).mean()
-
-        return loss
-
     def res_loss(self, pinn):
         x, y, t = self.points['res_points']
         output = f(pinn, x, y, t)
@@ -437,9 +386,21 @@ class Loss:
         for loss_res in loss_v:
             loss += loss_res.pow(2).mean()
 
-        m = pinn.forward_mask(2)
+        m = pinn.forward_mask(0)
 
         loss = m * loss
+
+        return loss
+    
+    def initial_loss(self, pinn):
+        init_points = self.points['initial_points']
+        x, y, t = init_points
+        output = f(pinn, x, y, t)
+
+        initial_speed = initial_conditions(init_points, pinn.w0)[:,2:]
+
+        m = pinn.forward_mask(1)
+        loss = m * (output - initial_speed).pow(2).mean()
 
         return loss
 
@@ -483,12 +444,50 @@ class Loss:
         for loss_bound in loss_v:
             loss += loss_bound.pow(2).mean()
 
-        m = pinn.forward_mask(1)
+        m = pinn.forward_mask(2)
 
         loss = m * loss
 
         return loss
+    
+    
+    def en_loss(self, pinn):
+        x, y, t = self.points['all_points']
 
+        output = f(pinn, x, y, t)
+
+        n = self.n_train
+
+        d_en, d_en_p, d_en_k = calc_den(x, y, t, output)
+
+        d_en = d_en.reshape(n, n, n)
+        d_en_p = d_en_p.reshape(n, n, n)
+        d_en_k = d_en_k.reshape(n, n, n)
+
+        x = x.reshape(n, n, n)
+        y = y.reshape(n, n, n)
+        t = t.reshape(n, n, n)
+
+        dx = self.steps[0]
+        dy = self.steps[1]
+        dt = self.steps[2]
+
+        d_en_y = torch.trapz(y=d_en, dx=dy, dim=1)
+        d_en_p_y = torch.trapz(y=d_en_p, dx=dy, dim=1)
+        d_en_k_y = torch.trapz(y=d_en_k, dx=dy, dim=1)
+
+        En = torch.trapz(y=d_en_y, dx=dx, dim=0)
+        En_p = torch.trapz(y=d_en_p_y, dx=dx, dim=0)
+        En_k = torch.trapz(y=d_en_k_y, dx=dx, dim=0)
+
+        dEn_p = df_num_torch(dt, En_p)
+        dEn_k = df_num_torch(dt, En_k)
+
+        m = pinn.forward_mask(-1)
+
+        loss = m * (self.E0 * torch.ones_like(En) - En).pow(2).mean()
+
+        return loss
     def verbose(self, pinn):
         res_loss = self.res_loss(pinn)
         en_dev = self.en_loss(pinn)
@@ -511,11 +510,16 @@ def train_model(
     points: dict,
     n_train: int
 ) -> PINN:
-
-    optimizer = optim.Adam(nn_approximator.parameters(), lr=learning_rate)
+    
+    params_to_optimize = [
+        {'params': [param for name, param in nn_approximator.named_parameters() if 
+            'penalty_terms' not in name], 'lr': learning_rate},
+        {'params': nn_approximator.penalty_terms, 'lr': -10*learning_rate}
+    ]
 
     writer = SummaryWriter(log_dir=path_logs)
-
+    
+    optimizer = optim.Adam(params_to_optimize)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
@@ -533,6 +537,13 @@ def train_model(
             'init': init_loss.item(),
             'boundary': bound_loss.item(),
             'en_dev': en_dev.item()
+        }, epoch)
+        
+        writer.add_scalars('Penalty_terms', {
+            'residual': nn_approximator.penalty_terms[0].item(),
+            'init': nn_approximator.penalty_terms[1].item(),
+            'boundary': nn_approximator.penalty_terms[2].item(),
+            'en_dev': nn_approximator.penalty_terms[3].item()
         }, epoch)
 
         pbar.update(1)
