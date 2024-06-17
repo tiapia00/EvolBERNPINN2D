@@ -66,7 +66,9 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-pinn = PINN(dim_hidden, n_hid_space, points, w0, initial_conditions, device).to(device)
+
+prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
+pinn = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
 
 En0 = calc_initial_energy(pinn, n_train, points, device)
 
@@ -124,5 +126,5 @@ plot_compliance(pinn_trained, x, y, t, n_train, w_ad, dir_model, device)
 plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train,
                     dir_model, device)
 
-t, en_k, en_p, en = calc_energy(pinn_trained, points, n_train, device)
+t, en, en_p, en_k = calc_energy(pinn_trained, points, n_train, device)
 plot_energy(t, en_k, en_p, en, En0, dir_model)
