@@ -40,12 +40,12 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     cbar2 = fig.colorbar(p_scatter, ax=ax[1, 0], orientation='vertical')
     cbar2.set_label('$u_y$')
 
-    v_scatter = ax[1, 1].scatter(X.reshape(-1),
-                                 Y.reshape(-1), c=z[:, 3], cmap=cmap)
-    ax[1, 1].set_xlabel('$\\hat{x}$')
-    ax[1, 1].set_xlabel('$\\hat{y}$')
-    cbar3 = fig.colorbar(v_scatter, ax=ax[1, 1], orientation='vertical')
-    cbar3.set_label('$v_y$')
+    #v_scatter = ax[1, 1].scatter(X.reshape(-1),
+                                # Y.reshape(-1), c=z[:, 3], cmap=cmap)
+    #ax[1, 1].set_xlabel('$\\hat{x}$')
+    #ax[1, 1].set_xlabel('$\\hat{y}$')
+    #cbar3 = fig.colorbar(v_scatter, ax=ax[1, 1], orientation='vertical')
+    #cbar3.set_label('$v_y$')
 
     fig.text(0.5, 0.96, 'Analytical', ha='center', va='center', fontsize=16)
     fig.text(0.5, 0.48, 'Predicted', ha='center', va='center', fontsize=16)

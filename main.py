@@ -71,6 +71,7 @@ prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
 pinn = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
 
 En0 = calc_initial_energy(pinn, n_train, points, device)
+print(En0)
 
 loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),

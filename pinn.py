@@ -217,14 +217,14 @@ class PINN(nn.Module):
         self.hid_space_layers_x = nn.ModuleList()
         for i in range(n_hidden - 1):
             self.hid_space_layers_x.append(nn.Linear(2 * self.fourier_dim, 2 * self.fourier_dim))
-            self.hid_space_layers_x.append(act)
+            #self.hid_space_layers_x.append(act)
         self.outFC_space_x = nn.Linear(2 * self.fourier_dim, 1)
 
         self.hid_space_layers_y = nn.ModuleList()
         for i in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(4 * self.fourier_dim, 4 * self.fourier_dim))
-            self.hid_space_layers_y.append(act)
-        self.outFC_space_y = nn.Linear(4 * self.fourier_dim, 1)
+            self.hid_space_layers_y.append(nn.Linear(2 * self.fourier_dim, 2 * self.fourier_dim))
+            #self.hid_space_layers_y.append(act)
+        self.outFC_space_y = nn.Linear(2 * self.fourier_dim, 1)
 
         self.mid_time_layer = nn.Linear(dim_hidden[1], 2)
 
@@ -245,8 +245,7 @@ class PINN(nn.Module):
 
     def fourier_features_y(self, x):
         x_proj = x @ self.B_y + self.b
-        return torch.cat([torch.sin(x_proj), torch.cos(x_proj),
-                torch.sinh(x_proj), torch.cosh(x_proj)], dim=-1)
+        return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
 
     def forward(self, x, y, t):
         space = torch.cat([x, y], dim=1)
@@ -475,7 +474,7 @@ class Loss:
         bound_loss = self.bound_loss(pinn)
         loss = res_loss + bound_loss + init_loss + 3*en_dev
 
-        return (loss, res_loss, bound_loss, en_dev)
+        return (loss, res_loss, bound_loss, init_loss, en_dev)
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -499,7 +498,7 @@ def train_model(
 
     for epoch in range(max_epochs):
         optimizer.zero_grad()
-        loss, res_loss, bound_loss, en_dev = loss_fn(nn_approximator)
+        loss, res_loss, bound_loss, init_loss, en_dev = loss_fn(nn_approximator)
 
         loss.backward()
         optimizer.step()
@@ -509,6 +508,7 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
+            'init': init_loss.item(),
             'boundary': bound_loss.item(),
             'en_dev': en_dev.item()
         }, epoch)
@@ -570,7 +570,7 @@ def calc_energy(pinn_trained: PINN, points: Grid, n_train, device) -> tuple:
 
     output = f(pinn_trained, x, y, t)
 
-    d_en, d_en_p, d_en_k = calc_den(x, y, output)
+    d_en, d_en_p, d_en_k = calc_den(x, y, t, output)
 
     x = x.reshape(n_train, n_train, n_train)
     y = y.reshape(n_train, n_train, n_train)
