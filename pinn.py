@@ -192,7 +192,7 @@ class PINN(nn.Module):
                  initial_conditions: callable,
                  device,
                  a: float = 1,
-                 act=nn.ReLU(),
+                 act=nn.Tanh(),
                  fourier_scale_space: float = 0.1,
                  n_hidden: int = 2,
                  ):
@@ -285,7 +285,7 @@ class PINN(nn.Module):
 
         mid_t = self.mid_time_layer(t_act)
 
-        mid_x = self.parabolic(space[:,0].reshape(-1,1)) * out_space_FC
+        mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out_space_FC
 
         merged = mid_x * mid_t
 
@@ -377,9 +377,6 @@ class Loss:
                                       (dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy))
         loss_v.append(dvy_t - 2 * self.z[0]*(1/2*(duy_xx +
                                              dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy))
-
-        vx = df(output, [t], 0).reshape(-1)
-        vy = df(output, [t], 1).reshape(-1)
 
         loss = 0
 
@@ -517,7 +514,7 @@ def train_model(
     params = [
         {'params': [param for name, param in nn_approximator.named_parameters() if 
             'penalty_terms' not in name], 'lr': learning_rate},
-        {'params': nn_approximator.penalty_terms, 'lr': -10*learning_rate}
+        {'params': nn_approximator.penalty_terms, 'lr': -learning_rate}
     ]
 
     writer = SummaryWriter(log_dir=path_logs)
@@ -631,7 +628,7 @@ def calc_energy(pinn_trained: PINN, points: dict, n_train, device) -> tuple:
 def calculate_speed(pinn_trained: PINN, points: tuple) -> torch.tensor:
     x, y, t = points
 
-    output = f(pinn, x, y, t)
+    output = f(pinn_trained, x, y, t)
 
     vx = df(output, [t], 0)
     vy = df(output, [t], 1)
