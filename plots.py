@@ -7,7 +7,7 @@ from pinn import PINN, f
 import numpy as np
 
 
-def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, n_train: int, path: str):
+def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, n_space: int, path: str):
     """Plot initial conditions.
     z0: tensor describing analytical initial conditions
     z: tensor describing predicted initial conditions"""
@@ -30,7 +30,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
                                  Y.reshape(-1)+z0[:, 1])
     ax[0, 0].set_xlabel('$\\hat{x}$')
     ax[0, 0].set_ylabel('$\\hat{y}$')
-    
+
     vx_a_scatter = ax[0, 1].scatter(X.reshape(-1)+z0[:, 0],
                                  Y.reshape(-1)+z0[:, 1], c=z0[:,2], cmap=cmap)
     ax[0, 1].set_xlabel('$\\hat{x}$')
@@ -71,14 +71,14 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     plt.savefig(f'{path}/init.png')
 
 
-def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, w_ad: np.ndarray, n_train:
-                        int, path: str, device):
+def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, w_ad: np.ndarray,
+                        n_space: int, n_time: int, path: str, device):
 
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
 
-    nx = n_train
-    ny = n_train
-    nt = n_train
+    nx = n_space
+    ny = n_space
+    nt = n_time
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
 
@@ -160,13 +160,13 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
 
 
 def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor,
-             n_train: int, path: str, device):
+             n_space: int, n_time: int, path: str, device):
 
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
 
-    nx = n_train
-    ny = n_train
-    nt = n_train
+    nx = n_space
+    ny = n_space
+    nt = n_time
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
 
@@ -240,7 +240,7 @@ def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor,
 
 
 def plot_compliance(pinn: PINN, x: torch.tensor, y: torch.tensor,
-                    t: torch.Tensor, n_train: int, w_ad: np.ndarray, path: str, device):
+                    t: torch.Tensor, w_ad: np.ndarray, path: str, device):
 
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10, 8))
     fig.suptitle('Compliance')
