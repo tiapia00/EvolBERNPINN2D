@@ -3,15 +3,17 @@ class Parameters:
         self.x_end = 1
         self.y_end = 1e-3
         self.t_end = 0.4
-        self.n = 10
-        self.dim_hidden = (256, 20)
+        self.n_space = 10
+        self.n_time = 30
+        self.dim_hidden = (128, 40)
         self.n_hidden : int = 1
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
             'y_end': self.y_end,
             't_end': self.t_end,
-            'n': self.n,
+            'n_space': self.n_space,
+            'n_time': self.n_time,
             'w0': self.w0,
             'dim_hidden': self.dim_hidden,
             'n_hidden_space': self.n_hidden,
@@ -22,7 +24,8 @@ class Parameters:
             'x_end': self.x_end,
             't_end': self.t_end,
             'h': self.y_end,
-            'n': self.n,
+            'n_space': 10,
+            'n_time': self.n_time,
             'w0': self.w0
         }
         self.mat_par = {
