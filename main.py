@@ -19,7 +19,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = True
+retrain_PINN = False
 delete_old = False
 
 if delete_old:
@@ -37,9 +37,9 @@ def get_step(tensors: tuple):
 
 par = Parameters()
 
-Lx, t, h, n_space, n_time, w0 = get_params(par.beam_par)
+Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
-my_beam = Beam(Lx, E, rho, h, 4e-3, n_space)
+my_beam = Beam(Lx, E, rho, h, 4e-3, n_space_beam)
 
 t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
 
@@ -71,7 +71,6 @@ prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
 pinn = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
 
 En0 = calc_initial_energy(pinn, n_space, points, device)
-print(En0)
 
 loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),
@@ -129,7 +128,7 @@ plot_sol(pinn_trained, x, y, t, n_space, n_time, dir_model, device)
 
 plot_compliance(pinn_trained, x, y, t, w_ad, dir_model, device)
 plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,
-                    n_time, dir_model, device)
+                    n_time, n_space_beam, dir_model, device)
 
 t, en, en_p, en_k = calc_energy(pinn_trained, points, n_space, n_time, device)
 plot_energy(t, en_k, en_p, en, En0, dir_model)

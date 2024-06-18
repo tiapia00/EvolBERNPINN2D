@@ -72,7 +72,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
 
 
 def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, w_ad: np.ndarray,
-                        n_space: int, n_time: int, path: str, device):
+                        n_space: int, n_time: int, n_beam: int, path: str, device):
 
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
 
@@ -108,7 +108,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
     z0 = output.cpu().detach().numpy()
 
     sc = ax.scatter(x_plot+z0[:, 0], y_plot+z0[:, 1])
-    ax.scatter(np.unique(x_plot), w_ad[:, 0])
+    ax.scatter(np.unique(x_plot), w_ad[::int(n_beam/n_space),0])
     t_value = float(t_raw[0])
 
     ax.set_title(f'$\\hat{{t}} = {t_value:.2f}$')
@@ -147,7 +147,7 @@ def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.T
         ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
         sc = ax.scatter(x_plot+z[:, 0], y_plot+z[:, 1])
-        ax.scatter(np.unique(x_plot), w_ad[:, frame])
+        ax.scatter(np.unique(x_plot), w_ad[::int(n_beam/n_space), frame])
 
         return ax
 
