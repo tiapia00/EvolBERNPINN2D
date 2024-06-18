@@ -4,7 +4,9 @@ from par import Parameters, get_params
 from scipy import integrate
 
 
-def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: float, n: int):
+def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: float,
+                           n_time: int):
+
     prob = Prob_Solv_Modes(my_beam)
     gamma_max = 5 # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
 
@@ -30,7 +32,7 @@ def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: fl
     my_In_Cond.pass_init_cond(w0, wdot_0)
     A, B = my_In_Cond.compute_coeff()
 
-    t_lin = np.linspace(0, t_ad_f, n)
+    t_lin = np.linspace(0, t_ad_f, n_time)
 
     my_beam.calculate_solution_free(A, B, t_lin)
     w = my_beam.w

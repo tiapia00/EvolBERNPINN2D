@@ -19,7 +19,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = True
+retrain_PINN = False
 delete_old = False
 
 if delete_old:
@@ -37,23 +37,23 @@ def get_step(tensors: tuple):
 
 par = Parameters()
 
-Lx, t, h, n, w0 = get_params(par.beam_par)
+Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
-my_beam = Beam(Lx, E, rho, h, 4e-3, n)
+my_beam = Beam(Lx, E, rho, h, 4e-3, n_space_beam)
 
-t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n)
+t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
 
 load_dist = (np.sin, np.sin)
 #t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_train, w0, dim_hidden, n_hid_space, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hid_space, lr, epochs = get_params(par.pinn_par)
 
 L_tild = Lx
-x_domain = torch.linspace(0, Lx, n_train)/Lx
-y_domain = torch.linspace(-Ly/2, Ly/2, n_train)/Ly
-t_domain = torch.linspace(0, T, n_train)/t_tild
+x_domain = torch.linspace(0, Lx, n_space)/Lx
+y_domain = torch.linspace(-Ly/2, Ly/2, n_space)/Ly
+t_domain = torch.linspace(0, T, n_time)/t_tild
 
 steps = get_step((x_domain, y_domain, t_domain))
 
@@ -70,14 +70,14 @@ points = {
 prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
 pinn = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
 
-En0 = calc_initial_energy(pinn, n_train, points, device)
-print(En0)
+En0 = calc_initial_energy(pinn, n_space, points, device)
 
 loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),
         initial_conditions,
         points,
-        n_train,
+        n_space,
+        n_time,
         w0,
         En0,
         steps
@@ -89,7 +89,7 @@ if retrain_PINN:
     dir_logs = pass_folder('model/logs')
 
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
-                               max_epochs=epochs, path_logs=dir_logs, points=points, n_train=n_train)
+                               max_epochs=epochs, path_logs=dir_logs, points=points)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
@@ -120,15 +120,15 @@ z = torch.cat([z, v], dim=1)
 
 cond0 = initial_conditions(points['initial_points'], w0)
 
-plot_initial_conditions(z, cond0, x, y, n_train, dir_model)
+plot_initial_conditions(z, cond0, x, y, n_space, dir_model)
 
 x, y, t = grid.get_all_points()
 
-plot_sol(pinn_trained, x, y, t, n_train, dir_model, device)
+plot_sol(pinn_trained, x, y, t, n_space, n_time, dir_model, device)
 
-plot_compliance(pinn_trained, x, y, t, n_train, w_ad, dir_model, device)
-plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_train,
-                    dir_model, device)
+plot_compliance(pinn_trained, x, y, t, w_ad, dir_model, device)
+plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,
+                    n_time, n_space_beam, dir_model, device)
 
-t, en, en_p, en_k = calc_energy(pinn_trained, points, n_train, device)
+t, en, en_p, en_k = calc_energy(pinn_trained, points, n_space, n_time, device)
 plot_energy(t, en_k, en_p, en, En0, dir_model)

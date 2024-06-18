@@ -232,7 +232,7 @@ class PINN(nn.Module):
                 nn.Parameter(torch.tensor(1.0)),  # Res 
                 nn.Parameter(torch.tensor(1.0)),  # Init
                 nn.Parameter(torch.tensor(1.0)),  # Bound
-                nn.Parameter(torch.tensor(2.0))   # En
+                nn.Parameter(torch.tensor(1.2))   # En
         ])
 
     def parabolic(self, x):
@@ -337,7 +337,8 @@ class Loss:
         z: torch.Tensor,
         initial_condition: Callable,
         points: dict,
-        n_train: int,
+        n_space: int,
+        n_time: int,
         w0: float,
         E0: float,
         steps_int: tuple,
@@ -348,7 +349,8 @@ class Loss:
         self.points = points
         self.w0 = w0
         self.E0: float = E0
-        self.n_train = n_train
+        self.n_space = n_space
+        self.n_time = n_time
         self.steps = steps_int
 
     def res_loss(self, pinn):
@@ -454,17 +456,18 @@ class Loss:
 
         output = f(pinn, x, y, t)
 
-        n = self.n_train
+        n_space = self.n_space
+        n_time = self.n_time
 
         d_en, d_en_p, d_en_k = calc_den(x, y, t, output)
 
-        d_en = d_en.reshape(n, n, n)
-        d_en_p = d_en_p.reshape(n, n, n)
-        d_en_k = d_en_k.reshape(n, n, n)
+        d_en = d_en.reshape(n_space, n_space, n_time)
+        d_en_p = d_en_p.reshape(n_space, n_space, n_time)
+        d_en_k = d_en_k.reshape(n_space, n_space, n_time)
 
-        x = x.reshape(n, n, n)
-        y = y.reshape(n, n, n)
-        t = t.reshape(n, n, n)
+        x = x.reshape(n_space, n_space, n_time)
+        y = y.reshape(n_space, n_space, n_time)
+        t = t.reshape(n_space, n_space, n_time)
 
         dx = self.steps[0]
         dy = self.steps[1]
@@ -507,8 +510,7 @@ def train_model(
     learning_rate: int,
     max_epochs: int,
     path_logs: str,
-    points: dict,
-    n_train: int
+    points: dict
 ) -> PINN:
 
     params = [
@@ -581,16 +583,16 @@ def calc_den(x, y, t, output):
 
     return (d_en, d_en_p, d_en_k)
 
-def calc_initial_energy(pinn_trained: PINN, n: int, points: dict, device):
+def calc_initial_energy(pinn_trained: PINN, n_space: int, points: dict, device):
     x, y, t = points['initial_points']
 
     output = f(pinn_trained, x, y, t)
 
     d_en, d_en_k, d_en_p = calc_den(x, y, t, output)
-    d_en = d_en.reshape(n, n)
+    d_en = d_en.reshape(n_space, n_space)
 
-    x = x.reshape(n, n)
-    y = y.reshape(n, n)
+    x = x.reshape(n_space, n_space)
+    y = y.reshape(n_space, n_space)
 
     en_x = torch.trapezoid(d_en, y[0,:], dim=1)
     En = torch.trapezoid(en_x, x[:,0], dim=0)
@@ -598,20 +600,20 @@ def calc_initial_energy(pinn_trained: PINN, n: int, points: dict, device):
 
     return En
 
-def calc_energy(pinn_trained: PINN, points: dict, n_train, device) -> tuple:
+def calc_energy(pinn_trained: PINN, points: dict, n_space: int, n_time: int, device) -> tuple:
     x, y, t = points['all_points']
 
     output = f(pinn_trained, x, y, t)
 
     d_en, d_en_p, d_en_k = calc_den(x, y, t, output)
 
-    x = x.reshape(n_train, n_train, n_train)
-    y = y.reshape(n_train, n_train, n_train)
-    t = t.reshape(n_train, n_train, n_train)
+    x = x.reshape(n_space, n_space, n_time)
+    y = y.reshape(n_space, n_space, n_time)
+    t = t.reshape(n_space, n_space, n_time)
 
-    d_en_k = d_en_k.reshape(n_train, n_train, n_train)
-    d_en_p = d_en_p.reshape(n_train, n_train, n_train)
-    d_en = d_en.reshape(n_train, n_train, n_train)
+    d_en_k = d_en_k.reshape(n_space, n_space, n_time)
+    d_en_p = d_en_p.reshape(n_space, n_space, n_time)
+    d_en = d_en.reshape(n_space, n_space, n_time)
 
     d_en_k_y = torch.trapz(d_en_k, y[0,:,0], dim=1)
     d_en_p_y = torch.trapz(d_en_p, y[0,:,0], dim=1)
