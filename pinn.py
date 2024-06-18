@@ -202,9 +202,6 @@ class PINN(nn.Module):
         self.w0 = w0
         self.a = a
 
-        self.fourier_scale_time = (fourier_scale_space)**2 * (prop['E'] *
-                prop['J']/prop['m'])**1/2
-
         self.in_x = RBF(2, dim_hidden[0], matern52)
         self.in_y = RBF(2, dim_hidden[0], matern52)
 
@@ -246,14 +243,8 @@ class PINN(nn.Module):
         space_x = self.in_x(space)
         space_y = self.in_y(space)
 
-        x_in = fourier_space_x
-        y_in = fourier_space_y
-
-        for layer in self.hid_space_layers_x:
-            x_in= layer(x_in)
-
-        for layer in self.hid_space_layers_y:
-            y_in= layer(y_in)
+        x_in = space_x
+        y_in = space_y
 
         x_FC = self.outFC_space_x(x_in)
         y_FC = self.outFC_space_y(y_in)

@@ -4,7 +4,7 @@ class Parameters:
         self.y_end = 1e-3
         self.t_end = 0.4
         self.n = 10
-        self.dim_hidden = (256, 20)
+        self.dim_hidden = (128, 40)
         self.n_hidden : int = 1
         self.w0 = 0.3
         self.pinn_par = {
