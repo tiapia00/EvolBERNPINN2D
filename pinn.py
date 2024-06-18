@@ -202,29 +202,18 @@ class PINN(nn.Module):
         self.w0 = w0
         self.a = a
 
-        self.fourier_dim = dim_hidden[0]
-        self.fourier_scale_space = fourier_scale_space
         self.fourier_scale_time = (fourier_scale_space)**2 * (prop['E'] *
                 prop['J']/prop['m'])**1/2
 
-        self.B_x = torch.randn((2, self.fourier_dim), device=device) * 2 * self.fourier_scale_space
-        self.B_y = torch.randn((2, self.fourier_dim), device=device) * self.fourier_scale_space
-        self.b = 2 * np.pi * torch.rand((self.fourier_dim,), device=device)
+        self.in_x = RBF(2, dim_hidden[0], matern52)
+        self.in_y = RBF(2, dim_hidden[0], matern52)
 
         self.in_time = nn.Linear(1, dim_hidden[1])
         self.act_time = TrigAct()
 
-        self.hid_space_layers_x = nn.ModuleList()
-        for i in range(n_hidden - 1):
-            self.hid_space_layers_x.append(nn.Linear(2 * self.fourier_dim, 2 * self.fourier_dim))
-            self.hid_space_layers_x.append(act)
-        self.outFC_space_x = nn.Linear(2 * self.fourier_dim, 1)
+        self.outFC_space_x = nn.Linear(dim_hidden[0], 1)
 
-        self.hid_space_layers_y = nn.ModuleList()
-        for i in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(2 * self.fourier_dim, 2 * self.fourier_dim))
-            self.hid_space_layers_y.append(act)
-        self.outFC_space_y = nn.Linear(2 * self.fourier_dim, 1)
+        self.outFC_space_y = nn.Linear(dim_hidden[0], 1)
 
         self.mid_time_layer = nn.Linear(dim_hidden[1], 2)
 
@@ -232,7 +221,7 @@ class PINN(nn.Module):
                 nn.Parameter(torch.tensor(1.0)),  # Res 
                 nn.Parameter(torch.tensor(1.0)),  # Init
                 nn.Parameter(torch.tensor(1.0)),  # Bound
-                nn.Parameter(torch.tensor(2.0))   # En
+                nn.Parameter(torch.tensor(1.2))   # En
         ])
 
     def parabolic(self, x):
@@ -250,20 +239,12 @@ class PINN(nn.Module):
     def apply_compl_filter(alpha):
         return (1-torch.tanh(alpha))
 
-    def fourier_features_x(self, x):
-        x_proj = x @ self.B_x + self.b
-        return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
-
-    def fourier_features_y(self, x):
-        x_proj = x @ self.B_y + self.b
-        return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
-
     def forward(self, x, y, t):
         space = torch.cat([x, y], dim=1)
         time = t
 
-        fourier_space_x = self.fourier_features_x(space)
-        fourier_space_y = self.fourier_features_y(space)
+        space_x = self.in_x(space)
+        space_y = self.in_y(space)
 
         x_in = fourier_space_x
         y_in = fourier_space_y
