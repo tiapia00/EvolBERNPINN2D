@@ -201,30 +201,31 @@ class PINN(nn.Module):
 
         self.w0 = w0
         self.a = a
+        self.n_mode_space = dim_hidden[0]
 
-        self.fourier_dim = dim_hidden[0]
-        self.fourier_scale_space = fourier_scale_space
+        self.fourier_scale_space_x = fourier_scale_space
+        self.fourier_scale_space_y = fourier_scale_space * 0.5
         self.fourier_scale_time = (fourier_scale_space)**2 * (prop['E'] *
                 prop['J']/prop['m'])**1/2
 
-        self.B_x = torch.randn((2, self.fourier_dim), device=device) * 2 * self.fourier_scale_space
-        self.B_y = torch.randn((2, self.fourier_dim), device=device) * self.fourier_scale_space
-        self.b = 2 * np.pi * torch.rand((self.fourier_dim,), device=device)
+        self.B_x = torch.randn((2, self.n_mode_space), device=device) * 2 * self.fourier_scale_space_x
+        self.B_y = torch.randn((2, self.n_mode_space), device=device) * self.fourier_scale_space_y
+        self.b = 2 * np.pi * torch.rand((self.n_mode_space,), device=device)
 
         self.in_time = nn.Linear(1, dim_hidden[1])
         self.act_time = TrigAct()
 
         self.hid_space_layers_x = nn.ModuleList()
         for i in range(n_hidden - 1):
-            self.hid_space_layers_x.append(nn.Linear(2 * self.fourier_dim, 2 * self.fourier_dim))
+            self.hid_space_layers_x.append(nn.Linear(2 * self.n_mode_space, 2 * self.n_mode_space))
             self.hid_space_layers_x.append(act)
-        self.outFC_space_x = nn.Linear(2 * self.fourier_dim, 1)
+        self.outFC_space_x = nn.Linear(2 * self.n_mode_space, 1)
 
         self.hid_space_layers_y = nn.ModuleList()
         for i in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(2 * self.fourier_dim, 2 * self.fourier_dim))
+            self.hid_space_layers_y.append(nn.Linear(4 * self.n_mode_space, 4 * self.n_mode_space))
             self.hid_space_layers_y.append(act)
-        self.outFC_space_y = nn.Linear(2 * self.fourier_dim, 1)
+        self.outFC_space_y = nn.Linear(4 * self.n_mode_space, 1)
 
         self.mid_time_layer = nn.Linear(dim_hidden[1], 2)
 
@@ -252,11 +253,12 @@ class PINN(nn.Module):
 
     def fourier_features_x(self, x):
         x_proj = x @ self.B_x + self.b
-        return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
+        return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=1)
 
     def fourier_features_y(self, x):
         x_proj = x @ self.B_y + self.b
-        return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
+        return torch.cat([torch.sin(x_proj), torch.cos(x_proj),
+                torch.cosh(x_proj), torch.sinh(x_proj)], dim=1)
 
     def forward(self, x, y, t):
         space = torch.cat([x, y], dim=1)
