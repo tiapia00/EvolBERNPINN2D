@@ -214,13 +214,6 @@ class PINN(nn.Module):
 
         self.mid_time_layer = nn.Linear(dim_hidden[1], 2)
 
-        self.penalty_terms = nn.ParameterList([
-                nn.Parameter(torch.tensor(1.0)),  # Res 
-                nn.Parameter(torch.tensor(1.0)),  # Init
-                nn.Parameter(torch.tensor(1.0)),  # Bound
-                nn.Parameter(torch.tensor(1.2))   # En
-        ])
-
     def parabolic(self, x):
         return (self.a * x ** 2 - self.a * x)
 
@@ -314,6 +307,7 @@ class Loss:
         w0: float,
         E0: float,
         steps_int: tuple,
+        in_penalty: np.ndarray,
         verbose: bool = False
     ):
         self.z = z
@@ -324,6 +318,7 @@ class Loss:
         self.n_space = n_space
         self.n_time = n_time
         self.steps = steps_int
+        self.penalty = in_penalty
 
     def res_loss(self, pinn):
         x, y, t = self.points['res_points']
@@ -357,10 +352,6 @@ class Loss:
         for loss_res in loss_v:
             loss += loss_res.pow(2).mean()
 
-        m = pinn.forward_mask(0)
-
-        loss = m * loss
-
         return loss
 
 
@@ -371,7 +362,7 @@ class Loss:
 
         initial_speed = initial_conditions(init_points, pinn.w0)[:,2:]
 
-        m = pinn.forward_mask(1)
+        m = self.penalty[0]
         loss = m * (output - initial_speed).pow(2).mean()
 
         return loss
@@ -416,8 +407,7 @@ class Loss:
         for loss_bound in loss_v:
             loss += loss_bound.pow(2).mean()
 
-        m = pinn.forward_mask(2)
-
+        m = self.penalty[1]
         loss = m * loss
 
         return loss
@@ -456,11 +446,19 @@ class Loss:
         dEn_p = df_num_torch(dt, En_p)
         dEn_k = df_num_torch(dt, En_k)
 
-        m = pinn.forward_mask(-1)
-
+        m = self.penalty[-1]
         loss = m * (self.E0 * torch.ones_like(En) - En).pow(2).mean()
 
         return loss
+
+
+    def update_penalty(self, max: float, mean: list, alpha: float = 0.1):
+        lambda_o = np.array(self.penalty)
+        mean = np.array(mean)
+
+        lambda_n = max / (lambda_o * mean)
+
+        self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
 
 
     def verbose(self, pinn):
@@ -470,7 +468,7 @@ class Loss:
         bound_loss = self.bound_loss(pinn)
         loss = res_loss + bound_loss + init_loss + en_dev
 
-        return (loss, res_loss, bound_loss, init_loss, en_dev)
+        return loss, res_loss, (bound_loss, init_loss, en_dev)
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -485,21 +483,31 @@ def train_model(
     points: dict
 ) -> PINN:
 
-    params = [
-        {'params': [param for name, param in nn_approximator.named_parameters() if 
-            'penalty_terms' not in name], 'lr': learning_rate},
-        {'params': nn_approximator.penalty_terms, 'lr': -learning_rate}
-    ]
-
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.Adam(params)
+    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
         optimizer.zero_grad()
-        loss, res_loss, bound_loss, init_loss, en_dev = loss_fn(nn_approximator)
 
+        if epoch != 0 and epoch % 100 == 0 :
+            _, res_loss, losses = loss_fn(nn_approximator)
+
+            res_loss.backward()
+            max_grad = get_max_grad(nn_approximator)
+            optimizer.zero_grad()
+
+            means = []
+
+            for loss in losses:
+                loss.backward()
+                means.append(get_mean_grad(nn_approximator))
+                optimizer.zero_grad()
+
+            loss_fn.update_penalty(max_grad, means)
+
+        loss, res_loss, losses = loss_fn(nn_approximator)
         loss.backward()
         optimizer.step()
 
@@ -508,16 +516,15 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
-            'init': init_loss.item(),
-            'boundary': bound_loss.item(),
-            'en_dev': en_dev.item()
+            'init': losses[0].item(),
+            'boundary': losses[1].item(),
+            'en_dev': losses[2].item()
         }, epoch)
 
         writer.add_scalars('Penalty_terms', {
-            'residual': nn_approximator.penalty_terms[0].item(),
-            'init': nn_approximator.penalty_terms[1].item(),
-            'boundary': nn_approximator.penalty_terms[2].item(),
-            'en_dev': nn_approximator.penalty_terms[3].item()
+            'init': loss_fn.penalty[0].item(),
+            'boundary': loss_fn.penalty[1].item(),
+            'en_dev': loss_fn.penalty[2].item()
         }, epoch)
 
         pbar.update(1)
@@ -626,3 +633,33 @@ def df_num_torch(dx: float, y: torch.tensor):
     derivative[-1] = dy[-1] / dx
 
     return derivative
+
+
+def get_max_grad(pinn: PINN):
+    max_grad = None
+
+    for name, param in pinn.named_parameters():
+        if param.requires_grad:
+            param_max_grad = param.grad.abs().max().item()
+            if max_grad is None or param_max_grad > max_grad:
+                max_grad = param_max_grad
+
+    return max_grad
+
+
+def get_mean_grad(pinn: PINN):
+    all_grads = []
+
+    for param in pinn.parameters():
+        if param.grad is not None:
+            all_grads.append(param.grad.view(-1))  # Flatten the gradients
+
+    all_grads = torch.cat(all_grads)
+
+    mean = all_grads.mean().numpy()
+
+    return mean
+
+
+
+

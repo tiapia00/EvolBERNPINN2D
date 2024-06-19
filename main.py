@@ -19,7 +19,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = False
+retrain_PINN = True
 delete_old = False
 
 if delete_old:
@@ -72,6 +72,8 @@ pinn = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, devic
 
 En0 = calc_initial_energy(pinn, n_space, points, device)
 
+in_penalty = np.array([1, 1, 1.3])
+
 loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),
         initial_conditions,
@@ -80,7 +82,8 @@ loss_fn = Loss(
         n_time,
         w0,
         En0,
-        steps
+        steps,
+        in_penalty
     )
 
 
