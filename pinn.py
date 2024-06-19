@@ -652,7 +652,7 @@ def get_mean_grad(pinn: PINN):
 
     for param in pinn.parameters():
         if param.grad is not None:
-            all_grads.append(param.grad.view(-1))  # Flatten the gradients
+            all_grads.append(param.grad.view(-1))
 
     all_grads = torch.cat(all_grads)
 
