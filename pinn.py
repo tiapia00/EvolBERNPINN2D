@@ -212,6 +212,10 @@ class PINN(nn.Module):
         self.B_y = torch.randn((2, self.n_mode_space), device=device) * self.fourier_scale_space_y
         self.b = 2 * np.pi * torch.rand((self.n_mode_space,), device=device)
 
+        self.B_x = nn.Parameter(B_x)
+        self.B_y = nn.Parameter(B_y)
+        self.b = nn.Parameter(b)
+
         self.in_time = nn.Linear(1, dim_hidden[1])
         self.act_time = TrigAct()
 
