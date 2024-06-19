@@ -201,7 +201,8 @@ class PINN(nn.Module):
         self.w0 = w0
         self.a = a
         self.n_mode_space = dim_hidden[0]
-
+        
+        #multipliers = torch.arange(1, self.n_mode_space + 1, device=device) ** 2
         self.B_x = torch.ones((1, self.n_mode_space), device=device)
 
         self.in_time = nn.Linear(1, dim_hidden[1])
@@ -209,9 +210,9 @@ class PINN(nn.Module):
 
         self.hid_space_layers_x = nn.ModuleList()
         for i in range(n_hidden - 1):
-            self.hid_space_layers_x.append(nn.Linear(self.n_mode_space, self.n_mode_space))
+            self.hid_space_layers_x.append(nn.Linear(self.n_mode_space, self.n_mode_space, bias=False))
             self.hid_space_layers_x.append(act)
-        self.outFC_space_x = nn.Linear(self.n_mode_space, 2)
+        self.outFC_space_x = nn.Linear(self.n_mode_space, 2, bias=False)
 
         self.y_in = nn.Linear(1, dim_hidden[0])
         self.hid_space_layers_y = nn.ModuleList()
@@ -222,19 +223,6 @@ class PINN(nn.Module):
 
         self.mid_time_layer = nn.Linear(dim_hidden[1], 2)
         self.outFC_space_y = nn.Linear(dim_hidden[0], 2)
-
-        self.in_weight_modes = nn.Linear(2, self.n_mode_space)
-        self.weight_modes = nn.ModuleList()
-        for i in range(n_hidden - 1):
-            self.weight_modes.append(nn.Linear(self.n_mode_space, self.n_mode_space, bias=False))
-        self.out_weight_modes = nn.Linear(self.n_mode_space, 2, bias=False)
-
-        self.penalty_terms = nn.ParameterList([
-                nn.Parameter(torch.tensor(1.0)),  # Res 
-                nn.Parameter(torch.tensor(1.0)),  # Init
-                nn.Parameter(torch.tensor(1.0)),  # Bound
-                nn.Parameter(torch.tensor(1.2))   # En
-        ])
 
     def parabolic(self, x):
         return (self.a * x ** 2 - self.a * x)
@@ -285,11 +273,6 @@ class PINN(nn.Module):
         mid_x = out_space_FC
 
         merged = mid_x * mid_t
-        merged = self.in_weight_modes(merged)
-
-        for layer in self.weight_modes:
-            merged = layer(merged)
-        merged = self.out_weight_modes(merged)
 
         act_global = self.apply_filter(time.repeat(1, 2)) * merged
 
@@ -387,10 +370,6 @@ class Loss:
         for loss_res in loss_v:
             loss += loss_res.pow(2).mean()
 
-        m = pinn.forward_mask(0)
-
-        loss = m * loss
-
         return loss
 
 
@@ -401,8 +380,7 @@ class Loss:
 
         initial_speed = initial_conditions(init_points, pinn.w0)[:,2:]
 
-        m = pinn.forward_mask(1)
-        loss = m * (output - initial_speed).pow(2).mean()
+        loss = (output - initial_speed).pow(2).mean()
 
         return loss
 
@@ -446,10 +424,6 @@ class Loss:
         for loss_bound in loss_v:
             loss += loss_bound.pow(2).mean()
 
-        m = pinn.forward_mask(2)
-
-        loss = m * loss
-
         return loss
 
 
@@ -486,9 +460,7 @@ class Loss:
         dEn_p = df_num_torch(dt, En_p)
         dEn_k = df_num_torch(dt, En_k)
 
-        m = pinn.forward_mask(-1)
-
-        loss = m * (self.E0 * torch.ones_like(En) - En).pow(2).mean()
+        loss = (self.E0 * torch.ones_like(En) - En).pow(2).mean()
 
         return loss
 
@@ -515,15 +487,9 @@ def train_model(
     points: dict
 ) -> PINN:
 
-    params = [
-        {'params': [param for name, param in nn_approximator.named_parameters() if 
-            'penalty_terms' not in name], 'lr': learning_rate},
-        {'params': nn_approximator.penalty_terms, 'lr': -learning_rate}
-    ]
-
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.Adam(params)
+    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
@@ -541,13 +507,6 @@ def train_model(
             'init': init_loss.item(),
             'boundary': bound_loss.item(),
             'en_dev': en_dev.item()
-        }, epoch)
-
-        writer.add_scalars('Penalty_terms', {
-            'residual': nn_approximator.penalty_terms[0].item(),
-            'init': nn_approximator.penalty_terms[1].item(),
-            'boundary': nn_approximator.penalty_terms[2].item(),
-            'en_dev': nn_approximator.penalty_terms[3].item()
         }, epoch)
 
         pbar.update(1)
