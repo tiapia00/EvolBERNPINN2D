@@ -472,11 +472,11 @@ class Loss:
         return loss
 
 
-    def update_penalty(self, max: float, mean: list, alpha: float = 0.1):
+    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.01):
         lambda_o = np.array(self.penalty)
         mean = np.array(mean)
-
-        lambda_n = max / (lambda_o * mean)
+        
+        lambda_n = max_grad / (lambda_o * (mean+1))
 
         self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
 
@@ -676,7 +676,7 @@ def get_mean_grad(pinn: PINN):
 
     all_grads = torch.cat(all_grads)
 
-    mean = all_grads.mean().numpy()
+    mean = all_grads.mean().cpu().numpy()
 
     return mean
 
