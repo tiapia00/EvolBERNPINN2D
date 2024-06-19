@@ -223,6 +223,13 @@ class PINN(nn.Module):
         self.outFC_space_y = nn.Linear(dim_hidden[0], 2)
 
         self.mid_time_layer = nn.Linear(dim_hidden[1], 2)
+        self.outFC_space_y = nn.Linear(dim_hidden[0], 2)
+
+        self.in_weight_modes = nn.Linear(2, self.n_mode_space)
+        self.weight_modes = nn.ModuleList()
+        for i in range(n_hidden - 1):
+            self.weight_modes.append(nn.Linear(self.n_mode_space, self.n_mode_space, bias=False))
+        self.out_weight_modes = nn.Linear(self.n_mode_space, 2, bias=False)
 
         self.penalty_terms = nn.ParameterList([
                 nn.Parameter(torch.tensor(1.0)),  # Res 
@@ -279,6 +286,11 @@ class PINN(nn.Module):
         mid_x = out_space_FC
 
         merged = mid_x * mid_t
+        merged = self.in_weight_modes(merged)
+
+        for layer in self.weight_modes:
+            merged = layer(merged)
+        merged = self.out_weight_modes(merged)
 
         act_global = self.apply_filter(time.repeat(1, 2)) * merged
 
