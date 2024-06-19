@@ -203,17 +203,15 @@ class PINN(nn.Module):
         self.n_mode_space = dim_hidden[0]
 
         self.B_x = torch.ones((1, self.n_mode_space), device=device)
-        self.weights_modes = torch.arange(1, len(self.B_x) + 1, device=device) ** 2
-        self.B_x = self.B_x * self.weights_modes
 
         self.in_time = nn.Linear(1, dim_hidden[1])
         self.act_time = TrigAct()
 
         self.hid_space_layers_x = nn.ModuleList()
         for i in range(n_hidden - 1):
-            self.hid_space_layers_x.append(nn.Linear(self.n_mode_space, self.n_mode_space, bias=False))
+            self.hid_space_layers_x.append(nn.Linear(self.n_mode_space, self.n_mode_space))
             self.hid_space_layers_x.append(act)
-        self.outFC_space_x = nn.Linear(self.n_mode_space, 2, bias=False)
+        self.outFC_space_x = nn.Linear(self.n_mode_space, 2)
 
         self.y_in = nn.Linear(1, dim_hidden[0])
         self.hid_space_layers_y = nn.ModuleList()
@@ -283,6 +281,7 @@ class PINN(nn.Module):
 
         mid_t = self.mid_time_layer(t_act)
 
+        #mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out_space_FC
         mid_x = out_space_FC
 
         merged = mid_x * mid_t
