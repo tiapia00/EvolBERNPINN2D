@@ -203,28 +203,28 @@ class PINN(nn.Module):
         self.n_mode_spacex = dim_hidden[0]
         self.n_mode_spacey = dim_hidden[1]
 
-        multipliers_x = torch.arange(1, self.n_mode_spacex + 1, device=device)
-        self.Bx = 0.1 * torch.ones((2, self.n_mode_spacex), device=device)
-        self.Bx[0,:] *= multipliers_x
+        #multipliers_x = torch.arange(1, self.n_mode_spacex + 1, device=device)
+        self.Bx = torch.ones((2, self.n_mode_spacex), device=device)
+        #self.Bx[0,:] *= multipliers_x
 
-        multipliers_y = torch.arange(1, self.n_mode_spacey + 1, device=device) **2
-        self.By = 0.005 * torch.ones((2, self.n_mode_spacey), device=device)
-        self.By[0,:] *= multipliers_y
+        #multipliers_y = torch.arange(1, self.n_mode_spacey + 1, device=device) **2
+        self.By = torch.ones((2, self.n_mode_spacey), device=device)
+        #self.By[0,:] *= multipliers_y
 
         self.in_time = nn.Linear(1, dim_hidden[2])
         self.act_time = TrigAct()
 
         self.hid_space_layers_x = nn.ModuleList()
         for i in range(n_hidden - 1):
-            self.hid_space_layers_x.append(nn.Linear(2 * self.n_mode_spacex, 2 * self.n_mode_spacex))
+            self.hid_space_layers_x.append(nn.Linear(self.n_mode_spacex, self.n_mode_spacex))
             self.hid_space_layers_x.append(act)
-        self.outFC_space_x = nn.Linear(2 * self.n_mode_spacex, 1)
+        self.outFC_space_x = nn.Linear(self.n_mode_spacex, 1)
 
         self.hid_space_layers_y = nn.ModuleList()
         for i in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(4 * self.n_mode_spacey, 4 * self.n_mode_spacey))
+            self.hid_space_layers_y.append(nn.Linear(self.n_mode_spacey, self.n_mode_spacey))
             self.hid_space_layers_y.append(act)
-        self.outFC_space_y = nn.Linear(4 * self.n_mode_spacey, 1)
+        self.outFC_space_y = nn.Linear(self.n_mode_spacey, 1)
 
         self.mid_time_layer = nn.Linear(dim_hidden[2], 2)
 
@@ -241,13 +241,11 @@ class PINN(nn.Module):
 
     def fourier_features_ux(self, space):
         x_proj = space @ self.Bx
-        return torch.cat([torch.sin(np.pi * x_proj),
-                torch.cos(np.pi * x_proj)], dim=1)
+        return torch.sin(np.pi * x_proj),
 
     def fourier_features_uy(self, space):
         x_proj = space @ self.By
-        return torch.cat([torch.sin(np.pi * x_proj), torch.cos(np.pi * x_proj),
-                torch.sinh(np.pi * x_proj), torch.cosh(np.pi * x_proj)], dim=1)
+        return torch.sin(np.pi * x_proj)
 
     def forward(self, x, y, t):
         space = torch.cat([x,y], dim=1)
@@ -482,7 +480,7 @@ class Loss:
     def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.):
         lambda_o = np.array(self.penalty)
         mean = np.array(mean)
-        
+
         lambda_n = max_grad / (lambda_o * (np.abs(mean)+0.1))
 
         self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
@@ -492,8 +490,9 @@ class Loss:
         res_loss = self.res_loss(pinn)
         en_dev = self.en_loss(pinn)
         init_loss = self.initial_loss(pinn)
-        bound_loss = self.bound_loss(pinn)
-        loss = res_loss + bound_loss + init_loss + en_dev
+        #bound_loss = self.bound_loss(pinn)
+        loss = res_loss + init_loss + en_dev
+        #loss += bound_loss
 
         return loss, res_loss, (bound_loss, init_loss, en_dev)
 
