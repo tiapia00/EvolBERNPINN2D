@@ -468,7 +468,7 @@ class Loss:
         return loss
 
 
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.1):
+    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.):
         lambda_o = np.array(self.penalty)
         mean = np.array(mean)
 
