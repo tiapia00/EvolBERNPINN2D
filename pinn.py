@@ -241,7 +241,7 @@ class PINN(nn.Module):
 
     def fourier_features_ux(self, space):
         x_proj = space @ self.Bx
-        return torch.sin(np.pi * x_proj),
+        return torch.sin(np.pi * x_proj)
 
     def fourier_features_uy(self, space):
         x_proj = space @ self.By
@@ -490,7 +490,7 @@ class Loss:
         res_loss = self.res_loss(pinn)
         en_dev = self.en_loss(pinn)
         init_loss = self.initial_loss(pinn)
-        #bound_loss = self.bound_loss(pinn)
+        bound_loss = self.bound_loss(pinn)
         loss = res_loss + init_loss + en_dev
         #loss += bound_loss
 
