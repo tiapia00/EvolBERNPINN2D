@@ -5,7 +5,7 @@ class Parameters:
         self.t_end = 0.4
         self.n_space = 10
         self.n_time = 30
-        self.dim_hidden = (5, 10)
+        self.dim_hidden = (5, 10, 10)
         self.n_hidden : int = 3
         self.w0 = 0.3
         self.pinn_par = {
@@ -17,7 +17,7 @@ class Parameters:
             'w0': self.w0,
             'dim_hidden': self.dim_hidden,
             'n_hidden_space': self.n_hidden,
-            'lr': 1e-3,
+            'lr': 1e-5,
             'epochs': 2000
         }
         self.beam_par = {
