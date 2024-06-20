@@ -192,8 +192,8 @@ class PINN(nn.Module):
                  initial_conditions: callable,
                  device,
                  a: float = 1,
-                 act=nn.Tanh(),
-                 n_hidden: int = 2,
+                 act=nn.Sigmoid(),
+                 n_hidden: int = 1,
                  ):
 
         super().__init__()
@@ -208,7 +208,7 @@ class PINN(nn.Module):
         self.Bx[0,:] *= multipliers_x
 
         multipliers_y = torch.arange(1, self.n_mode_spacey + 1, device=device) **2
-        self.By = 0.05 * torch.ones((2, self.n_mode_spacey), device=device)
+        self.By = 0.005 * torch.ones((2, self.n_mode_spacey), device=device)
         self.By[0,:] *= multipliers_y
 
         self.in_time = nn.Linear(1, dim_hidden[2])
@@ -222,9 +222,9 @@ class PINN(nn.Module):
 
         self.hid_space_layers_y = nn.ModuleList()
         for i in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(4 * self.n_mode_spacey, 4 * self.n_mode_spacey))
+            self.hid_space_layers_y.append(nn.Linear(2 * self.n_mode_spacey, 2 * self.n_mode_spacey))
             self.hid_space_layers_y.append(act)
-        self.outFC_space_y = nn.Linear(4 * self.n_mode_spacey, 1)
+        self.outFC_space_y = nn.Linear(2 * self.n_mode_spacey, 1)
 
         self.mid_time_layer = nn.Linear(dim_hidden[2], 2)
 
@@ -246,8 +246,7 @@ class PINN(nn.Module):
 
     def fourier_features_uy(self, space):
         x_proj = space @ self.By
-        return torch.cat([torch.sin(np.pi * x_proj), torch.cos(np.pi * x_proj),
-                torch.sinh(np.pi * x_proj), torch.cosh(np.pi * x_proj)], dim=1)
+        return torch.cat([torch.sin(np.pi * x_proj), torch.cos(np.pi * x_proj)], dim=1)
 
     def forward(self, x, y, t):
         space = torch.cat([x,y], dim=1)
@@ -479,11 +478,11 @@ class Loss:
         return loss
 
 
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.01):
+    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.1):
         lambda_o = np.array(self.penalty)
         mean = np.array(mean)
         
-        lambda_n = max_grad / (lambda_o * (mean+1))
+        lambda_n = max_grad / (lambda_o * (np.abs(mean)+0.1))
 
         self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
 
