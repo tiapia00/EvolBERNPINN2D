@@ -227,10 +227,6 @@ class PINN(nn.Module):
     def parabolic(self, x):
         return (self.a * x ** 2 - self.a * x)
 
-    def forward_mask(self, idx: int):
-        masked_weights = torch.sigmoid(self.penalty_terms[idx])
-        return masked_weights
-
     @staticmethod
     def apply_filter(alpha):
         return (torch.tanh(alpha))
@@ -472,11 +468,11 @@ class Loss:
         return loss
 
 
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.01):
+    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.1):
         lambda_o = np.array(self.penalty)
         mean = np.array(mean)
-        
-        lambda_n = max_grad / (lambda_o * (mean+1))
+
+        lambda_n = max_grad / (lambda_o * (np.abs(mean)+0.1))
 
         self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
 
