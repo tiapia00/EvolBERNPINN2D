@@ -201,7 +201,7 @@ class PINN(nn.Module):
         self.w0 = w0
         self.a = a
         self.n_mode_space = dim_hidden[0]
-        
+
         #multipliers = torch.arange(1, self.n_mode_space + 1, device=device) ** 2
         self.B_x = torch.ones((1, self.n_mode_space), device=device)
 
