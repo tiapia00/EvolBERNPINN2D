@@ -241,11 +241,11 @@ class PINN(nn.Module):
 
     def fourier_features_ux(self, space):
         x_proj = space @ self.Bx
-        return torch.sin(np.pi * x_proj)
+        return torch.cos(np.pi * x_proj)
 
     def fourier_features_uy(self, space):
         x_proj = space @ self.By
-        return torch.sin(np.pi * x_proj)
+        return torch.cos(np.pi * x_proj)
 
     def forward(self, x, y, t):
         space = torch.cat([x,y], dim=1)
@@ -274,8 +274,8 @@ class PINN(nn.Module):
 
         mid_t = self.mid_time_layer(t_act)
 
-        mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out_space_FC
-        #mid_x = out_space_FC
+        #mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out_space_FC
+        mid_x = out_space_FC
 
         merged = mid_x * mid_t
 
