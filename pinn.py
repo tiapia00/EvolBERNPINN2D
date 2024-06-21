@@ -249,7 +249,7 @@ class PINN(nn.Module):
 
     def fourier_features_ux(self, space):
         x_proj = space @ self.Bx
-        return torch.cat([torch.sin(np.pi * x_proj),
+        return torch.cat([torch.sin(np.pi * x_proj), 
                 torch.cos(np.pi * x_proj)], dim=1)
 
     def fourier_features_uy(self, space):
@@ -289,10 +289,10 @@ class PINN(nn.Module):
 
         mid_t = torch.cat([tx, ty.repeat(1,2)], dim=1)
 
-        mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out_space_modes
+        #mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out_space_modes
         #mid_x = out_space_FC
 
-        modal = mid_x * mid_t
+        modal = out_space_modes * mid_t
 
         for layer in self.mode_layers:
             modal = layer(modal)
