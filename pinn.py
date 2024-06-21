@@ -289,7 +289,6 @@ class PINN(nn.Module):
 
         mid_t = torch.cat([tx, ty.repeat(1,2)], dim=1)
 
-        #mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out_space_modes
         #mid_x = out_space_FC
 
         modal = out_space_modes * mid_t
@@ -298,8 +297,9 @@ class PINN(nn.Module):
             modal = layer(modal)
 
         u = self.outmode_layers(modal)
+        bcs = torch.sin(space[:,0].reshape(-1,1) * np.pi) * u
 
-        act_global = self.apply_filter(time.repeat(1, 2)) * u
+        act_global = self.apply_filter(time.repeat(1, 2)) * bcs
 
         init = initial_conditions((x,y,t), self.w0)[:,:2]
         act_init = self.apply_compl_filter(time.repeat(1, 2)) * init
