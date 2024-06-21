@@ -202,7 +202,7 @@ class PINN(nn.Module):
         self.a = a
         self.n_mode_space = dim_hidden[0]
 
-        #multipliers = torch.arange(1, self.n_mode_space + 1, device=device) ** 2
+        multipliers = torch.arange(1, self.n_mode_space + 1, device=device) ** 2
         self.B_x = torch.ones((1, self.n_mode_space), device=device)
 
         self.in_time = nn.Linear(1, dim_hidden[1])
