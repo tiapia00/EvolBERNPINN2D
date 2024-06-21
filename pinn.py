@@ -191,7 +191,7 @@ class PINN(nn.Module):
                  prop: dict,
                  initial_conditions: callable,
                  device,
-                 act_space=nn.ReLU(),
+                 act_space=nn.Tanh(),
                  act_modes=nn.Sigmoid(),
                  a: float = 1,
                  ):
