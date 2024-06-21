@@ -48,7 +48,7 @@ load_dist = (np.sin, np.sin)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hid_space, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, w0, n_modes, n_hidden, lr, epochs = get_params(par.pinn_par)
 
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
@@ -68,7 +68,8 @@ points = {
 
 
 prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
-pinn = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
+pinn = PINN(n_hidden, n_modes, points, w0, prop,
+        initial_conditions, device).to(device)
 
 En0 = calc_initial_energy(pinn, n_space, points, device)
 
@@ -99,7 +100,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
+    pinn_trained = PINN(n_hidden, n_modes, points, w0, prop, initial_conditions, device).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)

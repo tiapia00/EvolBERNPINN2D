@@ -184,24 +184,25 @@ def parabolic(a, x):
 
 class PINN(nn.Module):
     def __init__(self,
-                 dim_hidden: tuple,
-                 n_hidden_space: int,
+                 n_hidden: tuple,
+                 n_modes: tuple,
                  points: dict,
                  w0: float,
                  prop: dict,
                  initial_conditions: callable,
                  device,
+                 act_space=nn.ReLU(),
+                 act_modes=nn.Sigmoid(),
                  a: float = 1,
-                 act=nn.Sigmoid(),
-                 n_hidden: int = 1,
                  ):
 
         super().__init__()
 
         self.w0 = w0
         self.a = a
-        self.n_mode_spacex = dim_hidden[0]
-        self.n_mode_spacey = dim_hidden[1]
+
+        self.n_mode_spacex = n_modes[0]
+        self.n_mode_spacey = n_modes[1]
 
         multipliers_x = torch.arange(1, self.n_mode_spacex + 1, device=device)
         self.Bx = 0.1 * torch.ones((2, self.n_mode_spacex), device=device)
@@ -211,22 +212,29 @@ class PINN(nn.Module):
         self.By = 0.005 * torch.ones((2, self.n_mode_spacey), device=device)
         self.By[0,:] *= multipliers_y
 
-        self.in_time = nn.Linear(1, dim_hidden[2])
+        self.Btx = torch.ones((1, self.n_mode_spacex), device=device)
+        self.Bty = torch.ones((1, self.n_mode_spacey), device=device)
+
         self.act_time = TrigAct()
 
         self.hid_space_layers_x = nn.ModuleList()
-        for i in range(n_hidden - 1):
+        for i in range(n_hidden[0]):
             self.hid_space_layers_x.append(nn.Linear(2 * self.n_mode_spacex, 2 * self.n_mode_spacex))
-            self.hid_space_layers_x.append(act)
-        self.outFC_space_x = nn.Linear(2 * self.n_mode_spacex, 1)
+            self.hid_space_layers_x.append(act_space)
 
         self.hid_space_layers_y = nn.ModuleList()
-        for i in range(n_hidden - 1):
+        for i in range(n_hidden[1]):
             self.hid_space_layers_y.append(nn.Linear(4 * self.n_mode_spacey, 4 * self.n_mode_spacey))
-            self.hid_space_layers_y.append(act)
-        self.outFC_space_y = nn.Linear(4 * self.n_mode_spacey, 1)
+            self.hid_space_layers_y.append(act_space)
 
-        self.mid_time_layer = nn.Linear(dim_hidden[2], 2)
+        self.n_modes_tot = self.hid_space_layers_x[0].in_features + self.hid_space_layers_y[0].in_features
+
+        self.mode_layers = nn.ModuleList()
+        for i in range(n_hidden[2]):
+            self.mode_layers.append(nn.Linear(self.n_modes_tot, self.n_modes_tot))
+            self.mode_layers.append(act_modes)
+        self.outmode_layers = nn.Linear(self.n_modes_tot, 2)
+
 
     def parabolic(self, x):
         return (self.a * x ** 2 - self.a * x)
@@ -249,6 +257,15 @@ class PINN(nn.Module):
         return torch.cat([torch.sin(np.pi * x_proj), torch.cos(np.pi * x_proj),
                 torch.sinh(np.pi * x_proj), torch.cosh(np.pi * x_proj)], dim=1)
 
+    def fourier_features_tx(self, time):
+        t_proj = time @ self.Btx
+        return torch.cat([torch.sin(t_proj), torch.cos(t_proj)], dim=1)
+
+    def fourier_features_ty(self, time):
+        t_proj = time @ self.Bty
+        return torch.cat([torch.sin(t_proj), torch.cos(t_proj)], dim=1)
+
+
     def forward(self, x, y, t):
         space = torch.cat([x,y], dim=1)
         time = t
@@ -265,23 +282,24 @@ class PINN(nn.Module):
         for layer in self.hid_space_layers_y:
             y_in= layer(y_in)
 
-        x_FC = self.outFC_space_x(x_in)
-        y_FC = self.outFC_space_y(y_in)
+        out_space_modes = torch.cat([x_in, y_in], dim=1)
 
-        out_space_FC = torch.cat([x_FC, y_FC], dim=1)
+        tx = self.fourier_features_tx(time)
+        ty = self.fourier_features_ty(time)
 
-        t = self.in_time(time)
+        mid_t = torch.cat([tx, ty.repeat(1,2)], dim=1)
 
-        t_act = self.act_time(t)
-
-        mid_t = self.mid_time_layer(t_act)
-
-        mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out_space_FC
+        mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out_space_modes
         #mid_x = out_space_FC
 
-        merged = mid_x * mid_t
+        modal = mid_x * mid_t
 
-        act_global = self.apply_filter(time.repeat(1, 2)) * merged
+        for layer in self.mode_layers:
+            modal = layer(modal)
+
+        u = self.outmode_layers(modal)
+
+        act_global = self.apply_filter(time.repeat(1, 2)) * u
 
         init = initial_conditions((x,y,t), self.w0)[:,:2]
         act_init = self.apply_compl_filter(time.repeat(1, 2)) * init
