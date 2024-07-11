@@ -3,7 +3,7 @@ class Parameters:
         self.x_end = 1
         self.y_end = 1e-3
         self.t_end = 0.4
-        self.n_space = 10
+        self.n_space = (20, 20)
         self.n_time = 30
         self.dim_hidden = (5, 10, 10)
         self.n_hidden : int = 3
@@ -30,7 +30,7 @@ class Parameters:
         }
         self.mat_par = {
             'E': 68.0e9,
-            'rho': 2700.,
+            'rho': 27.,
             'nu': 0.26
         }
 

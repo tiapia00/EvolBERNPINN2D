@@ -51,8 +51,8 @@ lam, mu = par.to_matpar_PINN()
 Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hid_space, lr, epochs = get_params(par.pinn_par)
 
 L_tild = Lx
-x_domain = torch.linspace(0, Lx, n_space)/Lx
-y_domain = torch.linspace(0, Ly, n_space)/Ly
+x_domain = torch.linspace(0, Lx, n_space[0])/Lx
+y_domain = torch.linspace(0, Ly, n_space[1])/Ly
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
 steps = get_step((x_domain, y_domain, t_domain))
@@ -66,25 +66,24 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-
 prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
-pinn = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
-
-#En0 = calc_initial_energy(pinn, n_space, points, device)
-
+m_par = (lam, mu, rho)
 in_penalty = np.array([1, 1, 1.2])
-loss_fn = Loss(
-        return_adim(L_tild, t_tild, rho, mu, lam),
+calculate = Calculate(
         initial_conditions,
+        m_par,
         points,
         n_space,
         n_time,
-        w0,
-        0.4,
         steps,
+        w0,
         in_penalty,
         device
     )
+
+pinn = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
+Psi_0, K_0 = calculate.gete0(pinn)
+print(Psi_0, K_0)
 
 
 if retrain_PINN:
