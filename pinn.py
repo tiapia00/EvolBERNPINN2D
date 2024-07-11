@@ -249,8 +249,7 @@ class PINN(nn.Module):
         return torch.cat([torch.sin(np.pi * x_proj), torch.cos(np.pi * x_proj),
                 torch.sinh(np.pi * x_proj), torch.cosh(np.pi * x_proj)], dim=1)
 
-    def forward(self, x, y, t):
-        space = torch.cat([x,y], dim=1)
+    def forward(self, space, t):
         time = t
 
         fourier_space_x = self.fourier_features_ux(space)
@@ -283,6 +282,8 @@ class PINN(nn.Module):
 
         act_global = self.apply_filter(time.repeat(1, 2)) * merged
 
+        x = space[:,0].unsqueeze(1)
+        y = space[:,1].unsqueeze(1)
         init = initial_conditions((x,y,t), self.w0)[:,:2]
         act_init = self.apply_compl_filter(time.repeat(1, 2)) * init
 
@@ -292,30 +293,6 @@ class PINN(nn.Module):
 
     def device(self):
         return next(self.parameters()).device
-
-
-def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.tensor:
-    return pinn(x, y, t)
-
-
-def df(output: torch.Tensor, inputs: list, var: int = 0) -> torch.Tensor:
-    """Compute neural network derivative with respect to input features using PyTorch autograd engine
-    var = 0 : dux
-    var = 1 : duy
-    var = 2 : dux_t
-    var = 3 : duy_t
-    """
-    df_value = output[:, var].unsqueeze(1)
-    for _ in np.arange(len(inputs)):
-        df_value = torch.autograd.grad(
-            df_value,
-            inputs[_],
-            grad_outputs=torch.ones_like(inputs[_]),
-            create_graph=True,
-            retain_graph=True,
-        )[0]
-
-    return df_value
 
 
 class Loss:
@@ -335,6 +312,7 @@ class Loss:
         E0: float,
         steps_int: tuple,
         in_penalty: np.ndarray,
+        device: torch.device,
         verbose: bool = False
     ):
         self.z = z
@@ -346,33 +324,43 @@ class Loss:
         self.n_time = n_time
         self.steps = steps_int
         self.penalty = in_penalty
+        self.device = device
 
     def res_loss(self, pinn):
         x, y, t = self.points['res_points']
-        output = f(pinn, x, y, t)
+        space = torch.cat([x, y], dim=1)
+        output = pinn(space, t)
+        n = output.shape[0]
 
-        dvx_t = df(output, [t,t], 0).reshape(-1)
-        dvy_t = df(output, [t,t], 1).reshape(-1)
+        vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones(n, 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
+        vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones(n, 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
+        dvx_t = torch.autograd.grad(vx, t, torch.ones(n, 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
+        dvy_t = torch.autograd.grad(vy, t, torch.ones(n, 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
 
-        dux_x = df(output, [x], 0)
-        dux_y = df(output, [y], 0)
-        duy_x = df(output, [x], 1)
-        duy_y = df(output, [y], 1)
-
-        dux_xx = df(dux_x, [x]).reshape(-1)
-        duy_yy = df(duy_y, [y]).reshape(-1)
-        duy_xx = df(duy_x, [x]).reshape(-1)
-
-        dux_yy = df(dux_y, [y]).reshape(-1)
-        dux_xy = df(dux_x, [y]).reshape(-1)
-        duy_xy = df(duy_x, [y]).reshape(-1)
+        dux_space = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(n, 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
+        duy_space = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(n, 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
+        
+        ddux_xx_xy = torch.autograd.grad(dux_space[:,0].unsqueeze(1), space, torch.ones(n, 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
+        ddux_yx_yy = torch.autograd.grad(dux_space[:,1].unsqueeze(1), space, torch.ones(n, 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
+        dduy_xx_xy = torch.autograd.grad(duy_space[:,0].unsqueeze(1), space, torch.ones(n, 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
+        dduy_yx_yy = torch.autograd.grad(duy_space[:,1].unsqueeze(1), space, torch.ones(n, 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
 
         loss_v = []
 
-        loss_v.append(dvx_t - 2*self.z[0]*(dux_xx + 1/2 *
-                                      (dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy))
-        loss_v.append(dvy_t - 2 * self.z[0]*(1/2*(duy_xx +
-                                             dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy))
+        loss_v.append(dvx_t - 2*self.z[0]*(ddux_xx_xy[:,0] + 1/2 *
+                                      (ddux_yx_yy[:,1] + dduy_xx_xy[:,1])) - self.z[1]*(ddux_xx_xy[:,0] + dduy_xx_xy[:,1]))
+        loss_v.append(dvy_t - 2 * self.z[0]*(1/2*(dduy_xx_xy[:,0] +
+                                            ddux_xx_xy[:,1]) + dduy_yx_yy[:,1]) - self.z[1]*(ddux_xx_xy[:,1] + dduy_yx_yy[:,1]))
 
         loss = 0
 
@@ -385,7 +373,9 @@ class Loss:
     def initial_loss(self, pinn):
         init_points = self.points['initial_points']
         x, y, t = init_points
-        output = f(pinn, x, y, t)
+        space = torch.cat([x, y], dim=1)
+
+        output = pinn(space, t)
 
         initial_speed = initial_conditions(init_points, pinn.w0)[:,2:]
 
@@ -397,15 +387,15 @@ class Loss:
 
     def bound_loss(self, pinn):
         down, up, left, right = self.points['boundary_points']
-        x_down, y_down, t_down = down
-        x_up, y_up, t_up = up
-        x_left, y_left, t_left = left
-        x_right, y_right, t_right = right
 
-        ux_down = f(pinn, x_down, y_down, t_down)[:, 0]
-        uy_down = f(pinn, x_down, y_down, t_down)[:, 1]
+        regions = []
+        for region in self.points['boundary_points']:
+            x, y, t = region
+            space_region = torch.cat([x, y], dim=1)
+            regions.append((space_region, t))
 
         ux_left = f(pinn, x_left, y_left, t_left)[:, 0]
+        ux_left = pinn(regions[0][0], regions[0][1])[:, 1]
         uy_left = f(pinn, x_left, y_left, t_left)[:, 1]
         left = torch.cat([ux_left[..., None], uy_left[..., None]], -1)
         duy_y_left = df(left, [y_left], 1)

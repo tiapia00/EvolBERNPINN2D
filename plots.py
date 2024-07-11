@@ -3,7 +3,7 @@ from matplotlib.cm import viridis
 from mpl_toolkits.mplot3d import Axes3D
 import torch
 from matplotlib.animation import FuncAnimation
-from pinn import PINN, f
+from pinn import PINN
 import numpy as np
 
 
