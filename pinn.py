@@ -20,12 +20,16 @@ def geteps(space, output, nsamples, device):
                                  create_graph=True, retain_graph=True)[0]
     duydxy = torch.autograd.grad(output[:, 1].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
                                  create_graph=True, retain_graph=True)[0]
-    H = torch.zeros(space.size()[0], space.size()[1], space.size()[1], device=device)
-    H[:, 0, :] = duxdxy 
-    H[:, 1, :] = duydxy 
-    H = H.reshape(nsamples[0], nsamples[1], 2, 2) 
+    H = torch.zeros(nsamples[0], nsamples[1], nsamples[2], 2, 2, device=device)
+    duxdxy = duxdxy.reshape(nsamples[0], nsamples[1], nsamples[2], 2)
+    duydxy = duydxy.reshape(nsamples[0], nsamples[1], nsamples[2], 2)
+    # last 2 is related to the the components of the derivative
+    # nx, ny, nt, 2, 2
+    H[:, :, :, 0, :] = duxdxy
+    H[:, :, :, 1, :] = duydxy
     eps = H
-    eps[:, :, [0, 1], [1, 0]] = 0.5 * (eps[:, :, 0, 1] + eps[:, :, 1, 0]).unsqueeze(2).expand(nsamples[0], nsamples[1], 2)
+    eps[:, :, :, [0, 1], [1, 0]] = 0.5 * (eps[:, :, :, 0, 1] + 
+            eps[:, :, :, 1, 0]).unsqueeze(3).expand(-1,-1,-1,2)
 
     return eps
 
@@ -33,8 +37,8 @@ def material_model(eps, mat_par: tuple,  device):
     tr_eps = eps.diagonal(offset=0, dim1=-1, dim2=-2).sum(-1) 
     lam = mat_par[0]
     mu = mat_par[1]
-    sig = 2 * mu * eps + lam * torch.einsum('ij,kl->ijkl', tr_eps, torch.eye(eps.size()[-1], device=device)) 
-    psi = torch.einsum('ijkl,ijkl->ij', eps, sig)
+    sig = 2 * mu * eps + lam * torch.einsum('ijk,lm->ijklm', tr_eps, torch.eye(eps.size()[-1], device=device)) 
+    psi = torch.einsum('ijklm,ijklm->ijk', eps, sig)
 
     return psi, sig
 
@@ -182,7 +186,7 @@ class Grid:
 
     def get_all_points(self):
         x_all, y_all, t_all = torch.meshgrid(self.x_domain, self.y_domain,
-                                             self.t_domain, indexing='ij')
+                self.t_domain, indexing='ij')
         x_all = x_all.reshape(-1,1).to(self.device)
         y_all = y_all.reshape(-1,1).to(self.device)
         t_all = t_all.reshape(-1,1).to(self.device)
@@ -372,6 +376,9 @@ class Calculate:
         self.penalty = in_penalty
         self.device = device
 
+    def gettraction(self, pinn):
+        pass
+
     def gete0(self, pinn):
         x, y, t = self.points['initial_points']
         nsamples = (self.nsamples[0], self.nsamples[1], 1)
@@ -388,15 +395,11 @@ class Calculate:
         speed = getspeed(output, t, self.device)
         K = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
-        criterion = nn.MSELoss()
-
-        loss = criterion(Psi - K, torch.zeros_like(Psi))
-
         return (Psi, K) 
 
-    def getenergy(self, pinn, verbose=False):
-        x, y, t = self.points['res_points']
-        nsamples = (self.nsamples[0]-2, self.nsamples[1]-2, self.nsamples[2]-1)
+    def getaction(self, pinn, verbose=False):
+        x, y, t = self.points['all_points']
+        nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
@@ -405,19 +408,20 @@ class Calculate:
 
         eps = geteps(space, output, nsamples , self.device)
         psi, sig = material_model(eps, (lam, mu), self.device)
-        Psi = getPsi(psi, (dx, dy)).reshape(-1)
+        Pi = getPsi(psi, (dx, dy)).reshape(-1)
+        # Pi should take into account also external forces applied
 
         speed = getspeed(output, t, self.device)
-        K = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
+        T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
-        criterion = nn.MSELoss()
-
-        loss = criterion(Psi - K, torch.zeros_like(Psi))
+        action = torch.trapezoid(y = T - Pi, dx = dt)
+        # Hamilton principle: action should be minimized
 
         if verbose:
-            return (Psi, K) 
+            return (Pi, T) 
         else:
-            return loss
+            return action.pow(2) 
+            # action, in general, can be negative
 
 
     def initial_loss(self, pinn):
@@ -429,43 +433,19 @@ class Calculate:
 
         initial_speed = initial_conditions(init_points, self.w0)[:,2:]
 
-        m = self.penalty[0]
-        loss = m * (output - initial_speed).pow(2).mean()
+        loss = (output - initial_speed).pow(2).mean()
 
         return loss
-
-
-    def bound_loss(self, pinn):
-        ### IMPLEMENT ###
-
-        regions = []
-        for region in self.points['boundary_points']:
-            x, y, t = region
-            space_region = torch.cat([x, y], dim=1)
-            regions.append((space_region, t))
-
-        m = self.penalty[1]
-        loss = m * loss
-
-        return loss
-
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.):
-        lambda_o = np.array(self.penalty)
-        mean = np.array(mean)
-        
-        lambda_n = max_grad / (lambda_o * (np.abs(mean)+0.1))
-
-        self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
-
 
     def verbose(self, pinn):
-        res_loss = self.res_loss(pinn)
-        en_dev = self.en_loss(pinn)
-        init_loss = self.initial_loss(pinn)
-        bound_loss = self.bound_loss(pinn)
-        loss = res_loss + bound_loss + init_loss + en_dev
+        actionloss = self.getaction(pinn)
+        initloss = self.initial_loss(pinn)
 
-        return loss, res_loss, (bound_loss, init_loss, en_dev)
+        losses = [actionloss, initloss]
+
+        loss = actionloss + initloss 
+
+        return loss, losses
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -473,11 +453,10 @@ class Calculate:
 
 def train_model(
     nn_approximator: PINN,
-    loss_fn: Callable,
+    calc: Callable,
     learning_rate: int,
     max_epochs: int,
-    path_logs: str,
-    points: dict
+    path_logs: str
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
@@ -487,41 +466,16 @@ def train_model(
 
     for epoch in range(max_epochs):
         optimizer.zero_grad()
-
-        if epoch != 0 and epoch % 100 == 0 :
-            _, res_loss, losses = loss_fn(nn_approximator)
-
-            res_loss.backward()
-            max_grad = get_max_grad(nn_approximator)
-            optimizer.zero_grad()
-
-            means = []
-
-            for loss in losses:
-                loss.backward()
-                means.append(get_mean_grad(nn_approximator))
-                optimizer.zero_grad()
-
-            loss_fn.update_penalty(max_grad, means)
-
-        loss, res_loss, losses = loss_fn(nn_approximator)
+        loss, losses = calc(nn_approximator)
         loss.backward()
         optimizer.step()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
         writer.add_scalars('Loss', {
-            'global': loss.item(),
-            'residual': res_loss.item(),
-            'init': losses[0].item(),
-            'boundary': losses[1].item(),
-            'en_dev': losses[2].item()
-        }, epoch)
-
-        writer.add_scalars('Penalty_terms', {
-            'init': loss_fn.penalty[0].item(),
-            'boundary': loss_fn.penalty[1].item(),
-            'en_dev': loss_fn.penalty[2].item()
+            'tot': loss.item(),
+            'action': losses[0].item(),
+            'init': losses[1].item(),
         }, epoch)
 
         pbar.update(1)
@@ -534,48 +488,6 @@ def train_model(
     return nn_approximator
 
 
-def return_adim(L_tild, t_tild, rho: float, mu: float, lam: float):
-    z_1 = t_tild**2/(L_tild*rho)*mu
-    z_2 = z_1/mu*lam
-    z = np.array([z_1, z_2])
-    z = torch.tensor(z)
-    return z
-
-
-
-
-    En = En.detach()
-
-    return En
-
-def calc_energy(pinn_trained: PINN, points: dict, n_space: int, n_time: int, device) -> tuple:
-    x, y, t = points['all_points']
-    space = torch.cat([x, y], dim=1)
-
-    output = pinn_trained(space, t)
-
-    d_en, d_en_p, d_en_k = calc_den(space, t, output, device)
-
-    x = x.reshape(n_space, n_space, n_time)
-    y = y.reshape(n_space, n_space, n_time)
-    t = t.reshape(n_space, n_space, n_time)
-
-    d_en_k = d_en_k.reshape(n_space, n_space, n_time)
-    d_en_p = d_en_p.reshape(n_space, n_space, n_time)
-    d_en = d_en.reshape(n_space, n_space, n_time)
-
-    d_en_k_y = torch.trapz(d_en_k, y[0,:,0], dim=1)
-    d_en_p_y = torch.trapz(d_en_p, y[0,:,0], dim=1)
-    d_en_y = torch.trapz(d_en, y[0,:,0], dim=1)
-
-    En_k_t = torch.trapz(d_en_k_y, x[:,0,0], dim=0)
-    En_p_t = torch.trapz(d_en_p_y, x[:,0,0], dim=0)
-    En_t = torch.trapz(d_en_y, x[:,0,0], dim=0)
-
-    t = torch.unique(t)
-
-    return (t, En_t, En_p_t, En_k_t)
-
 def calculate_speed(pinn_trained: PINN, points: tuple, device: torch.device) -> torch.tensor:
     x, y, t = points
     space = torch.cat([x, y], dim=1)
@@ -584,11 +496,12 @@ def calculate_speed(pinn_trained: PINN, points: tuple, device: torch.device) -> 
     output = pinn_trained(space, t)
 
     vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones(n, 1, device=device),
-             create_graph=True, retain_graph=True)
-    vy = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones(n, 1, device=device),
-             create_graph=True, retain_graph=True)
+             create_graph=True, retain_graph=True)[0]
+    vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones(n, 1, device=device),
+             create_graph=True, retain_graph=True)[0]
 
     return torch.cat([vx, vy], dim=1)
+
 
 def df_num_torch(dx: float, y: torch.tensor):
     dy = torch.diff(y)
@@ -619,21 +532,3 @@ def get_max_grad(pinn: PINN):
                 max_grad = param_max_grad
 
     return max_grad
-
-
-def get_mean_grad(pinn: PINN):
-    all_grads = []
-
-    for param in pinn.parameters():
-        if param.grad is not None:
-            all_grads.append(param.grad.view(-1))
-
-    all_grads = torch.cat(all_grads)
-
-    mean = all_grads.mean().cpu().numpy()
-
-    return mean
-
-
-
-

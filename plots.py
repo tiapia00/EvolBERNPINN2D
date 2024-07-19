@@ -24,8 +24,6 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
 
     cmap = 'coolwarm'
 
-    norm_z0 = np.linalg.norm(z0, axis=1).reshape(-1)
-
     u_a_scatter = ax[0, 0].scatter(X.reshape(-1)+z0[:, 0],
                                  Y.reshape(-1)+z0[:, 1])
     ax[0, 0].set_xlabel('$\\hat{x}$')
