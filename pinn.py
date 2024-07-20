@@ -10,7 +10,7 @@ import torch.optim as optim
 def initial_conditions(initial_points: tuple, w0: float, i: float = 1) -> torch.tensor:
     x, y, _ = initial_points
     ux0 = torch.zeros_like(x)
-    uy0 = w0*torch.sin(torch.pi*i*x)
+    uy0 = w0*torch.sin(torch.pi*x/torch.max(x))
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -243,11 +243,7 @@ def parabolic(a, x):
 class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: tuple,
-                 n_hidden_space: int,
-                 points: dict,
                  w0: float,
-                 prop: dict,
-                 initial_conditions: callable,
                  device,
                  a: float = 1,
                  act=nn.Sigmoid(),
@@ -280,9 +276,9 @@ class PINN(nn.Module):
 
         self.hid_space_layers_y = nn.ModuleList()
         for i in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(4 * self.n_mode_spacey, 4 * self.n_mode_spacey))
+            self.hid_space_layers_y.append(nn.Linear(2 * self.n_mode_spacey, 2 * self.n_mode_spacey))
             self.hid_space_layers_y.append(act)
-        self.outFC_space_y = nn.Linear(4 * self.n_mode_spacey, 1)
+        self.outFC_space_y = nn.Linear(2 * self.n_mode_spacey, 1)
 
         self.mid_time_layer = nn.Linear(dim_hidden[2], 2)
 
