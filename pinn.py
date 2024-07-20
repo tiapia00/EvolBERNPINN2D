@@ -417,7 +417,7 @@ class Calculate:
         if verbose:
             return (Pi, T) 
         else:
-            return action.pow(2) 
+            return action 
             # action, in general, can be negative
 
 
