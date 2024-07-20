@@ -299,13 +299,13 @@ class PINN(nn.Module):
 
     def fourier_features_ux(self, space):
         x_proj = space @ self.Bx
-        return torch.cat([torch.sin(np.pi * x_proj),
-                torch.cos(np.pi * x_proj)], dim=1)
+        return torch.cat([torch.sin(np.pi/max_space * x_proj),
+                torch.cos(np.pi/max_space * x_proj)], dim=1)
 
     def fourier_features_uy(self, space):
         x_proj = space @ self.By
-        return torch.cat([torch.sin(np.pi * x_proj), torch.cos(np.pi * x_proj),
-                torch.sinh(np.pi * x_proj), torch.cosh(np.pi * x_proj)], dim=1)
+        return torch.cat([torch.sin(np.pi/max_space * x_proj), 
+						  torch.cos(np.pi/max_space * x_proj)], dim=1)
 
     def forward(self, space, t):
         time = t
@@ -417,7 +417,7 @@ class Calculate:
         if verbose:
             return (Pi, T) 
         else:
-            return action 
+            return action.pow(2)
             # action, in general, can be negative
 
 
@@ -538,14 +538,14 @@ def get_max_grad(pinn: PINN):
     return max_grad
 
 
-def obtainsolt(pinn: PINN, space_in: torch.tensor, t:torch.tensor, nsamples: tuple):
+def obtainsolt(pinn: PINN, space_in: torch.tensor, t:torch.tensor, nsamples: tuple, device):
     nx, ny, nt = nsamples
     sol = torch.zeros(nx, ny, nt, 2)
     ts = torch.unique(t, sorted=True)
     ts = ts.reshape(-1,1)
 
     for i in range(ts.shape[0]):
-        t = ts[i]*torch.ones(space_in.shape[0], 1)
+        t = ts[i]*torch.ones(space_in.shape[0], 1, device=device)
         output = pinn(space_in, t)
         gridoutput = output.reshape(nx, ny, 2)
         sol[:,:,i,:] = gridoutput

@@ -125,8 +125,11 @@ plot_initial_conditions(z, cond0, x, y, n_space, dir_model)
 
 x, y, _ = grid.get_initial_points()
 _, _, t = grid.get_all_points()
+x = x.to(device)
+y = y.to(device)
+t = t.to(device)
 space_in = torch.cat([x, y], dim=1)
-sol = obtainsolt(pinn_trained, space_in, t, nsamples)
+sol = obtainsolt(pinn_trained, space_in, t, nsamples, device)
 plot_sol(sol, space_in, t, dir_model)
 
 plot_sol_comparison(sol, space_in, t, w, dir_model)
