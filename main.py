@@ -79,10 +79,8 @@ calculate = Calculate(
         device
     )
 
-pinn = PINN(dim_hidden, w0, device).to(device)
+pinn = PINN(dim_hidden, w0, n_hid_space, device).to(device)
 Psi_0, K_0 = calculate.gete0(pinn)
-print(Psi_0, K_0)
-
 
 if retrain_PINN:
     dir_model = pass_folder('model')

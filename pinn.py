@@ -244,10 +244,10 @@ class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: tuple,
                  w0: float,
+                 nhidden_space: int,
                  device,
                  a: float = 1,
-                 act=nn.Sigmoid(),
-                 n_hidden: int = 1,
+                 act=nn.Tanh(),
                  ):
 
         super().__init__()
@@ -259,26 +259,24 @@ class PINN(nn.Module):
 
         multipliers_x = torch.arange(1, self.n_mode_spacex + 1, device=device)
         self.Bx = 0.1 * torch.ones((2, self.n_mode_spacex), device=device)
-        self.Bx[0,:] *= multipliers_x
 
         multipliers_y = torch.arange(1, self.n_mode_spacey + 1, device=device) **2
         self.By = 0.005 * torch.ones((2, self.n_mode_spacey), device=device)
-        self.By[0,:] *= multipliers_y
 
         self.in_time = nn.Linear(1, dim_hidden[2])
         self.act_time = TrigAct()
 
         self.hid_space_layers_x = nn.ModuleList()
-        for i in range(n_hidden - 1):
-            self.hid_space_layers_x.append(nn.Linear(2 * self.n_mode_spacex, 2 * self.n_mode_spacex))
+        for i in range(nhidden_space - 1):
+            self.hid_space_layers_x.append(nn.Linear(self.n_mode_spacex, self.n_mode_spacex))
             self.hid_space_layers_x.append(act)
-        self.outFC_space_x = nn.Linear(2 * self.n_mode_spacex, 1)
+        self.outFC_space_x = nn.Linear(self.n_mode_spacex, 1)
 
         self.hid_space_layers_y = nn.ModuleList()
-        for i in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(2 * self.n_mode_spacey, 2 * self.n_mode_spacey))
+        for i in range(nhidden_space - 1):
+            self.hid_space_layers_y.append(nn.Linear(self.n_mode_spacey, self.n_mode_spacey))
             self.hid_space_layers_y.append(act)
-        self.outFC_space_y = nn.Linear(2 * self.n_mode_spacey, 1)
+        self.outFC_space_y = nn.Linear(self.n_mode_spacey, 1)
 
         self.mid_time_layer = nn.Linear(dim_hidden[2], 2)
 
@@ -296,14 +294,12 @@ class PINN(nn.Module):
     def fourier_features_ux(self, space):
         x_proj = space @ self.Bx
         max_space = torch.max(space)
-        return torch.cat([torch.sin(np.pi/max_space * x_proj),
-                torch.cos(np.pi/max_space * x_proj)], dim=1)
+        return torch.sin(np.pi/max_space * x_proj)
 
     def fourier_features_uy(self, space):
         x_proj = space @ self.By
         max_space = torch.max(space)
-        return torch.cat([torch.sin(np.pi/max_space * x_proj), 
-						  torch.cos(np.pi/max_space * x_proj)], dim=1)
+        return torch.sin(np.pi/max_space * x_proj)
 
     def forward(self, space, t):
         time = t
@@ -331,21 +327,11 @@ class PINN(nn.Module):
 
         mid_t = self.mid_time_layer(t_act)
 
-        mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi/torch.max(space)) * out_space_FC
-        #mid_x = out_space_FC
+        mid_x = out_space_FC
 
         merged = mid_x * mid_t
 
-        act_global = self.apply_filter(time.repeat(1, 2)) * merged
-
-        x = space[:,0].unsqueeze(1)
-        y = space[:,1].unsqueeze(1)
-        init = initial_conditions((x,y,t), self.w0)[:,:2]
-        act_init = self.apply_compl_filter(time.repeat(1, 2)) * init
-
-        out = act_global + act_init
-
-        return out
+        return merged 
 
     def device(self):
         return next(self.parameters()).device
@@ -426,9 +412,16 @@ class Calculate:
 
         output = pinn(space, t)
 
-        initial_speed = initial_conditions(init_points, self.w0)[:,2:]
+        gt = initial_conditions(init_points, self.w0)
+        v0gt = gt[:,2:]
+        v0 = getspeed(output, t, self.device)
+        print(v0gt.shape)
+        loss_speed = (v0gt - v0).pow(2).mean()
 
-        loss = (output - initial_speed).pow(2).mean()
+        posgt = gt[:,:2] 
+        loss_position = (posgt - output).pow(2).mean()
+
+        loss = loss_speed + loss_position
 
         return loss
 
