@@ -79,7 +79,7 @@ calculate = Calculate(
         device
     )
 
-pinn = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
+pinn = PINN(dim_hidden, w0, device).to(device)
 Psi_0, K_0 = calculate.gete0(pinn)
 print(Psi_0, K_0)
 
@@ -97,7 +97,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained, indicators = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
+    pinn_trained, indicators = PINN(dim_hidden, w0, device).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
