@@ -299,11 +299,13 @@ class PINN(nn.Module):
 
     def fourier_features_ux(self, space):
         x_proj = space @ self.Bx
+        max_space = torch.max(space)
         return torch.cat([torch.sin(np.pi/max_space * x_proj),
                 torch.cos(np.pi/max_space * x_proj)], dim=1)
 
     def fourier_features_uy(self, space):
         x_proj = space @ self.By
+        max_space = torch.max(space)
         return torch.cat([torch.sin(np.pi/max_space * x_proj), 
 						  torch.cos(np.pi/max_space * x_proj)], dim=1)
 
