@@ -4,7 +4,7 @@ from par import Parameters, get_params
 from scipy import integrate
 
 
-def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: float,
+def obtain_analytical_free(my_beam: Beam, w0: float, t_fin: float,
                            n_time: int):
 
     prob = Prob_Solv_Modes(my_beam)
@@ -32,14 +32,14 @@ def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: fl
     my_In_Cond.pass_init_cond(w0, wdot_0)
     A, B = my_In_Cond.compute_coeff()
 
-    t_lin = np.linspace(0, t_ad_f, n_time)
+    t_lin = np.linspace(0, t_fin, n_time)
 
     my_beam.calculate_solution_free(A, B, t_lin)
     w = my_beam.w
 
-    V0_hat = calculate_ad_init_en(my_beam, t_ad)
+    e0 = gete0num(my_beam, t_ad)
 
-    return t_ad, w, V0_hat
+    return w, e0 
 
 def obtain_analytical_forced(par, my_beam: Beam, load_dist: tuple, t_ad_f: float, n: int):
     my_beam.calculate_beam_mat()
@@ -50,7 +50,7 @@ def obtain_analytical_forced(par, my_beam: Beam, load_dist: tuple, t_ad_f: float
 
     return (t_points, sol)
 
-def calculate_ad_init_en(my_beam: Beam, t_ad) -> float:
+def gete0num(my_beam: Beam, t_ad) -> float:
     Lx = my_beam.xi[-1]
     x_ad = my_beam.xi/Lx
 
@@ -60,9 +60,8 @@ def calculate_ad_init_en(my_beam: Beam, t_ad) -> float:
     dw_dxx = df_num(x_ad, df_num(x_ad, w_ad))
 
     V = 1/2*EJ*integrate.simpson(y=dw_dxx**2, x=x_ad)
-    V_ad = V/(my_beam.rho*Lx**2/t_ad**2)
 
-    return V_ad
+    return V
 
 
 def df_num(x: np.ndarray, y: np.ndarray):

@@ -333,7 +333,7 @@ class PINN(nn.Module):
 
         mid_t = self.mid_time_layer(t_act)
 
-        mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out_space_FC
+        mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi/torch.max(space)) * out_space_FC
         #mid_x = out_space_FC
 
         merged = mid_x * mid_t
@@ -360,20 +360,17 @@ class Calculate:
         # lam, mu, rho
         m_par: tuple,
         points: dict,
-        n_space: tuple,
-        n_time: int,
+        nsamples: tuple,
         steps_int: tuple,
         w0: float,
-        in_penalty: np.ndarray,
         device: torch.device,
     ):
         self.initial_condition = initial_condition
         self.m_par = m_par
         self.points = points
         self.w0 = w0
-        self.nsamples = n_space + (n_time,)
+        self.nsamples = nsamples 
         self.steps = steps_int
-        self.penalty = in_penalty
         self.device = device
 
     def gettraction(self, pinn):
@@ -397,7 +394,7 @@ class Calculate:
 
         return (Psi, K) 
 
-    def getaction(self, pinn, verbose=False):
+    def getaction(self, pinn, verbose):
         x, y, t = self.points['all_points']
         nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
         space = torch.cat([x, y], dim=1)
@@ -415,8 +412,8 @@ class Calculate:
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
         action = torch.trapezoid(y = T - Pi, dx = dt)
-        # Hamilton principle: action should be minimized
 
+        # Hamilton principle: action should be minimized
         if verbose:
             return (Pi, T) 
         else:
@@ -437,18 +434,20 @@ class Calculate:
 
         return loss
 
-    def verbose(self, pinn):
-        actionloss = self.getaction(pinn)
+    def verbose(self, pinn, verbose):
+        actionloss = self.getaction(pinn, verbose)
         initloss = self.initial_loss(pinn)
 
         losses = [actionloss, initloss]
+
+        actionloss = self.getaction(pinn, False)
 
         loss = actionloss + initloss 
 
         return loss, losses
 
-    def __call__(self, pinn):
-        return self.verbose(pinn)
+    def __call__(self, pinn, verbose=False):
+        return self.verbose(pinn, verbose)
 
 
 def train_model(
@@ -465,8 +464,9 @@ def train_model(
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
+
         optimizer.zero_grad()
-        loss, losses = calc(nn_approximator)
+        loss, losses = calc(nn_approximator, False)
         loss.backward()
         optimizer.step()
 
@@ -480,12 +480,16 @@ def train_model(
 
         pbar.update(1)
 
+    _, losses = calc(nn_approximator, True)
+    Pi, T = losses[0]
+    variables = {'Pi': Pi.detach().cpu().numpy(), 'T': T.detach().cpu().numpy()}
+
     pbar.update(1)
     pbar.close()
 
     writer.close()
 
-    return nn_approximator
+    return nn_approximator, variables
 
 
 def calculate_speed(pinn_trained: PINN, points: tuple, device: torch.device) -> torch.tensor:
@@ -532,3 +536,19 @@ def get_max_grad(pinn: PINN):
                 max_grad = param_max_grad
 
     return max_grad
+
+
+def obtainsolt(pinn: PINN, space_in: torch.tensor, t:torch.tensor, nsamples: tuple):
+    nx, ny, nt = nsamples
+    sol = torch.zeros(nx, ny, nt, 2)
+    ts = torch.unique(t, sorted=True)
+    ts = ts.reshape(-1,1)
+
+    for i in range(ts.shape[0]):
+        t = ts[i]*torch.ones(space_in.shape[0], 1)
+        output = pinn(space_in, t)
+        gridoutput = output.reshape(nx, ny, 2)
+        sol[:,:,i,:] = gridoutput
+    
+    sol = sol.reshape(nx*ny, -1, 2)
+    return sol.detach().cpu().numpy()

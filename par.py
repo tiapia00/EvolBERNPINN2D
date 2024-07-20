@@ -1,8 +1,8 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 1
-        self.y_end = 1e-3
-        self.t_end = 0.4
+        self.x_end = 4 
+        self.y_end = 1e-1 
+        self.t_end = 1 
         self.n_space = (20, 20)
         self.n_time = 30
         self.dim_hidden = (5, 10, 10)
@@ -24,7 +24,7 @@ class Parameters:
             'x_end': self.x_end,
             't_end': self.t_end,
             'h': self.y_end,
-            'n_space': 10,
+            'n_space': self.n_space[0],
             'n_time': self.n_time,
             'w0': self.w0
         }

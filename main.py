@@ -37,11 +37,11 @@ def get_step(tensors: tuple):
 
 par = Parameters()
 
-Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
+Lx, t, h, nx, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
-my_beam = Beam(Lx, E, rho, h, 4e-3, n_space_beam)
+my_beam = Beam(Lx, E, rho, h, 4e-3, nx)
 
-t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
+w, en0 = obtain_analytical_free(my_beam, w0, t, n_time)
 
 load_dist = (np.sin, np.sin)
 #t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
@@ -67,16 +67,15 @@ points = {
 
 prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
 m_par = (lam, mu, rho)
-in_penalty = np.array([1, 1, 1.2])
+nsamples = n_space + (n_time,)
+
 calculate = Calculate(
         initial_conditions,
         m_par,
         points,
-        n_space,
-        n_time,
+        nsamples,
         steps,
         w0,
-        in_penalty,
         device
     )
 
@@ -89,7 +88,7 @@ if retrain_PINN:
     dir_model = pass_folder('model')
     dir_logs = pass_folder('model/logs')
 
-    pinn_trained = train_model(pinn, calc=calculate, learning_rate=lr,
+    pinn_trained, indicators = train_model(pinn, calc=calculate, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
@@ -98,7 +97,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
+    pinn_trained, indicators = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
@@ -124,10 +123,11 @@ cond0 = initial_conditions(points['initial_points'], w0)
 
 plot_initial_conditions(z, cond0, x, y, n_space, dir_model)
 
-x, y, t = grid.get_all_points()
+x, y, _ = grid.get_initial_points()
+_, _, t = grid.get_all_points()
+space_in = torch.cat([x, y], dim=1)
+sol = obtainsolt(pinn_trained, space_in, t, nsamples)
+plot_sol(sol, space_in, t, dir_model)
 
-plot_sol(pinn_trained, x, y, t, n_space, n_time, dir_model, device)
-
-plot_compliance(pinn_trained, x, y, t, w_ad, dir_model, device)
-plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,
-                    n_time, n_space_beam, dir_model, device)
+plot_sol_comparison(sol, space_in, t, w, dir_model)
+plot_indicators(indicators, t, dir_model)
