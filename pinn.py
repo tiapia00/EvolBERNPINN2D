@@ -280,8 +280,6 @@ class PINN(nn.Module):
                 nn.Linear(multtime * self.hidtimedim, 2)
             )
 
-        self.mid_time_layer = nn.Linear(dim_hidden[2], 2)
-
     def parabolic(self, x):
         return (self.a * x ** 2 - self.a * x)
 
