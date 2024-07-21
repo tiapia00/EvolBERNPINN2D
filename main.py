@@ -48,7 +48,7 @@ load_dist = (np.sin, np.sin)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hid_space, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hid_space, dim_mult, lr, epochs = get_params(par.pinn_par)
 
 x_domain = torch.linspace(0, Lx, n_space[0])
 y_domain = torch.linspace(0, Ly, n_space[1])
@@ -79,7 +79,7 @@ calculate = Calculate(
         device
     )
 
-pinn = PINN(dim_hidden, w0, n_hid_space, device).to(device)
+pinn = PINN(dim_hidden, n_hid_space, dim_mult, device).to(device)
 Psi_0, K_0 = calculate.gete0(pinn)
 
 if retrain_PINN:
@@ -95,7 +95,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained, indicators = PINN(dim_hidden, w0, device).to(device)
+    pinn_trained, indicators = PINN(dim_hidden, n_hid_space, dim_mult, device).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)

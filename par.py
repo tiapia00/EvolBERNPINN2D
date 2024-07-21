@@ -6,6 +6,7 @@ class Parameters:
         self.n_space = (20, 20)
         self.n_time = 30
         self.dim_hidden = (40, 40, 40)
+        self.dim_mult = (2,2)
         self.n_hidden : int = 3
         self.w0 = 0.3
         self.pinn_par = {
@@ -17,6 +18,7 @@ class Parameters:
             'w0': self.w0,
             'dim_hidden': self.dim_hidden,
             'n_hidden_space': self.n_hidden,
+            'dim_mult': self.dim_mult,
             'lr': 1e-3,
             'epochs': 2000
         }
