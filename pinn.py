@@ -242,43 +242,28 @@ def parabolic(a, x):
 
 class PINN(nn.Module):
     def __init__(self,
-                 dim_hidden: tuple,
+                 dim_hidden: int,
                  nhidden_space: int,
                  dim_mult : tuple,
-                 device,
-                 a: float = 1,
                  act=nn.Tanh(),
                  ):
 
         super().__init__()
 
-        self.a = a
-        self.nmodespace = dim_hidden[0]
+        self.mult = dim_mult
+        self.nmodespace = dim_hidden
+        self.nhiddenspace = nhidden_space
+        self.act = act
+
         self.nmodetime = self.nmodespace
+        stds = tuple(2 ** (i) for i in range(self.nmodespace))
 
-        self.Bspace = 0.1 * torch.ones((2, self.nmodespace), device=device)
-        self.Btime = 0.005 * torch.ones((1, self.nmodetime), device=device)
+        self.Bsspace = tuple(torch.normal(0, stds[i], size=(2, self.nmodespace)) for i in range(self.nmodespace))
+        self.Bstime = tuple(torch.normal(0, stds[i], size=(1, self.nmodetime)) for i in range(self.nmodetime))
 
-        self.nfeaturesspace = 2
-        self.nfeaturest = 2
-
-        self.in_time = nn.Linear(1, dim_hidden[2])
-
-        self.hidspacedim = self.nfeaturesspace * self.nmodespace        
-        multspace = dim_mult[0]
-        self.layersspace = nn.Sequential(
-                nn.Linear(self.hidspacedim, multspace * self.hidspacedim),
-                *[layer for _ in range(nhidden_space - 1) 
-                  for layer in (nn.Linear(multspace * self.hidspacedim, multspace *self.hidspacedim), act)],
-                nn.Linear(multspace * self.hidspacedim, 2)
-            )
-
-        self.hidtimedim = self.nmodetime * self.nfeaturest
-        multtime = dim_mult[1]
-        self.layerstime = nn.Sequential(
-                nn.Linear(self.hidtimedim, multtime * self.hidtimedim),
-                nn.Linear(multtime * self.hidtimedim, 2)
-            )
+        self.layersspace = self.getlayersspace()
+        self.layerstime = self.getlayerstime()
+        self.outlayer = nn.Linear(self.nmodespace*2*self.nmodespace**2, 2)
 
     def parabolic(self, x):
         return (self.a * x ** 2 - self.a * x)
@@ -291,23 +276,66 @@ class PINN(nn.Module):
     def apply_compl_filter(alpha):
         return (1-torch.tanh(alpha))
 
-    def ff(self, x, B):
-        x_proj = x @ B
-        return torch.cat([torch.cos(x_proj), torch.sin(x_proj)], dim=1)
+    def ff(self, x, Bs):
+        xs = []
+        for i in range(len(Bs)):
+            x_proj = x @ Bs[i]
+            xs.append(torch.cat([torch.cos(x_proj), torch.sin(x_proj)], dim=1))
 
+        return xs 
+
+    def getlayersspace(self):
+        hidspacedim = 2 * self.nmodespace        
+        multspace = self.mult[0]
+        
+        layers = []
+        
+        layers.append(nn.Linear(hidspacedim, multspace * hidspacedim))
+        
+        for _ in range(self.nhiddenspace - 1):
+            layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
+            layers.append(self.act)  # Ensure self.act is a valid activation function
+        
+        return layers
+
+
+    def getlayerstime(self):
+        hidtimedim = 2 * self.nmodetime
+        multtime = self.mult[1]
+        layerstime = nn.Sequential(
+                nn.Linear(hidtimedim, multtime * hidtimedim)
+            )
+        
+        return layerstime
+    
     def forward(self, space, t):
-        space = self.ff(space, self.Bspace)
-        time = self.ff(t, self.Btime)
+        spaces = self.ff(space, self.Bsspace)
+        times = self.ff(t, self.Bstime)
 
-        for layer in self.layersspace:
-            space = layer(space)
+        spaces_list = []
+        for l in range(len(spaces)):
+            space = spaces[l]
+            for layer in self.layersspace:
+                space = layer(space) 
+            spaces_list.append(space)
 
-        for layer in self.layerstime:
-            time = layer(time)
+        times_list = []
+        for l in range(len(times)):
+            time = times[l]
+            for layer in self.layerstime:
+                time = layer(time) 
+            times_list.append(time)
+        
+        mult = []
+        for mt in range(len(times)):
+            for mx in range(len(spaces)):
+                mult.append(spaces_list[mx] * times_list[mt])
+        
+        conc = torch.cat(mult, dim=1)
+        out = self.outlayer(conc)
 
-        merged = space * time
+        return out
 
-        return merged 
 
     def device(self):
         return next(self.parameters()).device
