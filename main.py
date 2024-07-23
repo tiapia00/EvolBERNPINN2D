@@ -79,6 +79,12 @@ calculate = Calculate(
         device
     )
 
+nninbcs = NNinbc(20, 3).to(device)
+nninbcs_trained = train_inbcs(nninbcs, calculate, 1000, 1e-3)
+
+nndist = NNd(20, 3).to(device)
+nndist_trained = train_dist(nndist, calculate, 1000, 1e-3)
+
 pinn = PINN(dim_hidden, n_hid_space, dim_mult).to(device)
 Psi_0, K_0 = calculate.gete0(pinn)
 

@@ -7,8 +7,7 @@ from torch import nn
 import torch.optim as optim
 
 
-def initial_conditions(initial_points: tuple, w0: float, i: float = 1) -> torch.tensor:
-    x, y, _ = initial_points
+def initial_conditions(x: torch.tensor, w0: float, i: float = 1) -> torch.tensor:
     ux0 = torch.zeros_like(x)
     uy0 = w0*torch.sin(torch.pi*x/torch.max(x))
     dotux0 = torch.zeros_like(x)
@@ -240,6 +239,63 @@ def parabolic(a, x):
     return (a * x ** 2 - a * x)
 
 
+class NNinbc(nn.Module):
+    def __init__(self, dim_hidden, n_hidden):
+
+        super().__init__()
+
+        self.layerin = nn.Linear(3, dim_hidden)
+
+        self.layers = [] 
+        for _ in range(n_hidden - 1):
+            self.layers.append(nn.Linear(dim_hidden, dim_hidden))
+            self.layers.append(nn.Tanh())
+        
+        self.layerout = nn.Linear(dim_hidden, 2)
+
+    def forward(self, x, y, t):
+        points = torch.cat([x, y, t], dim=1)
+        output = self.layerin(points)
+
+        for layer in self.layers:
+            output = layer(output)
+        
+        output = self.layerout(output)
+
+        ### Transformation for Dirichlet BCs ###
+        output *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
+
+        return output
+
+
+class NNd(nn.Module):
+    def __init__(self, dim_hidden, n_hidden):
+
+        super().__init__()
+
+        self.dim_hidden = dim_hidden
+        self.n_hidden = n_hidden
+
+        self.layerin = nn.Linear(3, dim_hidden)
+
+        self.layers = [] 
+        for _ in range(n_hidden - 1):
+            self.layers.append(nn.Linear(dim_hidden, dim_hidden))
+            self.layers.append(nn.Tanh())
+        
+        self.layerout = nn.Linear(dim_hidden, 1)
+
+    def forward(self, points):
+        output = self.layerin(points)
+
+        for layer in self.layers:
+            output = layer(output)
+        
+        output = self.layerout(output)
+
+        return output
+
+
 class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: int,
@@ -294,7 +350,7 @@ class PINN(nn.Module):
         
         for _ in range(self.nhiddenspace - 1):
             layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
-            layers.append(self.act)  # Ensure self.act is a valid activation function
+            layers.append(self.act)
         
         return layers
 
@@ -409,14 +465,42 @@ class Calculate:
             # action, in general, can be negative
 
 
-    def initial_loss(self, pinn):
-        init_points = self.points['initial_points']
-        x, y, t = init_points
-        space = torch.cat([x, y], dim=1)
+    def gtdistance(self):
+        x, y, t = self.points['all_points']
+        points = torch.cat([x, y, t], dim=1)
+        down, up, _, _ = self.points['boundary_points']
+        bound_points = torch.cat([down, up], dim=0)
 
-        output = pinn(space, t)
+        x = points[:,:-1]
+        t = points[:,-1]
 
-        gt = initial_conditions(init_points, self.w0)
+        x_bc = bound_points[:,:-1]
+        t_bc = bound_points[:,-1]
+
+        n = x.shape[0]
+        
+        for i in range(n):
+            dist = torch.norm(x[i,:] - x_bc, dim=1) + (t[i] - t_bc)
+            dist[i] = torch.sqrt(torch.min(dist))
+        
+        return dist
+    
+    def distance_loss(self, nn):
+        Dgt = self.gtdistance()
+        x, y, t = self.points['all_points']
+        points = torch.cat([x, y, t], dim=1)
+
+        output = nn(points)
+        loss = (output.squeeze() - Dgt).pow(2).mean()
+
+        return loss
+
+    def initial_loss(self, nn):
+        x, y, t = self.points['initial_points']
+
+        output = nn(x, y, t)
+
+        gt = initial_conditions(x, self.w0)
         v0gt = gt[:,2:]
         v0 = getspeed(output, t, self.device)
         loss_speed = (v0gt - v0).pow(2).mean()
@@ -427,6 +511,11 @@ class Calculate:
         loss = loss_speed + loss_position
 
         return loss
+
+    def boundary_loss(self, pinn):
+        ### Maybe just for Neumann ##
+        pass
+
 
     def verbose(self, pinn, verbose):
         actionloss = self.getaction(pinn, verbose)
@@ -484,6 +573,47 @@ def train_model(
     writer.close()
 
     return nn_approximator, variables
+
+def train_inbcs(nn: NNinbc, calc: Calculate, epochs: int, learning_rate: float):
+    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
+    pbar = tqdm(total=epochs, desc="Training", position=0)
+
+    for epoch in range(epochs):
+
+        optimizer.zero_grad()
+        loss = calc.initial_loss(nn)
+        loss.backward()
+        optimizer.step()
+
+        pbar.set_description(f"Loss: {loss.item():.3e}")
+
+        pbar.update(1)
+
+    pbar.update(1)
+    pbar.close()
+
+    return nn
+
+def train_dist(nn: NNd, calc: Calculate, epochs: int, learning_rate: float):
+    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
+    pbar = tqdm(total=epochs, desc="Training", position=0)
+
+    for epoch in range(epochs):
+
+        optimizer.zero_grad()
+        loss = calc.distance_loss(nn)
+        loss.backward()
+        optimizer.step()
+
+        pbar.set_description(f"Loss: {loss.item():.3e}")
+
+        pbar.update(1)
+
+    pbar.update(1)
+    pbar.close()
+
+    return nn
+
 
 
 def calculate_speed(pinn_trained: PINN, points: tuple, device: torch.device) -> torch.tensor:
