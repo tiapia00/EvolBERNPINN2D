@@ -61,7 +61,7 @@ grid = Grid(x_domain, y_domain, t_domain, device)
 points = {
     'res_points': grid.get_interior_points(),
     'initial_points': grid.get_initial_points(),
-    'boundary_points': grid.get_boundary_points(),
+    'boundary_points': grid.grid_bound,
     'all_points': grid.get_all_points()
 }
 
@@ -85,7 +85,7 @@ nninbcs_trained = train_inbcs(nninbcs, calculate, 1000, 1e-3)
 nndist = NNd(20, 3).to(device)
 nndist_trained = train_dist(nndist, calculate, 1000, 1e-3)
 
-pinn = PINN(dim_hidden, n_hid_space, dim_mult).to(device)
+pinn = PINN(dim_hidden, n_hid_space, dim_mult, nninbcs_trained, nndist_trained).to(device)
 Psi_0, K_0 = calculate.gete0(pinn)
 
 if retrain_PINN:

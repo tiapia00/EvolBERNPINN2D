@@ -151,17 +151,6 @@ class Grid:
 
         return (x_grid, y_grid, t0)
 
-    def get_boundary_points(self):
-        down = tuple(self.grid_bound[0][:, i].unsqueeze(1).requires_grad_().to(
-            self.device) for i in range(self.grid_bound[0].shape[1]))
-        up = tuple(self.grid_bound[1][:, i].unsqueeze(1).requires_grad_().to(
-            self.device) for i in range(self.grid_bound[1].shape[1]))
-        left = tuple(self.grid_bound[2][:, i].unsqueeze(1).requires_grad_().to(
-            self.device) for i in range(self.grid_bound[2].shape[1]))
-        right = tuple(self.grid_bound[3][:, i].unsqueeze(1).requires_grad_().to(
-            self.device) for i in range(self.grid_bound[3].shape[1]))
-        return (down, up, left, right)
-
     def get_interior_points(self):
         x_raw = self.x_domain[1:-1]
         y_raw = self.y_domain[1:-1]
@@ -253,8 +242,7 @@ class NNinbc(nn.Module):
         
         self.layerout = nn.Linear(dim_hidden, 2)
 
-    def forward(self, x, y, t):
-        points = torch.cat([x, y, t], dim=1)
+    def forward(self, points):
         output = self.layerin(points)
 
         for layer in self.layers:
@@ -301,10 +289,21 @@ class PINN(nn.Module):
                  dim_hidden: int,
                  nhidden_space: int,
                  dim_mult : tuple,
+                 inbcsNN: NNinbc,
+                 distNN: NNd,
                  act=nn.Tanh(),
                  ):
 
         super().__init__()
+
+        self.inbcsNN = inbcsNN
+        self.distNN = distNN
+
+        for param in self.inbcsNN.parameters():
+            param.requires_grad = False
+        
+        for param in self.distNN.parameters():
+            param.requires_grad = False
 
         self.mult = dim_mult
         self.nmodespace = dim_hidden
@@ -366,6 +365,7 @@ class PINN(nn.Module):
     
     def forward(self, space, t):
         spaces = self.ff(space, self.Bsspace)
+        points = torch.cat([space, t], dim=1)
         times = self.ff(t, self.Bstime)
 
         spaces_list = []
@@ -389,6 +389,11 @@ class PINN(nn.Module):
         
         conc = torch.cat(mult, dim=1)
         out = self.outlayer(conc)
+
+        out_inbcs =  self.inbcsNN(points)
+        out_d = self.distNN(points)
+
+        out = out * out_d + out_inbcs
 
         return out
 
@@ -416,6 +421,7 @@ class Calculate:
         self.nsamples = nsamples 
         self.steps = steps_int
         self.device = device
+        self.dists = self.gtdistance()
 
     def gettraction(self, pinn):
         pass
@@ -468,7 +474,7 @@ class Calculate:
     def gtdistance(self):
         x, y, t = self.points['all_points']
         points = torch.cat([x, y, t], dim=1)
-        down, up, _, _ = self.points['boundary_points']
+        down, up, _, _, _ = self.points['boundary_points']
         bound_points = torch.cat([down, up], dim=0)
 
         x = points[:,:-1]
@@ -478,27 +484,28 @@ class Calculate:
         t_bc = bound_points[:,-1]
 
         n = x.shape[0]
+        dists = torch.zeros(n)
         
         for i in range(n):
-            dist = torch.norm(x[i,:] - x_bc, dim=1) + (t[i] - t_bc)
-            dist[i] = torch.sqrt(torch.min(dist))
+            dist = torch.norm(x[i,:] - x_bc, dim=1)**2 + (t[i] - t_bc)**2
+            dists[i] = torch.sqrt(torch.min(dist))
         
-        return dist
+        return dists
     
     def distance_loss(self, nn):
-        Dgt = self.gtdistance()
         x, y, t = self.points['all_points']
         points = torch.cat([x, y, t], dim=1)
 
         output = nn(points)
-        loss = (output.squeeze() - Dgt).pow(2).mean()
+        loss = (output.squeeze() - self.dists.detach()).pow(2).mean()
 
         return loss
 
     def initial_loss(self, nn):
         x, y, t = self.points['initial_points']
+        points = torch.cat([x, y, t], dim=1)
 
-        output = nn(x, y, t)
+        output = nn(points)
 
         gt = initial_conditions(x, self.w0)
         v0gt = gt[:,2:]
@@ -517,22 +524,6 @@ class Calculate:
         pass
 
 
-    def verbose(self, pinn, verbose):
-        actionloss = self.getaction(pinn, verbose)
-        initloss = self.initial_loss(pinn)
-
-        losses = [actionloss, initloss]
-
-        actionloss = self.getaction(pinn, False)
-
-        loss = actionloss + initloss 
-
-        return loss, losses
-
-    def __call__(self, pinn, verbose=False):
-        return self.verbose(pinn, verbose)
-
-
 def train_model(
     nn_approximator: PINN,
     calc: Callable,
@@ -549,22 +540,20 @@ def train_model(
     for epoch in range(max_epochs):
 
         optimizer.zero_grad()
-        loss, losses = calc(nn_approximator, False)
+        loss = calc.getaction(nn_approximator, False)
         loss.backward()
         optimizer.step()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
         writer.add_scalars('Loss', {
-            'tot': loss.item(),
-            'action': losses[0].item(),
-            'init': losses[1].item(),
+            'action': loss.item(),
         }, epoch)
 
         pbar.update(1)
 
-    _, losses = calc(nn_approximator, True)
-    Pi, T = losses[0]
+    losses = calc(nn_approximator, True)
+    Pi, T = losses
     variables = {'Pi': Pi.detach().cpu().numpy(), 'T': T.detach().cpu().numpy()}
 
     pbar.update(1)
