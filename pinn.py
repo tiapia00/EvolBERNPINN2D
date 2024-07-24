@@ -128,14 +128,14 @@ class Grid:
         y1 = torch.full_like(
             t_grid, self.y_domain[1])
 
-        down = torch.cat((x0, y_grid, t_grid), dim=1)
+        down = torch.cat((x0, y_grid, t_grid), dim=1).to(self.device)
 
-        up = torch.cat((x1, y_grid, t_grid), dim=1)
+        up = torch.cat((x1, y_grid, t_grid), dim=1).to(self.device)
 
-        left = torch.cat((x_grid, y0, t_grid), dim=1)
+        left = torch.cat((x_grid, y0, t_grid), dim=1).to(self.device)
 
-        right = torch.cat((x_grid, y1, t_grid), dim=1)
-        bound_points = torch.cat((down, up, left, right), dim=0)
+        right = torch.cat((x_grid, y1, t_grid), dim=1).to(self.device)
+        bound_points = torch.cat((down, up, left, right), dim=0).to(self.device)
 
         return (down, up, left, right, bound_points)
 
@@ -235,7 +235,7 @@ class NNinbc(nn.Module):
 
         self.layerin = nn.Linear(3, dim_hidden)
 
-        self.layers = [] 
+        self.layers = nn.ModuleList()
         for _ in range(n_hidden - 1):
             self.layers.append(nn.Linear(dim_hidden, dim_hidden))
             self.layers.append(nn.Tanh())
@@ -266,7 +266,7 @@ class NNd(nn.Module):
 
         self.layerin = nn.Linear(3, dim_hidden)
 
-        self.layers = [] 
+        self.layers = nn.ModuleList()
         for _ in range(n_hidden - 1):
             self.layers.append(nn.Linear(dim_hidden, dim_hidden))
             self.layers.append(nn.Tanh())
@@ -312,10 +312,10 @@ class PINN(nn.Module):
         self.act = act
 
         self.nmodetime = self.nmodespace
-        stds = tuple(2 ** (i) for i in range(self.nmodespace))
+        stds = [2 ** (i) for i in range(self.nmodespace)]
 
-        self.Bsspace = tuple(torch.normal(0, stds[i], size=(2, self.nmodespace)) for i in range(self.nmodespace))
-        self.Bstime = tuple(torch.normal(0, stds[i], size=(1, self.nmodetime)) for i in range(self.nmodetime))
+        self.Bsspace = nn.ParameterList(torch.normal(0, stds[i], size=(2, self.nmodespace)) for i in range(self.nmodespace))
+        self.Bstime = nn.ParameterList(torch.normal(0, stds[i], size=(1, self.nmodetime)) for i in range(self.nmodetime))
 
         self.layersspace = self.getlayersspace()
         self.layerstime = self.getlayerstime()
@@ -344,8 +344,7 @@ class PINN(nn.Module):
         hidspacedim = 2 * self.nmodespace        
         multspace = self.mult[0]
         
-        layers = []
-        
+        layers = nn.ModuleList()
         layers.append(nn.Linear(hidspacedim, multspace * hidspacedim))
         
         for _ in range(self.nhiddenspace - 1):
@@ -395,6 +394,7 @@ class PINN(nn.Module):
         out_d = self.distNN(points)
 
         out = out * out_d + out_inbcs
+        out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
 
         return out
 
@@ -485,7 +485,7 @@ class Calculate:
         t_bc = bound_points[:,-1]
 
         n = x.shape[0]
-        dists = torch.zeros(n)
+        dists = torch.zeros(n, device=self.device)
         
         for i in range(n):
             dist = torch.norm(x[i,:] - x_bc, dim=1)**2 + (t[i] - t_bc)**2

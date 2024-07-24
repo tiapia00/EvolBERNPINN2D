@@ -86,13 +86,13 @@ nninbcs = NNinbc(20, 3).to(device)
 nninbcs_trained = train_inbcs(nninbcs, calculate, 1000, 1e-3)
 
 x, y, t = points['initial_points']
-x = x.to(device)
-y = y.to(device)
-t = t.to(device)
-in_points = torch.cat([x, y, t], dim=1)
+x_in = x.to(device)
+y_in = y.to(device)
+t_in = t.to(device)
+in_points = torch.cat([x_in, y_in, t_in], dim=1)
 
 nndist = NNd(20, 3).to(device)
-nndist_trained = train_dist(nndist, calculate, 1000, 1e-3)
+nndist_trained = train_dist(nndist, calculate, 10000, 1e-3)
 output = nndist_trained(in_points)
 plot_distance0(output, in_points[:,:2], dir_model)
 
@@ -123,15 +123,14 @@ print(pinn_trained)
 
 pinn_trained.eval()
 
-
 space = torch.cat([x, y], dim=1)
 z = pinn_trained(space, t)
 v = calculate_speed(pinn_trained, (x, y, t), device)
 z = torch.cat([z, v], dim=1)
 
-cond0 = initial_conditions(points['initial_points'], w0)
+cond0 = initial_conditions(x_in, w0)
 
-plot_initial_conditions(z, cond0, x, y, n_space, dir_model)
+plot_initial_conditions(z, cond0, x_in, y_in, n_space, dir_model)
 
 x, y, _ = grid.get_initial_points()
 _, _, t = grid.get_all_points()
