@@ -5,7 +5,18 @@ import torch
 from matplotlib.animation import FuncAnimation
 import numpy as np
 
+def plot_distance0(output: torch.tensor, space: torch.tensor, path: str):
+    ### t=0 ###
+    plt.figure()
+    plt.scatter(space[:,0].detach().cpu().numpy(), space[:,1].detach().cpu().numpy(), 
+            c=output.detach().cpu().numpy(), cmap = 'viridis')
+    plt.xlabel('$x$')
+    plt.ylabel('$y$')
+    plt.colorbar()
+    plt.title('$D(x_i, 0)$')
 
+    plt.savefig(f'{path}/distance0.png')
+    
 def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, n_space: int, path: str):
     """Plot initial conditions.
     z0: tensor describing analytical initial conditions

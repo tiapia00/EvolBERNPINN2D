@@ -280,6 +280,7 @@ class NNd(nn.Module):
             output = layer(output)
         
         output = self.layerout(output)
+        output *= points[:,2].unsqueeze(1)
 
         return output
 
@@ -552,7 +553,7 @@ def train_model(
 
         pbar.update(1)
 
-    losses = calc(nn_approximator, True)
+    losses = calc.getaction(nn_approximator, True)
     Pi, T = losses
     variables = {'Pi': Pi.detach().cpu().numpy(), 'T': T.detach().cpu().numpy()}
 

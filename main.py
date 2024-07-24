@@ -5,7 +5,7 @@ import torch
 from read_write import get_last_modified_file, pass_folder, delete_old_files
 from pinn import *
 from par import Parameters, get_params
-from analytical import obtain_analytical_free, obtain_analytical_forced
+from analytical import obtain_analytical_free
 
 torch.set_default_dtype(torch.float32)
 
@@ -18,6 +18,9 @@ elif torch.cuda.is_available():
 else:
     device = torch.device("cpu")
     print("Using CPU device.")
+
+dir_model = pass_folder('model')
+dir_logs = pass_folder('model/logs')
 
 retrain_PINN = True
 delete_old = False
@@ -82,15 +85,21 @@ calculate = Calculate(
 nninbcs = NNinbc(20, 3).to(device)
 nninbcs_trained = train_inbcs(nninbcs, calculate, 1000, 1e-3)
 
+x, y, t = points['initial_points']
+x = x.to(device)
+y = y.to(device)
+t = t.to(device)
+in_points = torch.cat([x, y, t], dim=1)
+
 nndist = NNd(20, 3).to(device)
 nndist_trained = train_dist(nndist, calculate, 1000, 1e-3)
+output = nndist_trained(in_points)
+plot_distance0(output, in_points[:,:2], dir_model)
 
 pinn = PINN(dim_hidden, n_hid_space, dim_mult, nninbcs_trained, nndist_trained).to(device)
 Psi_0, K_0 = calculate.gete0(pinn)
 
 if retrain_PINN:
-    dir_model = pass_folder('model')
-    dir_logs = pass_folder('model/logs')
 
     pinn_trained, indicators = train_model(pinn, calc=calculate, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs)
@@ -114,10 +123,7 @@ print(pinn_trained)
 
 pinn_trained.eval()
 
-x, y, t = points['initial_points']
-x = x.to(device)
-y = y.to(device)
-t = t.to(device)
+
 space = torch.cat([x, y], dim=1)
 z = pinn_trained(space, t)
 v = calculate_speed(pinn_trained, (x, y, t), device)
