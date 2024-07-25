@@ -6,6 +6,7 @@ from read_write import get_last_modified_file, pass_folder, delete_old_files
 from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
+from eigenNN import MLNet, denormalizematr
 
 torch.set_default_dtype(torch.float32)
 
@@ -46,7 +47,6 @@ my_beam = Beam(Lx, E, rho, h, 4e-3, nx)
 
 w, en0 = obtain_analytical_free(my_beam, w0, t, n_time)
 
-load_dist = (np.sin, np.sin)
 #t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
 
 lam, mu = par.to_matpar_PINN()
@@ -81,6 +81,14 @@ calculate = Calculate(
         w0,
         device
     )
+
+eigenNN = MLNet(4, 60, 9)
+eigenNN.load_state_dict(torch.load('model//eigenestmodel.pth'))
+input_eigen = torch.tensor([E, rho, Lx, Ly]).reshape(1,-1)
+eigen = eigenNN(input_eigen)
+ef_range = torch.load('model//ef_range.pt')
+eigen = denormalizematr(eigen, ef_range)
+
 
 nninbcs = NNinbc(20, 3).to(device)
 nninbcs_trained = train_inbcs(nninbcs, calculate, 1000, 1e-3)

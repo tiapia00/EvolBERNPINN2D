@@ -312,10 +312,11 @@ class PINN(nn.Module):
         self.act = act
 
         self.nmodetime = self.nmodespace
-        stds = [2 ** (i) for i in range(self.nmodespace)]
+        stds_space = [0.2*i for i in range(self.nmodespace)]
+        stds_time = [0.2*(i)**2 for i in range(self.nmodetime)] 
 
-        self.Bsspace = nn.ParameterList(torch.normal(0, stds[i], size=(2, self.nmodespace)) for i in range(self.nmodespace))
-        self.Bstime = nn.ParameterList(torch.normal(0, stds[i], size=(1, self.nmodetime)) for i in range(self.nmodetime))
+        self.Bsspace = nn.ParameterList(torch.normal(0, stds_space[i], size=(2, self.nmodespace)) for i in range(self.nmodespace))
+        self.Bstime = nn.ParameterList(torch.normal(0, stds_time[i], size=(1, self.nmodetime)) for i in range(self.nmodetime))
 
         self.layersspace = self.getlayersspace()
         self.layerstime = self.getlayerstime()
@@ -349,7 +350,7 @@ class PINN(nn.Module):
         
         for _ in range(self.nhiddenspace - 1):
             layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
-            layers.append(self.act)
+            #layers.append(self.act)
         
         return layers
 
@@ -397,7 +398,6 @@ class PINN(nn.Module):
         out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
 
         return out
-
 
     def device(self):
         return next(self.parameters()).device
