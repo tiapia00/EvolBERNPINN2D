@@ -100,7 +100,6 @@ pinn = PINN(dim_hidden, n_hid_space, dim_mult, nninbcs_trained, nndist_trained).
 Psi_0, K_0 = calculate.gete0(pinn)
 
 if retrain_PINN:
-
     pinn_trained, indicators = train_model(pinn, calc=calculate, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs)
 

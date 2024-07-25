@@ -500,6 +500,11 @@ class Calculate:
         output = nn(points)
         loss = (output.squeeze() - self.dists.detach()).pow(2).mean()
 
+        ddot = torch.autograd.grad(output, t, torch.ones(output.shape[0], 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
+        idx_0 = torch.nonzero(t == 0, as_tuple=False)
+        loss += ddot[idx_0].pow(2).mean()
+        
         return loss
 
     def initial_loss(self, nn):
