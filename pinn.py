@@ -305,13 +305,10 @@ def omtogam_ax(omega: torch.tensor, prop: dict):
 
 class PINN(nn.Module):
     def __init__(self,
-                 nhidden_space: int,
-                 dim_mult : tuple,
+                 dim_hidden_t: int,
+                 nhidden_t: int,
                  inbcsNN: NNinbc,
                  distNN: NNd,
-                 omega_ax: torch.tensor,
-                 omega_trans: torch.tensor,
-                 prop: dict,
                  act=nn.Tanh(),
                  ):
 
@@ -326,130 +323,27 @@ class PINN(nn.Module):
         for param in self.distNN.parameters():
             param.requires_grad = False
 
-        self.nmodespaceax = omega_ax.shape[0]
-        self.nmodespacetrans = omega_trans.shape[0]
-        
-        gamma_ax = omtogam_ax(omega_ax, prop)
-        gamma_trans = omtogam_trans(omega_trans, prop)
+        self.axial = RBF(2, 1, matern52)
+        self.trans = RBF(2, 1, matern52)
 
-        self.mult = dim_mult
-        self.nhiddenspace = nhidden_space
-        self.act = act
+        self.timelayers = nn.ModuleList()
+        self.timelayers.append(nn.Linear(1, dim_hidden_t))
+        for _ in range(nhidden_t):
+            self.timelayers.append(nn.Linear(dim_hidden_t, dim_hidden_t))
+            self.timelayers.append(act)
+        self.timelayers.append(nn.Linear(dim_hidden_t, 2))
 
-        self.Bsspaceax = nn.ParameterList(torch.normal(1., 1.,
-                size=(2, self.nmodespaceax)) for i in range(self.nmodespaceax))
-        self.Bsspacetrans = nn.ParameterList(torch.normal(1., 1.,
-                size=(2, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
 
-        self.Bstimeax = nn.ParameterList(torch.normal(2., 1.,
-                size=(1, self.nmodespaceax)) for i in range(self.nmodespaceax))
-        self.Bstimetrans = nn.ParameterList(torch.normal(1., 1.,
-                size=(1, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
-
-        self.layersspaceax = self.getlayersspace(self.nmodespaceax)
-        self.layersspacetrans = self.getlayersspace(self.nmodespacetrans)
-        
-        self.layerstimeax = self.getlayerstime(self.nmodespaceax)
-        self.layerstimetrans = self.getlayerstime(self.nmodespacetrans)
-
-        self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2, 1)
-        self.outlayertrans = nn.Linear(self.nmodespacetrans*2*self.nmodespacetrans**2, 1)
-
-    def parabolic(self, x):
-        return (self.a * x ** 2 - self.a * x)
-
-    @staticmethod
-    def apply_filter(alpha):
-        return (torch.tanh(alpha))
-
-    @staticmethod
-    def apply_compl_filter(alpha):
-        return (1-torch.tanh(alpha))
-
-    def ff(self, x, Bs):
-        xs = []
-        for i in range(len(Bs)):
-            x_proj = x @ Bs[i]
-            xs.append(torch.cat([torch.cos(x_proj), torch.sin(x_proj)], dim=1))
-
-        return xs 
-
-    def getlayersspace(self, hiddendim):
-        hidspacedim = 2 * hiddendim
-        multspace = self.mult[0]
-        
-        layers = nn.ModuleList()
-        layers.append(nn.Linear(hidspacedim, multspace * hidspacedim))
-        
-        for _ in range(self.nhiddenspace - 1):
-            layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
-            #layers.append(self.act)
-        
-        return layers
-
-    def getlayerstime(self, hiddendim):
-        hidtimedim = 2 * hiddendim
-        multtime = self.mult[1]
-        layerstime = nn.Sequential(
-                nn.Linear(hidtimedim, multtime * hidtimedim)
-            )
-        
-        return layerstime
-    
     def forward(self, space, t):
-        axials = self.ff(space, self.Bsspaceax)
-        transs = self.ff(space, self.Bsspacetrans)
-        times_ax = self.ff(t, self.Bstimeax)
-        times_trans = self.ff(t, self.Bstimetrans)
+        axial = self.axial(space)
+        trans = self.trans(space)
 
         points = torch.cat([space, t], dim=1)
+        for layer in self.timelayers:
+            time = layer(time)
 
-        axial_list = []
-        for l in range(len(axials)):
-            axial = axials[l]
-            for layer in self.layersspaceax:
-                axial = layer(axial) 
-            axial_list.append(axial)
-
-        trans_list = []
-        for l in range(len(transs)):
-            trans = transs[l]
-            for layer in self.layersspacetrans:
-                trans = layer(trans) 
-            trans_list.append(trans)
-
-        timesax_list = []
-        for l in range(len(times_ax)):
-            time = times_ax[l]
-            for layer in self.layerstimeax:
-                time = layer(time) 
-            timesax_list.append(time)
-
-        timestrans_list = []
-        for l in range(len(times_trans)):
-            time = times_trans[l]
-            for layer in self.layerstimetrans:
-                time = layer(time) 
-            timestrans_list.append(time)
+        out = torch.cat([axial, trans], dim=1) * time
         
-        multax = []
-        for mt in range(len(times_ax)):
-            for mx in range(len(axials)):
-                multax.append(axial_list[mx] * timesax_list[mt])
-
-        multtrans = []
-        for mt in range(len(times_trans)):
-            for mx in range(len(transs)):
-                multtrans.append(trans_list[mx] * timestrans_list[mt])
-        
-        concax = torch.cat(multax, dim=1)
-        conctrans = torch.cat(multtrans, dim=1)
-
-        outax = self.outlayerax(concax)
-        outtrans = self.outlayertrans(conctrans)
-
-        out = torch.cat([outax, outtrans], dim=1)
-
         out_inbcs =  self.inbcsNN(points)
         out_d = self.distNN(points)
 

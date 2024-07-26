@@ -5,9 +5,9 @@ class Parameters:
         self.t_end = 1
         self.n_space = (20, 20)
         self.n_time = 30
-        self.dim_hidden = 4
+        self.dim_hidden_t = 4
         self.dim_mult = (1,1)
-        self.n_hidden : int = 5
+        self.n_hidden_t : int = 5
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
@@ -16,9 +16,8 @@ class Parameters:
             'n_space': self.n_space,
             'n_time': self.n_time,
             'w0': self.w0,
-            'dim_hidden': self.dim_hidden,
-            'n_hidden_space': self.n_hidden,
-            'dim_mult': self.dim_mult,
+            'dim_hidden_t': self.dim_hidden_t,
+            'nlayers_t': self.n_hidden_t, 
             'lr': 1e-3,
             'epochs': 2000
         }
