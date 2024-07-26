@@ -238,7 +238,7 @@ class NNinbc(nn.Module):
         self.layers = nn.ModuleList()
         for _ in range(n_hidden - 1):
             self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.layers.append(nn.Tanh())
+            self.layers.append(TrigAct)
         
         self.layerout = nn.Linear(dim_hidden, 2)
 
@@ -339,10 +339,11 @@ class PINN(nn.Module):
         trans = self.trans(space)
 
         points = torch.cat([space, t], dim=1)
-        for layer in self.timelayers:
-            time = layer(time)
 
-        out = torch.cat([axial, trans], dim=1) * time
+        for layer in self.timelayers:
+            t = layer(t)
+
+        out = torch.cat([axial, trans], dim=1) * t
         
         out_inbcs =  self.inbcsNN(points)
         out_d = self.distNN(points)

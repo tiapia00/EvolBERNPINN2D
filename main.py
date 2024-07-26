@@ -2,7 +2,7 @@ from plots import *
 from beam import Beam
 import os
 import torch
-from read_write import get_last_modified_file, pass_folder, delete_old_files
+from read_write import get_last_modified_file, pass_folder
 from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
@@ -24,11 +24,7 @@ dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 
 retrain_PINN = True
-delete_old = False
-
-if delete_old:
-    delete_old_files("model")
-    delete_old_files("in_model")
+retrainaux = True
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -93,20 +89,18 @@ omega_trans = eigen.squeeze(0)[:1]
 omega_ax = eigen.squeeze(0)[:1]
 
 nninbcs = NNinbc(20, 3).to(device)
-nninbcs_trained = train_inbcs(nninbcs, calculate, 1000, 1e-3)
-
-x, y, t = points['initial_points']
-x_in = x.to(device)
-y_in = y.to(device)
-t_in = t.to(device)
-in_points = torch.cat([x_in, y_in, t_in], dim=1)
-
 nndist = NNd(20, 3).to(device)
-nndist_trained = train_dist(nndist, calculate, 5000, 1e-3)
-output = nndist_trained(in_points)
-plot_distance0(output, in_points[:,:2], dir_model)
 
-pinn = PINN(dim_hidden_t, nlayers_t, nninbcs_trained, nndist_trained).to(device)
+if retrainaux:
+    nninbcs = train_inbcs(nninbcs, calculate, 1000, 1e-3)
+    torch.save(nninbcs.state_dict(), 'data//nnInbcs.pth')
+    nndist = train_dist(nndist, calculate, 5000, 1e-3)
+    torch.save(nndist.state_dict(), 'data//nnDist.pth')
+else:
+    nninbcs.load_state_dict(torch.load('data//nnInbcs.pth'))
+    nndist.load_state_dict(torch.load('data//nnDist.pth'))
+
+pinn = PINN(dim_hidden_t, nlayers_t, nninbcs, nndist).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
@@ -120,7 +114,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden_t, nlayers_t, nninbcs_trained, nndist_trained).to(device)
+    pinn_trained = PINN(dim_hidden_t, nlayers_t, nninbcs, nndist).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
@@ -132,6 +126,12 @@ else:
 print(pinn_trained)
 
 pinn_trained.eval()
+
+x, y, t = points['initial_points']
+x_in = x.to(device)
+y_in = y.to(device)
+t_in = t.to(device)
+in_points = torch.cat([x_in, y_in, t_in], dim=1)
 
 space = torch.cat([x, y], dim=1)
 z = pinn_trained(space, t)
