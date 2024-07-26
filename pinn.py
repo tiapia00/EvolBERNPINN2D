@@ -328,6 +328,9 @@ class PINN(nn.Module):
 
         self.nmodespaceax = omega_ax.shape[0]
         self.nmodespacetrans = omega_trans.shape[0]
+        
+        omega_ax = omega_ax.squeeze(0)
+        omega_trans = omega_trans.squeeze(0)
 
         gamma_ax = omtogam_ax(omega_ax, prop)
         gamma_trans = omtogam_trans(omega_trans, prop)
@@ -336,22 +339,21 @@ class PINN(nn.Module):
         self.nhiddenspace = nhidden_space
         self.act = act
 
-        self.nmodetime = self.nmodespace
-        stds_space = [0.2*i for i in range(self.nmodespace)]
-        stds_time = [0.2*(i)**2 for i in range(self.nmodetime)] 
-
-        self.Bsspaceax = nn.ParameterList(torch.normal(gamma_ax[i], stds_space[i],
+        self.Bsspaceax = nn.ParameterList(torch.normal(gamma_ax[i].item(), 0.5,
                 size=(2, self.nmodespaceax)) for i in range(self.nmodespaceax))
-        self.Bsspacetrans = nn.ParameterList(torch.normal(gamma_trans[i], stds_space[i],
+        self.Bsspacetrans = nn.ParameterList(torch.normal(gamma_trans[i].item(), 0.5,
                 size=(2, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
 
-        self.Bstimeax = nn.ParameterList(torch.normal(omega_ax[i], stds_time[i],
-                size=(1, self.nmodetime)) for i in range(self.nmodespaceax))
-        self.Bstimetrans = nn.ParameterList(torch.normal(omega_trans[i], stds_time[i],
-                size=(1, self.nmodetime)) for i in range(self.nmodespacetrans))
+        self.Bstimeax = nn.ParameterList(torch.normal(omega_ax[i].item(), 0.5,
+                size=(1, self.nmodespaceax)) for i in range(self.nmodespaceax))
+        self.Bstimetrans = nn.ParameterList(torch.normal(omega_trans[i].item(), 0.5,
+                size=(1, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
 
-        self.layersspace = self.getlayersspace()
-        self.layerstime = self.getlayerstime()
+        self.layersspaceax = self.getlayersspace(self.nmodespaceax)
+        self.layersspacetrans = self.getlayersspace(self.nmodespacetrans)
+        
+        self.layerstimeax = self.getlayerstime(self.nmodespaceax)
+        self.layerstimetrans = self.getlayerstime(self.nmodespacetrans)
 
         self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2, 1)
         self.outlayertrans = nn.Linear(self.nmodespacetrans*2*self.nmodespacetrans**2, 1)
@@ -375,8 +377,8 @@ class PINN(nn.Module):
 
         return xs 
 
-    def getlayersspace(self):
-        hidspacedim = 2 * self.nmodespace        
+    def getlayersspace(self, hiddendim):
+        hidspacedim = 2 * hiddendim
         multspace = self.mult[0]
         
         layers = nn.ModuleList()
@@ -388,9 +390,8 @@ class PINN(nn.Module):
         
         return layers
 
-
-    def getlayerstime(self):
-        hidtimedim = 2 * self.nmodetime
+    def getlayerstime(self, hiddendim):
+        hidtimedim = 2 * hiddendim
         multtime = self.mult[1]
         layerstime = nn.Sequential(
                 nn.Linear(hidtimedim, multtime * hidtimedim)
@@ -409,28 +410,28 @@ class PINN(nn.Module):
         axial_list = []
         for l in range(len(axials)):
             axial = axials[l]
-            for layer in self.layersspace:
+            for layer in self.layersspaceax:
                 axial = layer(axial) 
             axial_list.append(axial)
 
         trans_list = []
         for l in range(len(transs)):
             trans = transs[l]
-            for layer in self.layersspace:
+            for layer in self.layersspacetrans:
                 trans = layer(trans) 
             trans_list.append(axial)
 
         timesax_list = []
         for l in range(len(times_ax)):
             time = times_ax[l]
-            for layer in self.layerstime:
+            for layer in self.layerstimeax:
                 time = layer(time) 
             timesax_list.append(time)
 
         timestrans_list = []
         for l in range(len(times_trans)):
             time = times_trans[l]
-            for layer in self.layerstime:
+            for layer in self.layerstimetrans:
                 time = layer(time) 
             timestrans_list.append(time)
         
@@ -442,9 +443,10 @@ class PINN(nn.Module):
         multtrans = []
         for mt in range(len(times_trans)):
             for mx in range(len(transs)):
-                multtrans.append(axial_list[mx] * timesax_list[mt])
+                multtrans.append(trans_list[mx] * timestrans_list[mt])
         
         concax = torch.cat(multax, dim=1)
+        print(multtrans)
         conctrans = torch.cat(multtrans, dim=1)
 
         outax = self.outlayerax(concax)

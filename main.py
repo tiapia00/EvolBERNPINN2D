@@ -93,7 +93,7 @@ omega_ax = eigen[:6]
 omega_trans = eigen[6:]
 
 nninbcs = NNinbc(20, 3).to(device)
-nninbcs_trained = train_inbcs(nninbcs, calculate, 1000, 1e-3)
+nninbcs_trained = train_inbcs(nninbcs, calculate, 100, 1e-3)
 
 x, y, t = points['initial_points']
 x_in = x.to(device)
@@ -102,7 +102,7 @@ t_in = t.to(device)
 in_points = torch.cat([x_in, y_in, t_in], dim=1)
 
 nndist = NNd(20, 3).to(device)
-nndist_trained = train_dist(nndist, calculate, 10000, 1e-3)
+nndist_trained = train_dist(nndist, calculate, 100, 1e-3)
 output = nndist_trained(in_points)
 plot_distance0(output, in_points[:,:2], dir_model)
 
