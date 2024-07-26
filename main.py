@@ -68,7 +68,7 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
+prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A, 'A': my_beam.A}
 m_par = (lam, mu, rho)
 nsamples = n_space + (n_time,)
 
@@ -89,6 +89,8 @@ eigen = eigenNN(input_eigen)
 ef_range = torch.load('model//ef_range.pt')
 eigen = denormalizematr(eigen, ef_range)
 
+omega_ax = eigen[:6]
+omega_trans = eigen[6:]
 
 nninbcs = NNinbc(20, 3).to(device)
 nninbcs_trained = train_inbcs(nninbcs, calculate, 1000, 1e-3)
@@ -104,7 +106,9 @@ nndist_trained = train_dist(nndist, calculate, 10000, 1e-3)
 output = nndist_trained(in_points)
 plot_distance0(output, in_points[:,:2], dir_model)
 
-pinn = PINN(dim_hidden, n_hid_space, dim_mult, nninbcs_trained, nndist_trained).to(device)
+pinn = PINN(n_hid_space, dim_mult, nninbcs_trained, nndist_trained, 
+        omega_ax, omega_trans, prop).to(device)
+
 Psi_0, K_0 = calculate.gete0(pinn)
 
 if retrain_PINN:

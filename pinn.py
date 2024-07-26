@@ -285,13 +285,33 @@ class NNd(nn.Module):
         return output
 
 
+def omtogam_trans(omega: torch.tensor, prop: dict):
+    E = prop['E']
+    m = prop['m']
+    J = prop['J']
+    gamma = ((m/(E*J))**(1/4)*omega**(1/2))
+
+    return gamma
+
+def omtogam_ax(omega: torch.tensor, prop: dict):
+    E = prop['E']
+    m = prop['m']
+    A = prop['A']
+    c = (E*A/m)**(1/2)
+    gamma = omega/c
+
+    return gamma
+
+
 class PINN(nn.Module):
     def __init__(self,
-                 dim_hidden: int,
                  nhidden_space: int,
                  dim_mult : tuple,
                  inbcsNN: NNinbc,
                  distNN: NNd,
+                 omega_ax: torch.tensor,
+                 omega_trans: torch.tensor,
+                 prop: dict,
                  act=nn.Tanh(),
                  ):
 
@@ -299,15 +319,20 @@ class PINN(nn.Module):
 
         self.inbcsNN = inbcsNN
         self.distNN = distNN
-
+        
         for param in self.inbcsNN.parameters():
             param.requires_grad = False
         
         for param in self.distNN.parameters():
             param.requires_grad = False
 
+        self.nmodespaceax = omega_ax.shape[0]
+        self.nmodespacetrans = omega_trans.shape[0]
+
+        gamma_ax = omtogam_ax(omega_ax, prop)
+        gamma_trans = omtogam_trans(omega_trans, prop)
+
         self.mult = dim_mult
-        self.nmodespace = dim_hidden
         self.nhiddenspace = nhidden_space
         self.act = act
 
@@ -315,12 +340,21 @@ class PINN(nn.Module):
         stds_space = [0.2*i for i in range(self.nmodespace)]
         stds_time = [0.2*(i)**2 for i in range(self.nmodetime)] 
 
-        self.Bsspace = nn.ParameterList(torch.normal(0, stds_space[i], size=(2, self.nmodespace)) for i in range(self.nmodespace))
-        self.Bstime = nn.ParameterList(torch.normal(0, stds_time[i], size=(1, self.nmodetime)) for i in range(self.nmodetime))
+        self.Bsspaceax = nn.ParameterList(torch.normal(gamma_ax[i], stds_space[i],
+                size=(2, self.nmodespaceax)) for i in range(self.nmodespaceax))
+        self.Bsspacetrans = nn.ParameterList(torch.normal(gamma_trans[i], stds_space[i],
+                size=(2, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
+
+        self.Bstimeax = nn.ParameterList(torch.normal(omega_ax[i], stds_time[i],
+                size=(1, self.nmodetime)) for i in range(self.nmodespaceax))
+        self.Bstimetrans = nn.ParameterList(torch.normal(omega_trans[i], stds_time[i],
+                size=(1, self.nmodetime)) for i in range(self.nmodespacetrans))
 
         self.layersspace = self.getlayersspace()
         self.layerstime = self.getlayerstime()
-        self.outlayer = nn.Linear(self.nmodespace*2*self.nmodespace**2, 2)
+
+        self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2, 1)
+        self.outlayertrans = nn.Linear(self.nmodespacetrans*2*self.nmodespacetrans**2, 1)
 
     def parabolic(self, x):
         return (self.a * x ** 2 - self.a * x)
@@ -365,31 +399,58 @@ class PINN(nn.Module):
         return layerstime
     
     def forward(self, space, t):
-        spaces = self.ff(space, self.Bsspace)
+        axials = self.ff(space, self.Bsspaceax)
+        transs = self.ff(space, self.Bsspacetrans)
+        times_ax = self.ff(t, self.Bstimeax)
+        times_trans = self.ff(t, self.Bstimetrans)
+
         points = torch.cat([space, t], dim=1)
-        times = self.ff(t, self.Bstime)
 
-        spaces_list = []
-        for l in range(len(spaces)):
-            space = spaces[l]
+        axial_list = []
+        for l in range(len(axials)):
+            axial = axials[l]
             for layer in self.layersspace:
-                space = layer(space) 
-            spaces_list.append(space)
+                axial = layer(axial) 
+            axial_list.append(axial)
 
-        times_list = []
-        for l in range(len(times)):
-            time = times[l]
+        trans_list = []
+        for l in range(len(transs)):
+            trans = transs[l]
+            for layer in self.layersspace:
+                trans = layer(trans) 
+            trans_list.append(axial)
+
+        timesax_list = []
+        for l in range(len(times_ax)):
+            time = times_ax[l]
             for layer in self.layerstime:
                 time = layer(time) 
-            times_list.append(time)
+            timesax_list.append(time)
+
+        timestrans_list = []
+        for l in range(len(times_trans)):
+            time = times_trans[l]
+            for layer in self.layerstime:
+                time = layer(time) 
+            timestrans_list.append(time)
         
-        mult = []
-        for mt in range(len(times)):
-            for mx in range(len(spaces)):
-                mult.append(spaces_list[mx] * times_list[mt])
+        multax = []
+        for mt in range(len(times_ax)):
+            for mx in range(len(axials)):
+                multax.append(axial_list[mx] * timesax_list[mt])
+
+        multtrans = []
+        for mt in range(len(times_trans)):
+            for mx in range(len(transs)):
+                multtrans.append(axial_list[mx] * timesax_list[mt])
         
-        conc = torch.cat(mult, dim=1)
-        out = self.outlayer(conc)
+        concax = torch.cat(multax, dim=1)
+        conctrans = torch.cat(multtrans, dim=1)
+
+        outax = self.outlayerax(concax)
+        outtrans = self.outlayerax(conctrans)
+
+        out = torch.cat([outax, outtrans], dim=1)
 
         out_inbcs =  self.inbcsNN(points)
         out_d = self.distNN(points)
