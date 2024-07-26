@@ -83,10 +83,10 @@ calculate = Calculate(
     )
 
 eigenNN = MLNet(4, 60, 9)
-eigenNN.load_state_dict(torch.load('model//eigenestmodel.pth'))
+eigenNN.load_state_dict(torch.load('data//eigenestmodel.pth'))
 input_eigen = torch.tensor([E, rho, Lx, Ly]).reshape(1,-1)
 eigen = eigenNN(input_eigen)
-ef_range = torch.load('model//ef_range.pt')
+ef_range = torch.load('data//ef_range.pt')
 eigen = denormalizematr(eigen, ef_range)
 
 omega_ax = eigen[:6]
