@@ -442,7 +442,7 @@ class Calculate:
         speed = getspeed(output, t, self.device)
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
-        deren = torch.autograd.grad(Pi - T, t, torch.ones(Pi.shape[0], 1, device=self.device),
+        deren = torch.autograd.grad((T - Pi).unsqueeze(1), t, torch.ones(Pi.shape[0], 1, device=self.device),
                  create_graph=True, retain_graph=True)[0]
 
         loss = deren.pow(2).mean()

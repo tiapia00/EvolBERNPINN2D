@@ -24,7 +24,7 @@ dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 
 retrain_PINN = True
-retrainaux = True
+retrainaux = False
 
 def get_step(tensors: tuple):
     a, b, c = tensors
