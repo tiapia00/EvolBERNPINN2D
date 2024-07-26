@@ -238,7 +238,7 @@ class NNinbc(nn.Module):
         self.layers = nn.ModuleList()
         for _ in range(n_hidden - 1):
             self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.layers.append(TrigAct)
+            self.layers.append(TrigAct())
         
         self.layerout = nn.Linear(dim_hidden, 2)
 
@@ -424,6 +424,30 @@ class Calculate:
         else:
             return action.pow(2)
             # action, in general, can be negative
+    
+    def enloss(self, pinn):
+        x, y, t = self.points['all_points']
+        nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
+        space = torch.cat([x, y], dim=1)
+        output = pinn(space, t)
+
+        lam, mu, rho = self.m_par
+        dx, dy, dt = self.steps
+
+        eps = geteps(space, output, nsamples , self.device)
+        psi, sig = material_model(eps, (lam, mu), self.device)
+        Pi = getPsi(psi, (dx, dy)).reshape(-1)
+        # Pi should take into account also external forces applied
+
+        speed = getspeed(output, t, self.device)
+        T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
+
+        deren = torch.autograd.grad(Pi - T, t, torch.ones(Pi.shape[0], 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
+
+        loss = deren.pow(2).mean()
+        
+        return loss
 
 
     def gtdistance(self):
@@ -501,6 +525,7 @@ def train_model(
 
         optimizer.zero_grad()
         loss = calc.getaction(nn_approximator, False)
+        loss += calc.enloss(nn_approximator)
         loss.backward()
         optimizer.step()
 
