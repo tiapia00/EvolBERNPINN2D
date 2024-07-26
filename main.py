@@ -90,7 +90,9 @@ ef_range = torch.load('data//ef_range.pt')
 eigen = denormalizematr(eigen, ef_range)
 
 omega_trans = eigen.squeeze(0)[:6]
+print(omega_trans)
 omega_ax = eigen.squeeze(0)[6:]
+print(omega_ax)
 
 nninbcs = NNinbc(20, 3).to(device)
 nninbcs_trained = train_inbcs(nninbcs, calculate, 1000, 1e-3)

@@ -336,14 +336,14 @@ class PINN(nn.Module):
         self.nhiddenspace = nhidden_space
         self.act = act
 
-        self.Bsspaceax = nn.ParameterList(torch.normal(0., 1.,
+        self.Bsspaceax = nn.ParameterList(torch.normal(1., 1.,
                 size=(2, self.nmodespaceax)) for i in range(self.nmodespaceax))
-        self.Bsspacetrans = nn.ParameterList(torch.normal(0., 1.,
+        self.Bsspacetrans = nn.ParameterList(torch.normal(1., 1.,
                 size=(2, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
 
-        self.Bstimeax = nn.ParameterList(torch.normal(0., 1.,
+        self.Bstimeax = nn.ParameterList(torch.normal(2., 1.,
                 size=(1, self.nmodespaceax)) for i in range(self.nmodespaceax))
-        self.Bstimetrans = nn.ParameterList(torch.normal(0., 1.,
+        self.Bstimetrans = nn.ParameterList(torch.normal(1., 1.,
                 size=(1, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
 
         self.layersspaceax = self.getlayersspace(self.nmodespaceax)
