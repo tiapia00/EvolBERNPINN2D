@@ -89,8 +89,8 @@ eigen = eigenNN(input_eigen)
 ef_range = torch.load('data//ef_range.pt')
 eigen = denormalizematr(eigen, ef_range)
 
-omega_ax = eigen[:6]
-omega_trans = eigen[6:]
+omega_trans = eigen.squeeze(0)[:6]
+omega_ax = eigen.squeeze(0)[6:]
 
 nninbcs = NNinbc(20, 3).to(device)
 nninbcs_trained = train_inbcs(nninbcs, calculate, 100, 1e-3)

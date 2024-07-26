@@ -329,9 +329,6 @@ class PINN(nn.Module):
         self.nmodespaceax = omega_ax.shape[0]
         self.nmodespacetrans = omega_trans.shape[0]
         
-        omega_ax = omega_ax.squeeze(0)
-        omega_trans = omega_trans.squeeze(0)
-
         gamma_ax = omtogam_ax(omega_ax, prop)
         gamma_trans = omtogam_trans(omega_trans, prop)
 
@@ -339,14 +336,14 @@ class PINN(nn.Module):
         self.nhiddenspace = nhidden_space
         self.act = act
 
-        self.Bsspaceax = nn.ParameterList(torch.normal(gamma_ax[i].item(), 0.5,
+        self.Bsspaceax = nn.ParameterList(torch.normal(gamma_ax[i].item(), 1.,
                 size=(2, self.nmodespaceax)) for i in range(self.nmodespaceax))
-        self.Bsspacetrans = nn.ParameterList(torch.normal(gamma_trans[i].item(), 0.5,
+        self.Bsspacetrans = nn.ParameterList(torch.normal(gamma_trans[i].item(), 1.,
                 size=(2, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
 
-        self.Bstimeax = nn.ParameterList(torch.normal(omega_ax[i].item(), 0.5,
+        self.Bstimeax = nn.ParameterList(torch.normal(omega_ax[i].item(), 1.,
                 size=(1, self.nmodespaceax)) for i in range(self.nmodespaceax))
-        self.Bstimetrans = nn.ParameterList(torch.normal(omega_trans[i].item(), 0.5,
+        self.Bstimetrans = nn.ParameterList(torch.normal(omega_trans[i].item(), 1.,
                 size=(1, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
 
         self.layersspaceax = self.getlayersspace(self.nmodespaceax)
@@ -419,7 +416,7 @@ class PINN(nn.Module):
             trans = transs[l]
             for layer in self.layersspacetrans:
                 trans = layer(trans) 
-            trans_list.append(axial)
+            trans_list.append(trans)
 
         timesax_list = []
         for l in range(len(times_ax)):
@@ -446,11 +443,10 @@ class PINN(nn.Module):
                 multtrans.append(trans_list[mx] * timestrans_list[mt])
         
         concax = torch.cat(multax, dim=1)
-        print(multtrans)
         conctrans = torch.cat(multtrans, dim=1)
 
         outax = self.outlayerax(concax)
-        outtrans = self.outlayerax(conctrans)
+        outtrans = self.outlayertrans(conctrans)
 
         out = torch.cat([outax, outtrans], dim=1)
 
