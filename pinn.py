@@ -318,9 +318,6 @@ class PINN(nn.Module):
         for param in self.inbcsNN.parameters():
             param.requires_grad = False
         
-        for param in self.distNN.parameters():
-            param.requires_grad = False
-
         self.axial = RBF(2, 1, matern52)
         self.trans = RBF(2, 1, matern52)
 
