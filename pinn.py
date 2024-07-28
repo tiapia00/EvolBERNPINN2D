@@ -341,7 +341,6 @@ class PINN(nn.Module):
         out = torch.cat([axial, trans], dim=1) * t
         
         out_inbcs =  self.inbcsNN(points)
-        out_d = self.distNN(points)
 
         out = out * t.expand(-1,2) + out_inbcs
         out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)

@@ -114,7 +114,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden_t, nlayers_t, nninbcs, nndist).to(device)
+    pinn_trained = PINN(dim_hidden_t, nlayers_t, nninbcs).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
