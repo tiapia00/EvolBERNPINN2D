@@ -252,7 +252,6 @@ class NNinbc(nn.Module):
         output = self.layerout(output)
 
         ### Transformation for Dirichlet BCs ###
-        output *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
 
         return output
 
