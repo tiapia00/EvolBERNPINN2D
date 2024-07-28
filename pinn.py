@@ -454,7 +454,7 @@ class PINN(nn.Module):
         out_d = self.distNN(points)
 
         out = out * out_d + out_inbcs
-        #out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
+        out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
 
         return out
 
@@ -547,7 +547,8 @@ class Calculate:
         dists = torch.zeros(n, device=self.device)
         
         for i in range(n):
-            dist = torch.norm(x[i,:] - x_bc, dim=1)**2 + (t[i] - t_bc)**2
+            #dist = torch.norm(x[i,:] - x_bc, dim=1)**2 + (t[i] - t_bc)**2
+            dist = (t[i] - t_bc)**2
             dists[i] = torch.sqrt(torch.min(dist))
         
         return dists
@@ -562,6 +563,7 @@ class Calculate:
         ddot = torch.autograd.grad(output, t, torch.ones(output.shape[0], 1, device=self.device),
                  create_graph=True, retain_graph=True)[0]
         idx_0 = torch.nonzero(t == 0, as_tuple=False)
+
         loss += ddot[idx_0].pow(2).mean()
         
         return loss
