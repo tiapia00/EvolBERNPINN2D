@@ -238,7 +238,7 @@ class NNinbc(nn.Module):
         self.layers = nn.ModuleList()
         for _ in range(n_hidden - 1):
             self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.layers.append(TrigAct())
+            #self.layers.append(TrigAct())
         
         self.layerout = nn.Linear(dim_hidden, 2)
 
@@ -547,8 +547,7 @@ class Calculate:
         dists = torch.zeros(n, device=self.device)
         
         for i in range(n):
-            #dist = torch.norm(x[i,:] - x_bc, dim=1)**2 + (t[i] - t_bc)**2
-            dist = (t[i] - t_bc)**2
+            dist = torch.norm(x[i,:] - x_bc, dim=1)**2 + (t[i] - t_bc)**2
             dists[i] = torch.sqrt(torch.min(dist))
         
         return dists
