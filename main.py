@@ -89,18 +89,18 @@ omega_trans = eigen.squeeze(0)[:1]
 omega_ax = eigen.squeeze(0)[:1]
 
 nninbcs = NNinbc(20, 3).to(device)
-nndist = NNd(20, 3).to(device)
+#nndist = NNd(20, 3).to(device)
 
 if retrainaux:
     nninbcs = train_inbcs(nninbcs, calculate, 1000, 1e-3)
     torch.save(nninbcs.state_dict(), 'data//nnInbcs.pth')
-    nndist = train_dist(nndist, calculate, 5000, 1e-3)
-    torch.save(nndist.state_dict(), 'data//nnDist.pth')
+    #nndist = train_dist(nndist, calculate, 5000, 1e-3)
+    #torch.save(nndist.state_dict(), 'data//nnDist.pth')
 else:
     nninbcs.load_state_dict(torch.load('data//nnInbcs.pth'))
-    nndist.load_state_dict(torch.load('data//nnDist.pth'))
+    #nndist.load_state_dict(torch.load('data//nnDist.pth'))
 
-pinn = PINN(dim_hidden_t, nlayers_t, nninbcs, nndist).to(device)
+pinn = PINN(dim_hidden_t, nlayers_t, nninbcs).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 

@@ -308,14 +308,12 @@ class PINN(nn.Module):
                  dim_hidden_t: int,
                  nhidden_t: int,
                  inbcsNN: NNinbc,
-                 distNN: NNd,
                  act=nn.Tanh(),
                  ):
 
         super().__init__()
 
         self.inbcsNN = inbcsNN
-        self.distNN = distNN
         
         for param in self.inbcsNN.parameters():
             param.requires_grad = False
@@ -348,7 +346,7 @@ class PINN(nn.Module):
         out_inbcs =  self.inbcsNN(points)
         out_d = self.distNN(points)
 
-        out = out * out_d + out_inbcs
+        out = out * t.expand(-1,2) + out_inbcs
         out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
 
         return out
