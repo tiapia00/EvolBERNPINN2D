@@ -101,12 +101,12 @@ y_in = y.to(device)
 t_in = t.to(device)
 in_points = torch.cat([x_in, y_in, t_in], dim=1)
 
-nndist = NNd(20, 3).to(device)
-nndist_trained = train_dist(nndist, calculate, 5000, 1e-3)
-output = nndist_trained(in_points)
-plot_distance0(output, in_points[:,:2], dir_model)
+#nndist = NNd(20, 3).to(device)
+#nndist_trained = train_dist(nndist, calculate, 5000, 1e-3)
+#output = nndist_trained(in_points)
+#plot_distance0(output, in_points[:,:2], dir_model)
 
-pinn = PINN(n_hid_space, dim_mult, nninbcs_trained, nndist_trained, 
+pinn = PINN(n_hid_space, dim_mult, nninbcs_trained,
         omega_ax, omega_trans, prop).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)

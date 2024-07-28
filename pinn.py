@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
+import torch.nn.functional as F
 
 
 def initial_conditions(x: torch.tensor, w0: float, i: float = 1) -> torch.tensor:
@@ -238,7 +239,7 @@ class NNinbc(nn.Module):
         self.layers = nn.ModuleList()
         for _ in range(n_hidden - 1):
             self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            #self.layers.append(TrigAct())
+            self.layers.append(TrigAct())
         
         self.layerout = nn.Linear(dim_hidden, 2)
 
@@ -308,7 +309,6 @@ class PINN(nn.Module):
                  nhidden_space: int,
                  dim_mult : tuple,
                  inbcsNN: NNinbc,
-                 distNN: NNd,
                  omega_ax: torch.tensor,
                  omega_trans: torch.tensor,
                  prop: dict,
@@ -318,14 +318,10 @@ class PINN(nn.Module):
         super().__init__()
 
         self.inbcsNN = inbcsNN
-        self.distNN = distNN
         
         for param in self.inbcsNN.parameters():
             param.requires_grad = False
         
-        for param in self.distNN.parameters():
-            param.requires_grad = False
-
         self.nmodespaceax = omega_ax.shape[0]
         self.nmodespacetrans = omega_trans.shape[0]
         
@@ -383,7 +379,7 @@ class PINN(nn.Module):
         
         for _ in range(self.nhiddenspace - 1):
             layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
-            #layers.append(self.act)
+            layers.append(self.act)
         
         return layers
 
@@ -450,10 +446,17 @@ class PINN(nn.Module):
 
         out = torch.cat([outax, outtrans], dim=1)
 
-        out_inbcs =  self.inbcsNN(points)
-        out_d = self.distNN(points)
+        idxt0 = torch.nonzero(t.squeeze()==0).squeeze()
+        in_points = points[idxt0,:]
+        out_inbcs =  self.inbcsNN(in_points)
 
-        out = out * out_d + out_inbcs
+        ### PADDING ###
+        diff_bottom = out.shape[0] - out_inbcs.shape[0]
+        padding = (0, 0, 0, diff_bottom)
+
+        out_inbcs = F.pad(out_inbcs, padding)
+
+        out = out_inbcs + t.expand(-1, 2)*out
         out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
 
         return out
