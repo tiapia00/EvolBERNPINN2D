@@ -238,7 +238,7 @@ class NNinbc(nn.Module):
         self.layers = nn.ModuleList()
         for _ in range(n_hidden - 1):
             self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.layers.append(nn.Tanh())
+            self.layers.append(TrigAct())
         
         self.layerout = nn.Linear(dim_hidden, 2)
 
@@ -269,7 +269,7 @@ class NNd(nn.Module):
         self.layers = nn.ModuleList()
         for _ in range(n_hidden - 1):
             self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.layers.append(nn.Tanh())
+            self.layers.append(nn.ReLU())
         
         self.layerout = nn.Linear(dim_hidden, 1)
 
@@ -454,7 +454,7 @@ class PINN(nn.Module):
         out_d = self.distNN(points)
 
         out = out * out_d + out_inbcs
-        out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
+        #out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
 
         return out
 
