@@ -332,6 +332,7 @@ class PINN(nn.Module):
     def forward(self, space, t):
         axial = self.axial(space)
         trans = self.trans(space)
+        time = t
 
         points = torch.cat([space, t], dim=1)
 
@@ -342,7 +343,7 @@ class PINN(nn.Module):
         
         out_inbcs =  self.inbcsNN(points)
 
-        out = out * t.expand(-1,2) + out_inbcs
+        out = out * time.expand(-1,2) + out_inbcs
         out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
 
         return out
@@ -519,7 +520,6 @@ def train_model(
 
         optimizer.zero_grad()
         loss = calc.getaction(nn_approximator, False)
-        loss += calc.enloss(nn_approximator)
         loss.backward()
         optimizer.step()
 
