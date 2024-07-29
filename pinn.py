@@ -199,10 +199,11 @@ class Grid:
         return (x_all, y_all, t_all)
 
 
-def obtain_centers(points, step):
+def obtain_centers(points, step, device):
     max_x = torch.max(points[:,0]).item()
     max_y = torch.max(points[:,1]).item()
-    x, y = torch.meshgrid(torch.linspace(0, max_x, step), torch.linspace(0, max_y, step), indexing='ij')
+    x, y = torch.meshgrid(torch.linspace(0, max_x, step), 
+            torch.linspace(0, max_y, step), indexing='ij', device=device)
 
     centers = torch.cat([x.reshape(-1,1), y.reshape(-1,1)], dim=1)
     centers.requires_grad_(False)
@@ -210,9 +211,9 @@ def obtain_centers(points, step):
 
 
 class RBFLayer(nn.Module):
-    def __init__(self, basis_fun, all_points, step):
+    def __init__(self, basis_fun, all_points, step, device):
         super().__init__()
-        self.centers = obtain_centers(all_points, step)  # Centers of the RBFs
+        self.centers = obtain_centers(all_points, step, device)  # Centers of the RBFs
         self.basis_fun = basis_fun
 
     def forward(self, x):
@@ -221,9 +222,9 @@ class RBFLayer(nn.Module):
 
 
 class RBF(nn.Module):
-    def __init__(self, basis_fun, all_points, step, out_features):
+    def __init__(self, basis_fun, all_points, step, out_features, device):
         super().__init__()
-        self.rbf = RBFLayer(basis_fun, all_points, step)
+        self.rbf = RBFLayer(basis_fun, all_points, step, device)
         self.fc = nn.Linear(self.rbf.centers.shape[0], out_features)
 
     def forward(self, x):
@@ -333,6 +334,7 @@ class PINN(nn.Module):
                  nhidden_t: int,
                  inbcsNN: NNinbc,
                  all_points: torch.tensor,
+                 device: torch.device,
                  act=TrigAct(),
                  ):
 
@@ -343,8 +345,8 @@ class PINN(nn.Module):
         for param in self.inbcsNN.parameters():
             param.requires_grad = False
         
-        self.axial = RBF(matern52, all_points, 20, 1)
-        self.trans = RBF(matern52, all_points, 20, 1)
+        self.axial = RBF(matern52, all_points, 20, 1, device)
+        self.trans = RBF(matern52, all_points, 20, 1, device)
 
         self.timelayers = nn.ModuleList()
         self.timelayers.append(nn.Linear(1, dim_hidden))
