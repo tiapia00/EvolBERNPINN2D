@@ -212,10 +212,10 @@ def obtain_centers(points, step):
 
 
 class RBFLayer(nn.Module):
-    def __init__(self, basis_fun, all_points, step):
+    def __init__(self, input_dim, output_dim, basis_fun):
         super().__init__()
-        self.centers = obtain_centers(all_points, step)  # Centers of the RBFs
-        self.beta = nn.Parameter(torch.ones(self.centers.shape[0]))
+        self.centers = nn.Parameter(torch.rand(output_dim, input_dim))  # Centers of the RBFs
+        self.beta = nn.Parameter(torch.ones(output_dim))
         self.basis_fun = basis_fun
 
     def forward(self, x):
@@ -224,10 +224,10 @@ class RBFLayer(nn.Module):
 
 
 class RBF(nn.Module):
-    def __init__(self, basis_fun, all_points, step, out_features):
+    def __init__(self, input_dim, hidden_dim, output_dim, basis_fun):
         super().__init__()
-        self.rbf = RBFLayer(basis_fun, all_points, step)
-        self.fc = nn.Linear(self.rbf.centers.shape[0], out_features)
+        self.rbf = RBFLayer(input_dim, hidden_dim, basis_fun)
+        self.fc = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
         x = self.rbf(x)
@@ -235,8 +235,8 @@ class RBF(nn.Module):
         return x
 
 
-def inverse_multiquadric(alpha):
-    phi = torch.ones_like(alpha) / (torch.ones_like(alpha) + alpha.pow(2)).pow(0.5)
+def inverse_multiquadric(alpha, beta):
+    phi = torch.ones_like(alpha) / (torch.ones_like(alpha) + beta*alpha.pow(2)).pow(0.5)
     return phi
 
 def gaussian(alpha, beta):
@@ -335,7 +335,6 @@ class PINN(nn.Module):
                  dim_hidden: int,
                  nhidden_t: int,
                  inbcsNN: NNinbc,
-                 all_points: torch.tensor,
                  act=TrigAct(),
                  ):
 
@@ -346,8 +345,8 @@ class PINN(nn.Module):
         for param in self.inbcsNN.parameters():
             param.requires_grad = False
         
-        self.axial = RBF(gaussian, all_points, 5, 1)
-        self.trans = RBF(gaussian, all_points, 5, 1)
+        self.axial = RBF(2, dim_hidden, 1, inverse_multiquadric)
+        self.trans = RBF(2, dim_hidden, 1, inverse_multiquadric)
 
         self.timelayers = nn.ModuleList()
         self.timelayers.append(nn.Linear(1, dim_hidden))
