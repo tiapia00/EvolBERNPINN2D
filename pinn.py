@@ -238,8 +238,8 @@ def inverse_multiquadric(alpha):
     phi = torch.ones_like(alpha) / (torch.ones_like(alpha) + alpha.pow(2)).pow(0.5)
     return phi
 
-def gaussian(alpha, beta):
-    phi = torch.exp(-beta*alpha.pow(2))
+def gaussian(alpha):
+    phi = torch.exp(alpha.pow(2))
     return phi
 
 def matern52(alpha):
@@ -345,8 +345,8 @@ class PINN(nn.Module):
         for param in self.inbcsNN.parameters():
             param.requires_grad = False
         
-        self.axial = RBF(matern52, all_points, 20, 1, device)
-        self.trans = RBF(matern52, all_points, 20, 1, device)
+        self.axial = RBF(gaussian, all_points, 20, 1, device)
+        self.trans = RBF(gaussian, all_points, 20, 1, device)
 
         self.timelayers = nn.ModuleList()
         self.timelayers.append(nn.Linear(1, dim_hidden))
