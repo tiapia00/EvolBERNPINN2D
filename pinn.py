@@ -546,7 +546,7 @@ def train_model(
     for epoch in range(max_epochs):
 
         optimizer.zero_grad()
-        loss = calc.pdeloss(nn_approximator, False)
+        loss = calc.pdeloss(nn_approximator)
         loss.backward()
         optimizer.step()
 
