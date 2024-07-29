@@ -92,7 +92,7 @@ nninbcs = NNinbc(20, 3).to(device)
 #nndist = NNd(20, 3).to(device)
 
 if retrainaux:
-    nninbcs = train_inbcs(nninbcs, calculate, 1000, 1e-3)
+    nninbcs = train_inbcs(nninbcs, calculate, 10, 1e-3)
     torch.save(nninbcs.state_dict(), 'data//nnInbcs.pth')
     #nndist = train_dist(nndist, calculate, 5000, 1e-3)
     #torch.save(nndist.state_dict(), 'data//nnDist.pth')

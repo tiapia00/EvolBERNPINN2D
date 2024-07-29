@@ -3,7 +3,7 @@ from tqdm import tqdm
 from typing import Callable
 import numpy as np
 import torch
-from torch import nn
+from torch import device, nn
 import torch.optim as optim
 
 
@@ -41,7 +41,7 @@ def material_model(eps, mat_par: tuple,  device):
 
     return psi, sig
 
-def getspeed(output, t, device):
+def getspeed(output: torch.tensor, t: torch.tensor, device: torch.device):
     n = output.shape[0]
 
     vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones(n, 1, device=device),
@@ -50,6 +50,19 @@ def getspeed(output, t, device):
                 create_graph=True, retain_graph=True)[0]
     
     return torch.cat([vx, vy], dim=1)
+
+
+def getacc(output: torch.tensor, t: torch.tensor, device: torch.device):
+    n = output.shape[0]
+
+    v = getspeed(output, t, device)
+    ax = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones(n, 1, device=device),
+             create_graph=True, retain_graph=True)[0]
+    ay = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones(n, 1, device=device),
+             create_graph=True, retain_graph=True)[0]
+    
+    return torch.cat([ax, ay], dim=1)
+
 
 def getkinetic(speed: torch.tensor, nsamples: tuple, rho: float, ds: tuple):
     dx = ds[0]
@@ -394,7 +407,7 @@ class Calculate:
 
         return (Psi, K) 
 
-    def getaction(self, pinn, verbose):
+    def pdeloss(self, pinn, verbose):
         x, y, t = self.points['all_points']
         nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
         space = torch.cat([x, y], dim=1)
@@ -404,22 +417,32 @@ class Calculate:
         dx, dy, dt = self.steps
 
         eps = geteps(space, output, nsamples , self.device)
-        psi, sig = material_model(eps, (lam, mu), self.device)
-        Pi = getPsi(psi, (dx, dy)).reshape(-1)
-        # Pi should take into account also external forces applied
+        _, sig = material_model(eps, (lam, mu), self.device)
 
-        speed = getspeed(output, t, self.device)
-        T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
+        a = getacc(output, t, self.device)
 
-        action = torch.trapezoid(y = T - Pi, dx = dt)
+        div_sig = torch.zeros(sig.shape[0], sig.shape[1], sig.shape[2], 2)
+        partial_div = torch.zeros(sig.shape[0], sig.shape[1], sig.shape[2])
 
-        # Hamilton principle: action should be minimized
-        if verbose:
-            return (Pi, T) 
-        else:
-            return action.pow(2)
-            # action, in general, can be negative
-    
+        for i in range(2):
+            for j in range(2):
+                grad = torch.autograd.grad(sig[:,:,:,i, j], space, torch.ones((sig.shape[0], 
+                        sig.shape[1], sig.shape[2]), device=self.device),
+                        create_graph=True, retain_graph=True)[0]
+                partial_div += grad[:,j].reshape(sig.shape[0], sig.shape[1], sig.shape[2])
+            div_sig[:,:,:,i] = partial_div
+        
+        div_sig = div_sig.reshape(-1, 2)
+        diff = div_sig - self.m_par*a
+        
+        loss = 0
+        
+        loss += (diff[:,0]).pow(2).mean()
+        loss += (diff[:,1]).pow(2).mean()
+
+        return loss
+
+
     def enloss(self, pinn):
         x, y, t = self.points['all_points']
         nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
@@ -519,7 +542,7 @@ def train_model(
     for epoch in range(max_epochs):
 
         optimizer.zero_grad()
-        loss = calc.getaction(nn_approximator, False)
+        loss = calc.pdeloss(nn_approximator, False)
         loss.backward()
         optimizer.step()
 
@@ -531,7 +554,7 @@ def train_model(
 
         pbar.update(1)
 
-    losses = calc.getaction(nn_approximator, True)
+    losses = calc.pdeloss(nn_approximator, True)
     Pi, T = losses
     variables = {'Pi': Pi.detach().cpu().numpy(), 'T': T.detach().cpu().numpy()}
 
