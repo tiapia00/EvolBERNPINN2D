@@ -199,11 +199,12 @@ class Grid:
         return (x_all, y_all, t_all)
 
 
-def obtain_centers(points, step, device):
-    max_x = torch.max(points[:,0]).item()
-    max_y = torch.max(points[:,1]).item()
-    x, y = torch.meshgrid(torch.linspace(0, max_x, step), 
-            torch.linspace(0, max_y, step), indexing='ij', device=device)
+def obtain_centers(points, step):
+    device = points.device
+    max_x = torch.max(points[:,0])
+    max_y = torch.max(points[:,1])
+    x, y = torch.meshgrid(torch.linspace(0, max_x, step, device=device), 
+            torch.linspace(0, max_y, step, device=device), indexing='ij')
 
     centers = torch.cat([x.reshape(-1,1), y.reshape(-1,1)], dim=1)
     centers.requires_grad_(False)
@@ -211,9 +212,9 @@ def obtain_centers(points, step, device):
 
 
 class RBFLayer(nn.Module):
-    def __init__(self, basis_fun, all_points, step, device):
+    def __init__(self, basis_fun, all_points, step):
         super().__init__()
-        self.centers = obtain_centers(all_points, step, device)  # Centers of the RBFs
+        self.centers = obtain_centers(all_points, step)  # Centers of the RBFs
         self.basis_fun = basis_fun
 
     def forward(self, x):
@@ -222,9 +223,9 @@ class RBFLayer(nn.Module):
 
 
 class RBF(nn.Module):
-    def __init__(self, basis_fun, all_points, step, out_features, device):
+    def __init__(self, basis_fun, all_points, step, out_features):
         super().__init__()
-        self.rbf = RBFLayer(basis_fun, all_points, step, device)
+        self.rbf = RBFLayer(basis_fun, all_points, step)
         self.fc = nn.Linear(self.rbf.centers.shape[0], out_features)
 
     def forward(self, x):
