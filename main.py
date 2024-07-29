@@ -88,7 +88,7 @@ eigen = denormalizematr(eigen, ef_range)
 omega_trans = eigen.squeeze(0)[:1]
 omega_ax = eigen.squeeze(0)[:1]
 
-nninbcs = NNinbc(20, 3).to(device)
+nninbcs = NNinbc(20, 1).to(device)
 #nndist = NNd(20, 3).to(device)
 
 if retrainaux:
@@ -100,7 +100,8 @@ else:
     nninbcs.load_state_dict(torch.load('data//nnInbcs.pth'))
     #nndist.load_state_dict(torch.load('data//nnDist.pth'))
 
-pinn = PINN(dim_hidden, nlayerst, nninbcs).to(device)
+all_points = torch.cat(points['all_points'], dim=1)[:,:2]
+pinn = PINN(dim_hidden, nlayerst, nninbcs, all_points).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
@@ -114,7 +115,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, nlayerst, nninbcs).to(device)
+    pinn_trained = PINN(dim_hidden, nlayerst, nninbcs, all_points).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)

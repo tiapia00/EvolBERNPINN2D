@@ -199,23 +199,32 @@ class Grid:
         return (x_all, y_all, t_all)
 
 
+def obtain_centers(points, step):
+    max_x = torch.max(points[:,0]).item()
+    max_y = torch.max(points[:,1]).item()
+    x, y = torch.meshgrid(torch.linspace(0, max_x, step), torch.linspace(0, max_y, step), indexing='ij')
+
+    centers = torch.cat([x.reshape(-1,1), y.reshape(-1,1)], dim=1)
+    centers.requires_grad_(False)
+    return centers
+
+
 class RBFLayer(nn.Module):
-    def __init__(self, in_features, out_features, basis_fun):
+    def __init__(self, basis_fun, all_points, step):
         super().__init__()
-        self.centers = nn.Parameter(torch.randn(out_features, in_features))  # Centers of the RBFs
-        self.beta = nn.Parameter(torch.ones(out_features))  # Spread of the RBFs
+        self.centers = obtain_centers(all_points, step)  # Centers of the RBFs
         self.basis_fun = basis_fun
 
     def forward(self, x):
         dists = torch.cdist(x, self.centers)
-        return self.basis_fun(dists, self.beta) 
+        return self.basis_fun(dists) 
 
 
 class RBF(nn.Module):
-    def __init__(self, in_features, hidden_features, out_features, basis_fun):
+    def __init__(self, basis_fun, all_points, step, out_features):
         super().__init__()
-        self.rbf = RBFLayer(in_features, hidden_features, basis_fun)
-        self.fc = nn.Linear(hidden_features, out_features)
+        self.rbf = RBFLayer(basis_fun, all_points, step)
+        self.fc = nn.Linear(self.rbf.centers.shape[0], out_features)
 
     def forward(self, x):
         x = self.rbf(x)
@@ -323,6 +332,7 @@ class PINN(nn.Module):
                  dim_hidden: int,
                  nhidden_t: int,
                  inbcsNN: NNinbc,
+                 all_points: torch.tensor,
                  act=TrigAct(),
                  ):
 
@@ -333,8 +343,8 @@ class PINN(nn.Module):
         for param in self.inbcsNN.parameters():
             param.requires_grad = False
         
-        self.axial = RBF(2, dim_hidden, 1, gaussian)
-        self.trans = RBF(2, dim_hidden, 1, gaussian)
+        self.axial = RBF(matern52, all_points, 20, 1)
+        self.trans = RBF(matern52, all_points, 20, 1)
 
         self.timelayers = nn.ModuleList()
         self.timelayers.append(nn.Linear(1, dim_hidden))
@@ -546,7 +556,7 @@ def train_model(
     for epoch in range(max_epochs):
 
         optimizer.zero_grad()
-        loss = calc.pdeloss(nn_approximator)
+        loss = calc.pdeloss(nn_approximator) + calc.enloss(nn_approximator)
         loss.backward()
         optimizer.step()
 
