@@ -421,8 +421,8 @@ class Calculate:
 
         a = getacc(output, t, self.device)
 
-        div_sig = torch.zeros(sig.shape[0], sig.shape[1], sig.shape[2], 2)
-        partial_div = torch.zeros(sig.shape[0], sig.shape[1], sig.shape[2])
+        div_sig = torch.zeros((sig.shape[0], sig.shape[1], sig.shape[2], 2), device=self.device)
+        partial_div = torch.zeros((sig.shape[0], sig.shape[1], sig.shape[2]), device=self.device)
 
         for i in range(2):
             for j in range(2):
