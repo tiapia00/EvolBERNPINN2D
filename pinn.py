@@ -345,8 +345,8 @@ class PINN(nn.Module):
         for param in self.inbcsNN.parameters():
             param.requires_grad = False
         
-        self.axial = RBF(gaussian, all_points, 20, 1, device)
-        self.trans = RBF(gaussian, all_points, 20, 1, device)
+        self.axial = RBF(gaussian, all_points, 40, 1)
+        self.trans = RBF(gaussian, all_points, 40, 1)
 
         self.timelayers = nn.ModuleList()
         self.timelayers.append(nn.Linear(1, dim_hidden))
