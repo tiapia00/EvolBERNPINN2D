@@ -199,7 +199,7 @@ class Grid:
         return (x_all, y_all, t_all)
 
 
-def obtain_centers(points, step):
+def obtain_centers(points, step=10):
     device = points.device
     max_x = torch.max(points[:,0])
     max_y = torch.max(points[:,1])
@@ -212,10 +212,10 @@ def obtain_centers(points, step):
 
 
 class RBFLayer(nn.Module):
-    def __init__(self, input_dim, output_dim, basis_fun):
+    def __init__(self, all_points, basis_fun):
         super().__init__()
-        self.centers = nn.Parameter(torch.rand(output_dim, input_dim))  # Centers of the RBFs
-        self.beta = nn.Parameter(torch.ones(output_dim))
+        self.centers = obtain_centers(all_points)  # Centers of the RBFs
+        self.beta = nn.Parameter(torch.ones(self.centers.shape[0]))
         self.basis_fun = basis_fun
 
     def forward(self, x):
@@ -224,10 +224,10 @@ class RBFLayer(nn.Module):
 
 
 class RBF(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, basis_fun):
+    def __init__(self, all_points, output_dim, basis_fun):
         super().__init__()
-        self.rbf = RBFLayer(input_dim, hidden_dim, basis_fun)
-        self.fc = nn.Linear(hidden_dim, output_dim)
+        self.rbf = RBFLayer(all_points, basis_fun)
+        self.fc = nn.Linear(self.rbf.centers.shape[0], output_dim)
 
     def forward(self, x):
         x = self.rbf(x)
@@ -249,7 +249,7 @@ def matern52(alpha):
 
 class TrigAct(nn.Module):
     def forward(self, x):
-        return torch.sin(x)
+        return torch.cos(x)
 
 def parabolic(a, x):
     return (a * x ** 2 - a * x)
@@ -335,6 +335,7 @@ class PINN(nn.Module):
                  dim_hidden: int,
                  nhidden_t: int,
                  inbcsNN: NNinbc,
+                 all_points: torch.tensor,
                  act=TrigAct(),
                  ):
 
@@ -345,8 +346,7 @@ class PINN(nn.Module):
         for param in self.inbcsNN.parameters():
             param.requires_grad = False
         
-        self.axial = RBF(2, dim_hidden, 1, inverse_multiquadric)
-        self.trans = RBF(2, dim_hidden, 1, inverse_multiquadric)
+        self.space = RBF(all_points, 2, inverse_multiquadric)
 
         self.timelayers = nn.ModuleList()
         self.timelayers.append(nn.Linear(1, dim_hidden))
@@ -356,8 +356,7 @@ class PINN(nn.Module):
         self.timelayers.append(nn.Linear(dim_hidden, 2))
 
     def forward(self, space, t):
-        axial = self.axial(space)
-        trans = self.trans(space)
+        x = self.axial(space)
         time = t
 
         points = torch.cat([space, t], dim=1)
@@ -365,7 +364,7 @@ class PINN(nn.Module):
         for layer in self.timelayers:
             t = layer(t)
 
-        out = torch.cat([axial, trans], dim=1) * t
+        out = x * t
         
         out_inbcs =  self.inbcsNN(points)
 
