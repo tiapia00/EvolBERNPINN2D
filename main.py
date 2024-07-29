@@ -47,7 +47,7 @@ w, en0 = obtain_analytical_free(my_beam, w0, t, n_time)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, dim_hidden_t, nlayers_t, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, w0, dim_hidden, nlayerst, lr, epochs = get_params(par.pinn_par)
 
 x_domain = torch.linspace(0, Lx, n_space[0])
 y_domain = torch.linspace(0, Ly, n_space[1])
@@ -100,7 +100,7 @@ else:
     nninbcs.load_state_dict(torch.load('data//nnInbcs.pth'))
     #nndist.load_state_dict(torch.load('data//nnDist.pth'))
 
-pinn = PINN(dim_hidden_t, nlayers_t, nninbcs).to(device)
+pinn = PINN(dim_hidden, nlayerst, nninbcs).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
@@ -108,13 +108,13 @@ if retrain_PINN:
     pinn_trained, indicators = train_model(pinn, calc=calculate, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs)
 
-    model_name = f'{lr}_{epochs}_{dim_hidden_t}.pth'
+    model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
 
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden_t, nlayers_t, nninbcs).to(device)
+    pinn_trained = PINN(dim_hidden, nlayerst, nninbcs).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)

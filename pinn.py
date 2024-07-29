@@ -199,34 +199,36 @@ class Grid:
         return (x_all, y_all, t_all)
 
 
+class RBFLayer(nn.Module):
+    def __init__(self, in_features, out_features, basis_fun):
+        super().__init__()
+        self.centers = nn.Parameter(torch.randn(out_features, in_features))  # Centers of the RBFs
+        self.beta = nn.Parameter(torch.ones(out_features))  # Spread of the RBFs
+        self.basis_fun = basis_fun
+
+    def forward(self, x):
+        dists = torch.cdist(x, self.centers)
+        return self.basis_fun(dists, self.beta) 
+
+
 class RBF(nn.Module):
-    def __init__(self, in_features, out_features, basis_func):
-        super(RBF, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.centres = nn.Parameter(torch.Tensor(out_features, in_features))
-        self.log_sigmas = nn.Parameter(torch.Tensor(out_features))
-        self.basis_func = basis_func
-        self.reset_parameters()
+    def __init__(self, in_features, hidden_features, out_features, basis_fun):
+        super().__init__()
+        self.rbf = RBFLayer(in_features, hidden_features, basis_fun)
+        self.fc = nn.Linear(hidden_features, out_features)
 
-    def reset_parameters(self):
-        nn.init.normal_(self.centres, 0, 1)
-        nn.init.constant_(self.log_sigmas, 0)
+    def forward(self, x):
+        x = self.rbf(x)
+        x = self.fc(x)
+        return x
 
-    def forward(self, input):
-        size = (input.size(0), self.out_features, self.in_features)
-        x = input.unsqueeze(1).expand(size)
-        c = self.centres.unsqueeze(0).expand(size)
-        distances = (x - c).pow(2).sum(-1).pow(0.5) / \
-            torch.exp(self.log_sigmas).unsqueeze(0)
-        return self.basis_func(distances)
 
 def inverse_multiquadric(alpha):
     phi = torch.ones_like(alpha) / (torch.ones_like(alpha) + alpha.pow(2)).pow(0.5)
     return phi
 
-def gaussian(alpha):
-    phi = torch.exp(-1*alpha.pow(2))
+def gaussian(alpha, beta):
+    phi = torch.exp(-beta*alpha.pow(2))
     return phi
 
 def matern52(alpha):
@@ -318,10 +320,10 @@ def omtogam_ax(omega: torch.tensor, prop: dict):
 
 class PINN(nn.Module):
     def __init__(self,
-                 dim_hidden_t: int,
+                 dim_hidden: int,
                  nhidden_t: int,
                  inbcsNN: NNinbc,
-                 act=nn.Tanh(),
+                 act=TrigAct(),
                  ):
 
         super().__init__()
@@ -331,16 +333,15 @@ class PINN(nn.Module):
         for param in self.inbcsNN.parameters():
             param.requires_grad = False
         
-        self.axial = RBF(2, 1, matern52)
-        self.trans = RBF(2, 1, matern52)
+        self.axial = RBF(2, dim_hidden, 1, gaussian)
+        self.trans = RBF(2, dim_hidden, 1, gaussian)
 
         self.timelayers = nn.ModuleList()
-        self.timelayers.append(nn.Linear(1, dim_hidden_t))
+        self.timelayers.append(nn.Linear(1, dim_hidden))
         for _ in range(nhidden_t):
-            self.timelayers.append(nn.Linear(dim_hidden_t, dim_hidden_t))
+            self.timelayers.append(nn.Linear(dim_hidden, dim_hidden))
             self.timelayers.append(act)
-        self.timelayers.append(nn.Linear(dim_hidden_t, 2))
-
+        self.timelayers.append(nn.Linear(dim_hidden, 2))
 
     def forward(self, space, t):
         axial = self.axial(space)
@@ -407,7 +408,7 @@ class Calculate:
 
         return (Psi, K) 
 
-    def pdeloss(self, pinn, verbose):
+    def pdeloss(self, pinn):
         x, y, t = self.points['all_points']
         nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
         space = torch.cat([x, y], dim=1)
@@ -443,7 +444,7 @@ class Calculate:
         return loss
 
 
-    def enloss(self, pinn):
+    def enloss(self, pinn, verbose: bool):
         x, y, t = self.points['all_points']
         nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
         space = torch.cat([x, y], dim=1)
@@ -464,10 +465,13 @@ class Calculate:
                  create_graph=True, retain_graph=True)[0]
 
         loss = deren.pow(2).mean()
+
+        if verbose:
+            return (Pi, T)
+        else:
+            return loss
+
         
-        return loss
-
-
     def gtdistance(self):
         x, y, t = self.points['all_points']
         points = torch.cat([x, y, t], dim=1)
@@ -554,7 +558,7 @@ def train_model(
 
         pbar.update(1)
 
-    losses = calc.pdeloss(nn_approximator, True)
+    losses = calc.enloss(nn_approximator, True)
     Pi, T = losses
     variables = {'Pi': Pi.detach().cpu().numpy(), 'T': T.detach().cpu().numpy()}
 
