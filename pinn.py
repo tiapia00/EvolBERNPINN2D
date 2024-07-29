@@ -335,7 +335,6 @@ class PINN(nn.Module):
                  nhidden_t: int,
                  inbcsNN: NNinbc,
                  all_points: torch.tensor,
-                 device: torch.device,
                  act=TrigAct(),
                  ):
 
