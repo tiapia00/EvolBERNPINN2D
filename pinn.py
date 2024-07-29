@@ -215,11 +215,12 @@ class RBFLayer(nn.Module):
     def __init__(self, basis_fun, all_points, step):
         super().__init__()
         self.centers = obtain_centers(all_points, step)  # Centers of the RBFs
+        self.beta = nn.Parameter(torch.ones(self.centers.shape[0]))
         self.basis_fun = basis_fun
 
     def forward(self, x):
         dists = torch.cdist(x, self.centers)
-        return self.basis_fun(dists) 
+        return self.basis_fun(dists, self.beta) 
 
 
 class RBF(nn.Module):
@@ -238,8 +239,8 @@ def inverse_multiquadric(alpha):
     phi = torch.ones_like(alpha) / (torch.ones_like(alpha) + alpha.pow(2)).pow(0.5)
     return phi
 
-def gaussian(alpha):
-    phi = torch.exp(-alpha.pow(2))
+def gaussian(alpha, beta):
+    phi = torch.exp(-beta * alpha.pow(2))
     return phi
 
 def matern52(alpha):
