@@ -239,7 +239,7 @@ def inverse_multiquadric(alpha):
     return phi
 
 def gaussian(alpha):
-    phi = torch.exp(alpha.pow(2))
+    phi = torch.exp(-alpha.pow(2))
     return phi
 
 def matern52(alpha):
