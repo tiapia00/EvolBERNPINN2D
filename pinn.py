@@ -433,7 +433,7 @@ class Calculate:
             div_sig[:,:,:,i] = partial_div
         
         div_sig = div_sig.reshape(-1, 2)
-        diff = div_sig - self.m_par*a
+        diff = div_sig - self.m_par[2]*a
         
         loss = 0
         
