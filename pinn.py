@@ -277,9 +277,6 @@ class NNinbc(nn.Module):
         
         output = self.layerout(output)
 
-        ### Transformation for Dirichlet BCs ###
-        output *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
-
         return output
 
 
@@ -335,6 +332,7 @@ class PINN(nn.Module):
                  dim_hidden: int,
                  nhidden_t: int,
                  inbcsNN: NNinbc,
+                 nnd: NNd,
                  all_points: torch.tensor,
                  act=TrigAct(),
                  ):
@@ -342,8 +340,12 @@ class PINN(nn.Module):
         super().__init__()
 
         self.inbcsNN = inbcsNN
+        self.nnd = nnd
         
         for param in self.inbcsNN.parameters():
+            param.requires_grad = False
+        
+        for param in self.nnd.parameters():
             param.requires_grad = False
         
         self.space = RBF(all_points, 2, inverse_multiquadric)
@@ -356,8 +358,7 @@ class PINN(nn.Module):
         self.timelayers.append(nn.Linear(dim_hidden, 2))
 
     def forward(self, space, t):
-        x = self.axial(space)
-        time = t
+        x = self.space(space)
 
         points = torch.cat([space, t], dim=1)
 
@@ -367,8 +368,9 @@ class PINN(nn.Module):
         out = x * t
         
         out_inbcs =  self.inbcsNN(points)
+        out_d = self.nnd(points)
 
-        out = out * time.expand(-1,2) + out_inbcs
+        out = out * out_d + out_inbcs
         out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
 
         return out
