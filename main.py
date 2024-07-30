@@ -108,7 +108,7 @@ pinn = PINN(dim_hidden, nlayerst, nninbcs, nndist, all_points).to(device)
 Psi_0, K_0 = calculate.gete0(pinn)
 
 if retrain_PINN:
-    pinn_trained, indicators = train_model(pinn, calc=calculate, learning_rate=lr,
+    pinn_trained, ens_NN = train_model(pinn, calc=calculate, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
