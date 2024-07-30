@@ -16,17 +16,15 @@ class Parameters:
             'n_space': self.n_space,
             'n_time': self.n_time,
             'w0': self.w0,
-            'dim_hidden_t': self.dim_hidden_t,
+            'dim_hidden_t': self.dim_hidden,
             'nlayers_t': self.n_hidden_t, 
-            'lr': 1e-3,
-            'epochs': 4000
+            'lr': 8e-4,
+            'epochs': 1 
         }
         self.beam_par = {
             'x_end': self.x_end,
             't_end': self.t_end,
             'h': self.y_end,
-            'n_space': self.n_space[0],
-            'n_time': self.n_time,
             'w0': self.w0
         }
         self.mat_par = {

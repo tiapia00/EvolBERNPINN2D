@@ -37,11 +37,13 @@ def get_step(tensors: tuple):
 
 par = Parameters()
 
-Lx, t, h, nx, n_time, w0 = get_params(par.beam_par)
+Lx, t, h, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
-my_beam = Beam(Lx, E, rho, h, 4e-3, nx)
+my_beam = Beam(Lx, E, rho, h, 4e-3, 2000)
 
-w, en0 = obtain_analytical_free(my_beam, w0, t, n_time)
+t_beam = np.linspace(0, t, 2000)
+w, ens_an = obtain_analytical_free(my_beam, w0, t_beam)
+ens_an = {'V': ens_an[:,0], 'T': ens_an[:,1]}
 
 #t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
 
@@ -152,5 +154,4 @@ space_in = torch.cat([x, y], dim=1)
 sol = obtainsolt(pinn_trained, space_in, t, nsamples, device)
 plot_sol(sol, space_in, t, dir_model)
 
-plot_sol_comparison(sol, space_in, t, w, dir_model)
-plot_indicators(indicators, t, dir_model)
+plot_energy(ens_NN, ens_an, t, t_beam, dir_model)

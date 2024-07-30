@@ -5,17 +5,6 @@ import torch
 from matplotlib.animation import FuncAnimation
 import numpy as np
 
-def plot_distance0(output: torch.tensor, space: torch.tensor, path: str):
-    ### t=0 ###
-    plt.figure()
-    plt.scatter(space[:,0].detach().cpu().numpy(), space[:,1].detach().cpu().numpy(), 
-            c=output.detach().cpu().numpy(), cmap = 'viridis')
-    plt.xlabel('$x$')
-    plt.ylabel('$y$')
-    plt.colorbar()
-    plt.title('$D(x_i, 0)$')
-
-    plt.savefig(f'{path}/distance0.png')
     
 def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, n_space: int, path: str):
     """Plot initial conditions.
@@ -79,42 +68,6 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     plt.savefig(f'{path}/init.png')
 
 
-def plot_sol_comparison(sol: torch.tensor, space: torch.tensor, t: torch.tensor, w_num: np.ndarray,
-        path: str):
-
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
-
-    t = torch.unique(t, sorted=True).detach().cpu().numpy()
-    space = space.detach().cpu().numpy()
-
-    ax.scatter(space[:,0]+sol[:,0,0], space[:,1]+sol[:,0,1])
-    x = np.unique(space[:,0])
-    ax.scatter(x, w_num[:,0])
-
-    ax.set_title(f'$t = {t[0]:.2f}$')
-
-    def update(frame):
-        y_limts = np.array([-0.5, 0.5])
-
-        ax.clear()
-
-        ax.set_xlabel('${x}$')
-        ax.set_ylabel('${y}$')
-        ax.set_title(f'${{t}} = {t[frame]:.2f}$')
-
-        ax.set_ylim(np.min(y_limts), np.max(y_limts))
-        ax.scatter(space[:,0]+sol[:,frame,0], space[:,1]+sol[:,frame,1])
-        ax.scatter(x, w_num[:,frame])
-
-        return ax
-
-    n_frames = t.shape[0]
-    ani = FuncAnimation(fig, update, frames=n_frames, interval=100, blit=False)
-
-    file = f'{path}/sol_time_comparison.gif'
-    ani.save(file, fps=5)
-
-
 def plot_sol(sol: torch.tensor, space: torch.tensor, t: torch.tensor, path: str):
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
 
@@ -150,15 +103,21 @@ def plot_compliance(x: torch.tensor, y: torch.tensor,
                     t: torch.tensor, w_ad: np.ndarray, path: str, device):
     pass
 
-def plot_indicators(indicators: dict, t: torch.tensor, path: str):
-    t = torch.unique(t, sorted=True).detach().cpu().numpy()
+def plot_energy(indicators_nn: dict, indicators_an: dict, t_nn: torch.tensor, t_beam: np.ndarray, path: str):
+    ### Correct: 2 oscillations per period ###
+    t_nn = torch.unique(t_nn, sorted=True).detach().cpu().numpy()
 
-    T = indicators['T']
-    Pi = indicators['Pi']
+    T_nn = indicators_nn['T']
+    Pi_nn = indicators_nn['Pi']
+
+    T_an = indicators_an['T']
+    Pi_an = indicators_an['V']
 
     plt.figure()
-    plt.plot(t, T, label='$T$')
-    plt.plot(t, Pi, label='$\\Pi$')
+    plt.plot(t_nn, T_nn, label='$T_{{NN}}$')
+    plt.plot(t_nn, Pi_nn, label='$\\Pi_{{NN}}$')
+    plt.plot(t_beam, T_an, label='$T_{{an}}$')
+    plt.plot(t_beam, Pi_an, label='$\\Pi_{{an}}$')
     plt.legend()
 
     file = f'{path}/energyfinal.png'
