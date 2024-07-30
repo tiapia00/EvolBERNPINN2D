@@ -201,8 +201,10 @@ class Grid:
 
 def obtain_centers(points, step=10):
     device = points.device
+
     max_x = torch.max(points[:,0])
     max_y = torch.max(points[:,1])
+
     x, y = torch.meshgrid(torch.linspace(0, max_x, step, device=device), 
             torch.linspace(0, max_y, step, device=device), indexing='ij')
 
@@ -210,29 +212,34 @@ def obtain_centers(points, step=10):
     centers.requires_grad_(False)
     return centers
 
+class TimeVaryingRBF(nn.Module):
+    def __init__(self, in_features, out_features, time_dependent_func):
+        super(TimeVaryingRBF, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.time_dependent_func = time_dependent_func  # Function to update centers
+        
+        # Initialize centers (parameters p_j(t))
+        self.centers = nn.Parameter(torch.randn(out_features, in_features))
+        self.log_sigma = nn.Parameter(torch.zeros(out_features))  # Log of sigma for numerical stability
+    
+    def forward(self, x, t):
+        # Update centers based on time t
+        self.centers.data = self.time_dependent_func(t)
+        
+        # Compute pairwise distance between input and centers
+        x = x.unsqueeze(1).expand(-1, self.out_features, -1)
+        centers = self.centers.unsqueeze(0).expand(x.size(0), -1, -1)
+        dists = torch.norm(x - centers, dim=2)
+        
+        # Compute the RBF activations
+        activations = torch.exp(-0.5 * (dists / torch.exp(self.log_sigma))**2)
+        return activations
 
-class RBFLayer(nn.Module):
-    def __init__(self, all_points, basis_fun):
-        super().__init__()
-        self.centers = obtain_centers(all_points)  # Centers of the RBFs
-        self.beta = nn.Parameter(torch.ones(self.centers.shape[0]))
-        self.basis_fun = basis_fun
-
-    def forward(self, x):
-        dists = torch.cdist(x, self.centers)
-        return self.basis_fun(dists, self.beta) 
-
-
-class RBF(nn.Module):
-    def __init__(self, all_points, output_dim, basis_fun):
-        super().__init__()
-        self.rbf = RBFLayer(all_points, basis_fun)
-        self.fc = nn.Linear(self.rbf.centers.shape[0], output_dim)
-
-    def forward(self, x):
-        x = self.rbf(x)
-        x = self.fc(x)
-        return x
+# Example time-dependent function for centers
+def time_dependent_func(t):
+    centers = torch.sin(t) * torch.ones(out_features, in_features)
+    return centers
 
 
 def inverse_multiquadric(alpha, beta):
