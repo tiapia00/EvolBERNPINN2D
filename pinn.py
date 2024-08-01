@@ -246,11 +246,12 @@ class TRBF(nn.Module):
         self.register_buffer('centers', centers_init)
         self.log_sigma = nn.Parameter(torch.zeros(out_features))
         self.a = nn.Parameter(0.5*torch.ones(out_features))
+        self.bias = nn.Parameter(torch.zeros(out_features, in_features))
     
     def forward(self, space, t):
-        dists = torch.cdist(torch.cat([space, t], dim=1), self.centers)
+        dists = torch.cdist(torch.cat([space, t], dim=1), self.centers + self.bias)
         
-        activations = self.a * torch.exp(-0.5 * (dists / torch.exp(self.log_sigma))**2)
+        activations = self.a * torch.exp(-0.2 * (dists / torch.exp(self.log_sigma))**2)
         return activations
 
 
