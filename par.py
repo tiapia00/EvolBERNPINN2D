@@ -2,10 +2,10 @@ class Parameters:
     def __init__(self):
         self.x_end = 4
         self.y_end = 1e-1
-        self.t_end = 1
+        self.t_end = 0.1 
         self.n_space = (40, 40)
-        self.n_time = 60
-        self.dim_hidden_t = 4
+        self.n_time = 40
+        self.dim_hidden = 20 
         self.dim_mult = (1,1)
         self.n_hidden_t : int = 5
         self.w0 = 0.3
@@ -19,7 +19,7 @@ class Parameters:
             'dim_hidden_t': self.dim_hidden,
             'nlayers_t': self.n_hidden_t, 
             'lr': 8e-4,
-            'epochs': 1 
+            'epochs': 3000 
         }
         self.beam_par = {
             'x_end': self.x_end,

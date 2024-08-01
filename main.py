@@ -80,6 +80,7 @@ calculate = Calculate(
         device
     )
 
+"""
 eigenNN = MLNet(4, 60, 9)
 eigenNN.load_state_dict(torch.load('data//eigenestmodel.pth'))
 input_eigen = torch.tensor([E, rho, Lx, Ly]).reshape(1,-1)
@@ -90,7 +91,6 @@ eigen = denormalizematr(eigen, ef_range)
 omega_trans = eigen.squeeze(0)[:1]
 omega_ax = eigen.squeeze(0)[:1]
 
-"""
 nninbcs = NNinbc(20, 1).to(device)
 nndist = NNd(40, 2).to(device)
 
@@ -105,7 +105,7 @@ else:
 """
 
 all_points = torch.cat(points['all_points'], dim=1)[:,:2]
-pinn = PINN(dim_hidden, w0)
+pinn = PINN(dim_hidden, w0).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
@@ -119,7 +119,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, w0)
+    pinn_trained = PINN(dim_hidden, w0).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)

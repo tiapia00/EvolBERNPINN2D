@@ -333,6 +333,7 @@ class PINN(nn.Module):
         points = torch.cat([space, t], dim=1)
 
         out = self.network(space, t)
+        out = self.outlayer(out)
         
         out = out*t + initial_conditions(space[:,0].unsqueeze(1), self.w0)[:,:2]
         out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
