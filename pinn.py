@@ -6,6 +6,43 @@ import torch
 from torch import device, nn
 import torch.optim as optim
 
+def latin_hypercube_sampling(n_samples, n_dimensions, low, high):
+    """
+    Perform Latin Hypercube Sampling using PyTorch.
+
+    Args:
+        n_samples (int): Number of samples to generate.
+        n_dimensions (int): Number of dimensions.
+        low (float or list of floats): Lower bound of the sampling range.
+        high (float or list of floats): Upper bound of the sampling range.
+
+    Returns:
+        torch.Tensor: A tensor of shape (n_samples, n_dimensions) containing the sampled points.
+    """
+    # Ensure low and high are lists if single values are provided
+    if isinstance(low, (int, float)):
+        low = [low] * n_dimensions
+    if isinstance(high, (int, float)):
+        high = [high] * n_dimensions
+
+    # Convert to tensors
+    low = torch.tensor(low)
+    high = torch.tensor(high)
+
+    # Create an array to hold the samples
+    samples = torch.zeros((n_samples, n_dimensions))
+
+    # Generate samples
+    for d in range(n_dimensions):
+        # Create stratified sampling intervals
+        intervals = torch.linspace(0, 1, n_samples + 1)[:-1] + torch.rand(n_samples) * (1 / n_samples)
+        intervals = intervals[torch.randperm(n_samples)]  # Shuffle intervals
+        
+        # Map intervals to the range [low, high]
+        samples[:, d] = low[d] + intervals * (high[d] - low[d])
+
+    return samples
+
 
 def initial_conditions(x: torch.tensor, w0: float, i: float = 1) -> torch.tensor:
     ux0 = torch.zeros_like(x)
@@ -199,27 +236,12 @@ class Grid:
         return (x_all, y_all, t_all)
 
 
-def obtain_centers(points, step=10):
-    device = points.device
-
-    max_x = torch.max(points[:,0])
-    max_y = torch.max(points[:,1])
-
-    x, y = torch.meshgrid(torch.linspace(0, max_x, step, device=device), 
-            torch.linspace(0, max_y, step, device=device), indexing='ij')
-
-    centers = torch.cat([x.reshape(-1,1), y.reshape(-1,1)], dim=1)
-    centers.requires_grad_(False)
-    return centers
-
 class TRBF(nn.Module):
-    def __init__(self, in_features, out_features):
+    def __init__(self, in_features: int, out_features: int, max: list):
         super().__init__()
-        self.in_features = in_features
-        self.out_features = out_features
         
-        self.centers = nn.Parameter(torch.randn(out_features, in_features))
-        self.log_sigma = nn.Parameter(torch.zeros(out_features))
+        self.centers = nn.Parameter(latin_hypercube_sampling(out_features, in_features, [0,0,0], max))
+        self.log_sigma = nn.Parameter(torch.zeros(self.centers.shape[0]))
     
     def forward(self, space, t):
         dists = torch.cdist(torch.cat([space, t], dim=1), self.centers)
@@ -321,11 +343,11 @@ def omtogam_ax(omega: torch.tensor, prop: dict):
 
 
 class PINN(nn.Module):
-    def __init__(self, dim_hidden: int, w0: float):
+    def __init__(self, dim_hidden: int, w0: float, maxs: list):
 
         super().__init__()
 
-        self.network = TRBF(3, dim_hidden)
+        self.network = TRBF(3, dim_hidden, maxs)
         self.outlayer = nn.Linear(dim_hidden, 2)
         self.w0 = w0
 

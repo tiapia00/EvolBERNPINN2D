@@ -103,8 +103,11 @@ else:
     nndist.load_state_dict(torch.load('data//nnDist.pth'))
 """
 
-all_points = torch.cat(points['all_points'], dim=1)[:,:2]
-pinn = PINN(dim_hidden, w0).to(device)
+all_points = torch.cat(points['all_points'], dim=1)
+maxs_point = torch.max(all_points.detach(), dim=0)[0]
+maxs_point = maxs_point.tolist()
+
+pinn = PINN(dim_hidden, w0, maxs_point).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
