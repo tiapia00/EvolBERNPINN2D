@@ -448,7 +448,8 @@ class Calculate:
         return loss
 
 
-    def enloss(self, pinn, verbose: bool):
+    def inenloss(self, pinn, verbose: bool):
+        ### to be modified ###
         x, y, t = self.points['all_points']
         nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
         space = torch.cat([x, y], dim=1)
@@ -513,9 +514,9 @@ class Calculate:
 
     def initial_loss(self, nn):
         x, y, t = self.points['initial_points']
-        points = torch.cat([x, y, t], dim=1)
+        points = torch.cat([x, y], dim=1)
 
-        output = nn(points)
+        output = nn(points, t)
 
         gt = initial_conditions(x, self.w0)
         v0gt = gt[:,2:]
@@ -525,7 +526,7 @@ class Calculate:
         posgt = gt[:,:2] 
         loss_position = (posgt - output).pow(2).mean()
 
-        loss = loss_speed + loss_position
+        loss = loss_speed
 
         return loss
 
@@ -553,7 +554,8 @@ def train_model(
         losses = []
         losses.append(calc.pdeloss(nn_approximator))
         losses.append(calc.enloss(nn_approximator, False))
-        loss = losses[0]
+        losses.append(calc.initial_loss(nn_approximator))
+        loss = losses[0] + losses[-1]
         loss.backward()
         optimizer.step()
 
