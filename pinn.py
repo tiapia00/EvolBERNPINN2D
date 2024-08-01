@@ -419,7 +419,6 @@ class Calculate:
         output = pinn(space, t)
 
         lam, mu, rho = self.m_par
-        dx, dy, dt = self.steps
 
         eps = geteps(space, output, nsamples , self.device)
         _, sig = material_model(eps, (lam, mu), self.device)
@@ -550,14 +549,18 @@ def train_model(
     for epoch in range(max_epochs):
 
         optimizer.zero_grad()
-        loss = calc.pdeloss(nn_approximator)
+        losses = []
+        losses.append(calc.pdeloss(nn_approximator))
+        losses.append(calc.enloss(nn_approximator, False))
+        loss = losses[0]
         loss.backward()
         optimizer.step()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
         writer.add_scalars('Loss', {
-            'action': loss.item(),
+            'pdeloss': losses[0].item(),
+            'encons': losses[1].item()
         }, epoch)
 
         pbar.update(1)
