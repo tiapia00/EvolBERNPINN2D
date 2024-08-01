@@ -239,16 +239,19 @@ class Grid:
 class TRBF(nn.Module):
     def __init__(self, in_features: int, out_features: int, max: list):
         super().__init__()
+
+        #with torch.no_grad():
+        #    centers_init = latin_hypercube_sampling(out_features, in_features, [0,0,0], max)
         
-        self.centers = nn.Parameter(latin_hypercube_sampling(out_features, in_features, [0,0,0], max))
+        #self.register_buffer('centers', centers_init)
+        self.centers = nn.Parameter(torch.zeros(out_features, in_features))
         self.log_sigma = nn.Parameter(torch.zeros(out_features))
-        self.beta = nn.Parameter(0.5*torch.ones(out_features))
         self.a = nn.Parameter(0.5*torch.ones(out_features))
     
     def forward(self, space, t):
         dists = torch.cdist(torch.cat([space, t], dim=1), self.centers)
         
-        activations = self.a * torch.exp(-self.beta * (dists / torch.exp(self.log_sigma))**2)
+        activations = self.a * torch.exp((dists / torch.exp(self.log_sigma))**2)
         return activations
 
 
