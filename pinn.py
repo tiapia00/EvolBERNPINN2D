@@ -578,7 +578,7 @@ def train_model(
         loss.backward()
         optimizer.step()
 
-        pbar.set_description(f"Loss: {loss.item():.3e}")
+        pbar.set_description(f"Loss: {loss.item()**2:.3e}")
 
         writer.add_scalars('Loss', {
             'actionloss': losses[0].item(),
