@@ -447,6 +447,28 @@ class Calculate:
         return loss
 
 
+    def getaction(self, pinn):
+        x, y, t = self.points['all_points']
+        nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
+        space = torch.cat([x, y], dim=1)
+        output = pinn(space, t)
+
+        lam, mu, rho = self.m_par
+        dx, dy, dt = self.steps
+
+        eps = geteps(space, output, nsamples , self.device)
+        psi, sig = material_model(eps, (lam, mu), self.device)
+        Pi = getPsi(psi, (dx, dy)).reshape(-1)
+        # Pi should take into account also external forces applied
+
+        speed = getspeed(output, t, self.device)
+        T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
+
+        action = torch.trapezoid(y = T - Pi, dx = dt)
+
+        return action
+
+
     def enloss(self, pinn, verbose: bool):
         x, y, t = self.points['all_points']
         nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
@@ -559,7 +581,7 @@ def train_model(
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
         writer.add_scalars('Loss', {
-            'pdeloss': losses[0].item(),
+            'actionloss': losses[0].item(),
             'encons': losses[1].item()
         }, epoch)
 
