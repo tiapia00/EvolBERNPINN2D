@@ -122,3 +122,17 @@ def plot_energy(indicators_nn: dict, indicators_an: dict, t_nn: torch.tensor, t_
 
     file = f'{path}/energyfinal.png'
     plt.savefig(file)
+
+def plot_centers(coord: torch.tensor, path: str):
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    coord = coord.detach().cpu().numpy()
+
+    ax.scatter(coord[:,0], coord[:,1], coord[:,2])
+    ax.set_xlabel('$x$')
+    ax.set_ylabel('$y$')
+    ax.set_zlabel('$t$')
+
+    file = f'{path}/centers.png'
+    plt.savefig(file)

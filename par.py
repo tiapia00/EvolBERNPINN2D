@@ -1,6 +1,6 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 4
+        self.x_end = 12 
         self.y_end = 1e-1
         self.t_end = 0.1 
         self.n_space = (40, 40)
@@ -16,7 +16,7 @@ class Parameters:
             'n_space': self.n_space,
             'n_time': self.n_time,
             'w0': self.w0,
-            'dim_hidden_t': self.dim_hidden,
+            'dim_hidden': self.dim_hidden,
             'nlayers_t': self.n_hidden_t, 
             'lr': 8e-4,
             'epochs': 3000 

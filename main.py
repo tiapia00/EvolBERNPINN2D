@@ -157,3 +157,5 @@ sol = obtainsolt(pinn_trained, space_in, t, nsamples, device)
 plot_sol(sol, space_in, t, dir_model)
 
 plot_energy(ens_NN, ens_an, t, t_beam, dir_model)
+coords = pinn_trained.network.centers
+plot_centers(coords)
