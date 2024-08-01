@@ -365,7 +365,6 @@ class PINN(nn.Module):
         out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
         out += initial_conditions(space[:,0].unsqueeze(1), self.w0)[:,:2]
 
-
         return out
 
     def device(self):
