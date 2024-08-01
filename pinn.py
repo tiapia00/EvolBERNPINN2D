@@ -212,34 +212,20 @@ def obtain_centers(points, step=10):
     centers.requires_grad_(False)
     return centers
 
-class TimeVaryingRBF(nn.Module):
-    def __init__(self, in_features, out_features, time_dependent_func):
-        super(TimeVaryingRBF, self).__init__()
+class TRBF(nn.Module):
+    def __init__(self, in_features, out_features):
+        super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.time_dependent_func = time_dependent_func  # Function to update centers
         
-        # Initialize centers (parameters p_j(t))
         self.centers = nn.Parameter(torch.randn(out_features, in_features))
-        self.log_sigma = nn.Parameter(torch.zeros(out_features))  # Log of sigma for numerical stability
+        self.log_sigma = nn.Parameter(torch.zeros(out_features))
     
-    def forward(self, x, t):
-        # Update centers based on time t
-        self.centers.data = self.time_dependent_func(t)
+    def forward(self, space, t):
+        dists = torch.cdist(torch.cat([space, t], dim=1), self.centers)
         
-        # Compute pairwise distance between input and centers
-        x = x.unsqueeze(1).expand(-1, self.out_features, -1)
-        centers = self.centers.unsqueeze(0).expand(x.size(0), -1, -1)
-        dists = torch.norm(x - centers, dim=2)
-        
-        # Compute the RBF activations
         activations = torch.exp(-0.5 * (dists / torch.exp(self.log_sigma))**2)
         return activations
-
-# Example time-dependent function for centers
-def time_dependent_func(t):
-    centers = torch.sin(t) * torch.ones(out_features, in_features)
-    return centers
 
 
 def inverse_multiquadric(alpha, beta):
@@ -335,49 +321,20 @@ def omtogam_ax(omega: torch.tensor, prop: dict):
 
 
 class PINN(nn.Module):
-    def __init__(self,
-                 dim_hidden: int,
-                 nhidden_t: int,
-                 inbcsNN: NNinbc,
-                 nnd: NNd,
-                 all_points: torch.tensor,
-                 act=TrigAct(),
-                 ):
+    def __init__(self, dim_hidden: int, w0: float):
 
         super().__init__()
 
-        self.inbcsNN = inbcsNN
-        self.nnd = nnd
-        
-        for param in self.inbcsNN.parameters():
-            param.requires_grad = False
-        
-        for param in self.nnd.parameters():
-            param.requires_grad = False
-        
-        self.space = RBF(all_points, 2, inverse_multiquadric)
-
-        self.timelayers = nn.ModuleList()
-        self.timelayers.append(nn.Linear(1, dim_hidden))
-        for _ in range(nhidden_t):
-            self.timelayers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.timelayers.append(act)
-        self.timelayers.append(nn.Linear(dim_hidden, 2))
+        self.network = TRBF(3, dim_hidden)
+        self.outlayer = nn.Linear(dim_hidden, 2)
+        self.w0 = w0
 
     def forward(self, space, t):
-        x = self.space(space)
-
         points = torch.cat([space, t], dim=1)
 
-        for layer in self.timelayers:
-            t = layer(t)
-
-        out = x * t
+        out = self.network(space, t)
         
-        out_inbcs =  self.inbcsNN(points)
-        out_d = self.nnd(points)
-
-        out = out * out_d + out_inbcs
+        out = out*t + initial_conditions(space[:,0].unsqueeze(1), self.w0)[:,:2]
         out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
 
         return out
