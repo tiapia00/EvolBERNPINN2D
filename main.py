@@ -24,7 +24,6 @@ dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 
 retrain_PINN = True
-retrainaux = True
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -158,4 +157,4 @@ plot_sol(sol, space_in, t, dir_model)
 
 plot_energy(ens_NN, ens_an, t, t_beam, dir_model)
 coords = pinn_trained.network.centers
-plot_centers(coords)
+plot_centers(coords, dir_model)
