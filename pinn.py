@@ -550,7 +550,7 @@ def train_model(
 
         optimizer.zero_grad()
         losses = []
-        losses.append(calc.pdeloss(nn_approximator))
+        losses.append(calc.getaction(nn_approximator))
         losses.append(calc.enloss(nn_approximator, False))
         loss = losses[0]
         loss.backward()
