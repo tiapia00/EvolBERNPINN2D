@@ -244,7 +244,7 @@ class TRBF(nn.Module):
         #    centers_init = latin_hypercube_sampling(out_features, in_features, [0,0,0], max)
         
         #self.register_buffer('centers', centers_init)
-        self.centers = nn.Parameter(torch.zeros(out_features, in_features))
+        self.centers = nn.Parameter(torch.rand(out_features, in_features))
         self.log_sigma = nn.Parameter(torch.zeros(out_features))
         #self.a = nn.Parameter(0.5*torch.ones(out_features))
     
