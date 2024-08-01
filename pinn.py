@@ -241,12 +241,14 @@ class TRBF(nn.Module):
         super().__init__()
         
         self.centers = nn.Parameter(latin_hypercube_sampling(out_features, in_features, [0,0,0], max))
-        self.log_sigma = nn.Parameter(torch.zeros(self.centers.shape[0]))
+        self.log_sigma = nn.Parameter(torch.zeros(out_features))
+        self.beta = nn.Parameter(0.5*torch.ones(out_features))
+        self.a = nn.Parameter(0.5*torch.ones(out_features))
     
     def forward(self, space, t):
         dists = torch.cdist(torch.cat([space, t], dim=1), self.centers)
         
-        activations = torch.exp(-0.5 * (dists / torch.exp(self.log_sigma))**2)
+        activations = self.a * torch.exp(-self.beta * (dists / torch.exp(self.log_sigma))**2)
         return activations
 
 
