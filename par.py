@@ -1,12 +1,11 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 12 
+        self.x_end = 15 
         self.y_end = 1e-1
         self.t_end = 0.1 
-        self.n_space = (40, 40)
-        self.n_time = 40
-        self.dim_hidden = 60 
-        self.dim_mult = (1,1)
+        self.n_space = (80, 40)
+        self.n_time = 50
+        self.dim_hidden = 80 
         self.n_hidden_t : int = 5
         self.w0 = 0.3
         self.pinn_par = {

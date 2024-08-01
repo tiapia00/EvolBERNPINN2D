@@ -130,7 +130,7 @@ class Grid:
         self.device = device
         self.requires_grad = True
         self.grid_init = self.generate_grid_init()
-        self.grid_bound = self.generate_grid_bound()
+        #self.grid_bound = self.generate_grid_bound()
 
     def generate_grid_init(self):
         x = self.x_domain
@@ -239,17 +239,17 @@ class Grid:
 class TRBF(nn.Module):
     def __init__(self, in_features: int, out_features: int, max: list):
         super().__init__()
-
+        """
         with torch.no_grad():
             centers_init = latin_hypercube_sampling(out_features, in_features, [0,0,0], max)
-        
         self.register_buffer('centers', centers_init)
+        """
+        self.centers = nn.Parameter(torch.rand(out_features, in_features))
         self.log_sigma = nn.Parameter(torch.zeros(out_features))
-        self.a = nn.Parameter(0.5*torch.ones(out_features))
-        self.bias = nn.Parameter(torch.zeros(out_features, in_features))
+        self.a = nn.Parameter(torch.ones(out_features))
     
     def forward(self, space, t):
-        dists = torch.cdist(torch.cat([space, t], dim=1), self.centers + self.bias)
+        dists = torch.cdist(torch.cat([space, t], dim=1), self.centers)
         
         activations = self.a * torch.exp(-0.2 * (dists / torch.exp(self.log_sigma))**2)
         return activations
@@ -391,7 +391,6 @@ class Calculate:
         self.nsamples = nsamples 
         self.steps = steps_int
         self.device = device
-        self.dists = self.gtdistance()
 
     def gettraction(self, pinn):
         pass

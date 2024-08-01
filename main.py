@@ -61,7 +61,6 @@ grid = Grid(x_domain, y_domain, t_domain, device)
 points = {
     'res_points': grid.get_interior_points(),
     'initial_points': grid.get_initial_points(),
-    'boundary_points': grid.grid_bound,
     'all_points': grid.get_all_points()
 }
 
