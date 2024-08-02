@@ -2,7 +2,7 @@ from plots import *
 from beam import Beam
 import os
 import torch
-from read_write import get_last_modified_file, pass_folder, delete_old_files
+from read_write import get_last_modified_file, pass_folder
 from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
@@ -24,11 +24,6 @@ dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 
 retrain_PINN = True
-delete_old = False
-
-if delete_old:
-    delete_old_files("model")
-    delete_old_files("in_model")
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -41,17 +36,19 @@ def get_step(tensors: tuple):
 
 par = Parameters()
 
-Lx, t, h, nx, n_time, w0 = get_params(par.beam_par)
+Lx, t, h, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
-my_beam = Beam(Lx, E, rho, h, 4e-3, nx)
+my_beam = Beam(Lx, E, rho, h, 4e-3, 2000)
 
-w, en0 = obtain_analytical_free(my_beam, w0, t, n_time)
+t_beam = np.linspace(0, t, 2000)
+w, ens_an = obtain_analytical_free(my_beam, w0, t_beam)
+ens_an = {'V': ens_an[:,0], 'T': ens_an[:,1]}
 
 #t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hid_space, dim_mult, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, w0, multdim, nax, ntrans, nlayers, lr, epochs = get_params(par.pinn_par)
 
 x_domain = torch.linspace(0, Lx, n_space[0])
 y_domain = torch.linspace(0, Ly, n_space[1])
@@ -64,7 +61,6 @@ grid = Grid(x_domain, y_domain, t_domain, device)
 points = {
     'res_points': grid.get_interior_points(),
     'initial_points': grid.get_initial_points(),
-    'boundary_points': grid.grid_bound,
     'all_points': grid.get_all_points()
 }
 
@@ -82,6 +78,7 @@ calculate = Calculate(
         device
     )
 
+"""
 eigenNN = MLNet(4, 60, 9)
 eigenNN.load_state_dict(torch.load('data//eigenestmodel.pth'))
 input_eigen = torch.tensor([E, rho, Lx, Ly]).reshape(1,-1)
@@ -92,36 +89,38 @@ eigen = denormalizematr(eigen, ef_range)
 omega_trans = eigen.squeeze(0)[:1]
 omega_ax = eigen.squeeze(0)[:1]
 
-nninbcs = NNinbc(20, 3).to(device)
-nninbcs_trained = train_inbcs(nninbcs, calculate, 1000, 1e-3)
+nninbcs = NNinbc(20, 1).to(device)
+nndist = NNd(40, 2).to(device)
 
-x, y, t = points['initial_points']
-x_in = x.to(device)
-y_in = y.to(device)
-t_in = t.to(device)
-in_points = torch.cat([x_in, y_in, t_in], dim=1)
+if retrainaux:
+    nninbcs = train_inbcs(nninbcs, calculate, 1000, 1e-3)
+    torch.save(nninbcs.state_dict(), 'data//nnInbcs.pth')
+    nndist = train_dist(nndist, calculate, 5000, 1e-3)
+    torch.save(nndist.state_dict(), 'data//nnDist.pth')
+else:
+    nninbcs.load_state_dict(torch.load('data//nnInbcs.pth'))
+    nndist.load_state_dict(torch.load('data//nnDist.pth'))
+"""
 
-#nndist = NNd(20, 3).to(device)
-#nndist_trained = train_dist(nndist, calculate, 5000, 1e-3)
-#output = nndist_trained(in_points)
-#plot_distance0(output, in_points[:,:2], dir_model)
+all_points = torch.cat(points['all_points'], dim=1)
+maxs_point = torch.max(all_points.detach(), dim=0)[0]
+maxs_point = maxs_point.tolist()
 
-pinn = PINN(n_hid_space, dim_mult, nninbcs_trained,
-        omega_ax, omega_trans, prop).to(device)
+pinn = PINN(multdim, nax, ntrans, w0, nlayers).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
 if retrain_PINN:
-    pinn_trained, indicators = train_model(pinn, calc=calculate, learning_rate=lr,
+    pinn_trained, ens_NN = train_model(pinn, calc=calculate, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs)
 
-    model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
+    model_name = f'{lr}_{epochs}_{ntrans}.pth'
     model_path = os.path.join(dir_model, model_name)
 
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained, indicators = PINN(dim_hidden, n_hid_space, dim_mult).to(device)
+    pinn_trained = PINN(multdim, nax, ntrans, w0, nlayers).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
@@ -133,6 +132,12 @@ else:
 print(pinn_trained)
 
 pinn_trained.eval()
+
+x, y, t = points['initial_points']
+x_in = x.to(device)
+y_in = y.to(device)
+t_in = t.to(device)
+in_points = torch.cat([x_in, y_in, t_in], dim=1)
 
 space = torch.cat([x, y], dim=1)
 z = pinn_trained(space, t)
@@ -152,5 +157,4 @@ space_in = torch.cat([x, y], dim=1)
 sol = obtainsolt(pinn_trained, space_in, t, nsamples, device)
 plot_sol(sol, space_in, t, dir_model)
 
-plot_sol_comparison(sol, space_in, t, w, dir_model)
-plot_indicators(indicators, t, dir_model)
+plot_energy(ens_NN, ens_an, t, t_beam, dir_model)

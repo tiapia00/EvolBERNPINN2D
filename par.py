@@ -1,13 +1,13 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 4
+        self.x_end = 20
         self.y_end = 1e-1
-        self.t_end = 1
-        self.n_space = (20, 20)
-        self.n_time = 60
-        self.dim_hidden = 4
-        self.dim_mult = (1,1)
-        self.n_hidden : int = 5
+        self.t_end = 0.01
+        self.n_space = (50, 20)
+        self.n_modes = (5, 8)
+        self.n_time = 40
+        self.multdim = (2, 2) 
+        self.nlayers = (2, 3)
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
@@ -16,9 +16,10 @@ class Parameters:
             'n_space': self.n_space,
             'n_time': self.n_time,
             'w0': self.w0,
-            'dim_hidden': self.dim_hidden,
-            'n_hidden_space': self.n_hidden,
-            'dim_mult': self.dim_mult,
+            'mult_dim': self.multdim,
+            'n_ax': self.n_modes[0],
+            'n_trans': self.n_modes[1],
+            'nlayers': self.nlayers,
             'lr': 1e-3,
             'epochs': 2000
         }
@@ -26,8 +27,6 @@ class Parameters:
             'x_end': self.x_end,
             't_end': self.t_end,
             'h': self.y_end,
-            'n_space': self.n_space[0],
-            'n_time': self.n_time,
             'w0': self.w0
         }
         self.mat_par = {

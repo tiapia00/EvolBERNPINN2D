@@ -12,7 +12,7 @@ class Beam:
         self.length = length  # m
         self.E = E  # Nm^2
         self.J = H**3*b/12
-        self.rho = rho  # kg/m
+        self.rho = rho  # kg/m^3
         self.H = H
         self.b = b
         self.A = self.H*self.b
@@ -22,7 +22,6 @@ class Beam:
         self.xi = np.linspace(0, self.length, n_points)
         self.eps: np.ndarray
         self.phi: np.ndarray
-        self.m: np.ndarray
         self.k: np.ndarray
         self.Q: np.ndarray
         self.load_dist: callable
