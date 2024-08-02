@@ -244,14 +244,14 @@ class URBF(nn.Module):
             centers_init = latin_hypercube_sampling(out_features, in_features, [0,0,0], max)
         self.register_buffer('centers', centers_init)
         """
-        #self.centers = nn.Parameter(torch.rand(out_features, in_features))
-        self.centers = nn.Parameter(latin_hypercube_sampling(out_features, in_features, [0,0,0], max))
+        self.centers = nn.Parameter(torch.rand(out_features, in_features))
+        #self.centers = nn.Parameter(latin_hypercube_sampling(out_features, in_features, [0,0,0], max))
         self.sigma = nn.Parameter(torch.zeros(out_features))
     
     def forward(self, x):
         dists = torch.cdist(x, self.centers)
         
-        activations = gaussian(dists, self.sigma)
+        activations = matern52(dists, self.sigma)
         return activations
 
 
@@ -263,8 +263,9 @@ def gaussian(alpha, beta):
     phi = torch.exp(-beta * alpha.pow(2))
     return phi
 
-def matern52(alpha):
+def matern52(alpha, sigma):
     phi = (torch.ones_like(alpha) + 5 ** 0.5 * alpha + (5 / 3) * alpha.pow(2)) * torch.exp(-5 ** 0.5 * alpha)
+    phi *= sigma ** 2
     return phi
 
 class TrigAct(nn.Module):
@@ -550,7 +551,7 @@ def train_model(
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.LBFGS(nn_approximator.parameters(), lr=learning_rate, max_iter=20, history_size=10)
+    optimizer = optim.Adam(nn_approximator.parameters(), lr=learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
@@ -562,7 +563,7 @@ def train_model(
             inen_loss = calc.inenloss(nn_approximator, False)
             init_loss = calc.initial_loss(nn_approximator)
 
-            loss = pde_loss + inen_loss + init_loss
+            loss = pde_loss + init_loss
             loss.backward()
 
             writer.add_scalars('Loss', {
