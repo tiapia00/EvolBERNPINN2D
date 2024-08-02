@@ -244,7 +244,8 @@ class URBF(nn.Module):
             centers_init = latin_hypercube_sampling(out_features, in_features, [0,0,0], max)
         self.register_buffer('centers', centers_init)
         """
-        self.centers = nn.Parameter(latin_hypercube_sampling(out_features, in_features, [0,0,0], max))
+        self.centers = nn.Parameter(torch.rand(out_features, in_features))
+        #self.centers = nn.Parameter(latin_hypercube_sampling(out_features, in_features, [0,0,0], max))
         self.log_sigma = nn.Parameter(torch.zeros(out_features))
     
     def forward(self, x):
@@ -455,7 +456,6 @@ class Calculate:
 
 
     def inenloss(self, pinn, verbose: bool):
-        ### to be modified ###
         x, y, t = self.points['all_points']
         nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
         space = torch.cat([x, y], dim=1)
@@ -472,10 +472,9 @@ class Calculate:
         speed = getspeed(output, t, self.device)
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
-        deren = torch.autograd.grad((T - Pi).unsqueeze(1), t, torch.ones(Pi.shape[0], 1, device=self.device),
-                 create_graph=True, retain_graph=True)[0]
+        Pi_in, T_in = self.gete0(pinn)
 
-        loss = deren.pow(2).mean()
+        loss = (Pi_in - Pi).pow(2).mean() + (T_in - T).pow(2).mean()
 
         if verbose:
             return (Pi, T)
@@ -559,9 +558,9 @@ def train_model(
         optimizer.zero_grad()
         losses = []
         losses.append(calc.pdeloss(nn_approximator))
-        losses.append(calc.enloss(nn_approximator, False))
+        losses.append(calc.inenloss(nn_approximator, False))
         losses.append(calc.initial_loss(nn_approximator))
-        loss = losses[0] + losses[-1]
+        loss = sum(losses)
         loss.backward()
         optimizer.step()
 
@@ -569,12 +568,13 @@ def train_model(
 
         writer.add_scalars('Loss', {
             'pdeloss': losses[0].item(),
-            'encons': losses[1].item()
+            'encons': losses[1].item(),
+            'init_loss': losses[2].item()
         }, epoch)
 
         pbar.update(1)
 
-    losses = calc.enloss(nn_approximator, True)
+    losses = calc.inenloss(nn_approximator, True)
     Pi, T = losses
     variables = {'Pi': Pi.detach().cpu().numpy(), 'T': T.detach().cpu().numpy()}
 
