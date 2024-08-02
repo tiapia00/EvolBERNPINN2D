@@ -236,7 +236,7 @@ class Grid:
         return (x_all, y_all, t_all)
 
 
-class TRBF(nn.Module):
+class URBF(nn.Module):
     def __init__(self, in_features: int, out_features: int, max: list):
         super().__init__()
         """
@@ -244,14 +244,13 @@ class TRBF(nn.Module):
             centers_init = latin_hypercube_sampling(out_features, in_features, [0,0,0], max)
         self.register_buffer('centers', centers_init)
         """
-        self.centers = nn.Parameter(torch.rand(out_features, in_features))
+        self.centers = nn.Parameter(latin_hypercube_sampling(out_features, in_features, [0,0,0], max))
         self.log_sigma = nn.Parameter(torch.zeros(out_features))
-        self.a = nn.Parameter(torch.ones(out_features))
     
-    def forward(self, space, t):
-        dists = torch.cdist(torch.cat([space, t], dim=1), self.centers)
+    def forward(self, x):
+        dists = torch.cdist(x, self.centers)
         
-        activations = self.a * torch.exp(-0.2 * (dists / torch.exp(self.log_sigma))**2)
+        activations = torch.exp(-0.2 * (dists / torch.exp(self.log_sigma))**2)
         return activations
 
 
@@ -351,15 +350,22 @@ class PINN(nn.Module):
     def __init__(self, dim_hidden: int, w0: float, maxs: list):
 
         super().__init__()
+        self.dim_hidden = dim_hidden
 
-        self.network = TRBF(3, dim_hidden, maxs)
-        self.outlayer = nn.Linear(dim_hidden, 2)
+        self.network = nn.ModuleList()
+        for _ in range(3):
+            self.network.append(URBF(1, dim_hidden, maxs))
+        self.outlayer = nn.Linear(dim_hidden * 3, 2)
         self.w0 = w0
 
     def forward(self, space, t):
         points = torch.cat([space, t], dim=1)
-
-        out = self.network(space, t)
+        
+        out = []
+        for i in range(3):
+            out.append(self.network[i](points[:,i].unsqueeze(1)))
+        out = torch.cat(out, dim=1)
+        
         out = self.outlayer(out)
         
         out = out*t
