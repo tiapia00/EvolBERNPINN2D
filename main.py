@@ -48,7 +48,7 @@ ens_an = {'V': ens_an[:,0], 'T': ens_an[:,1]}
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, multdim, nax, ntrans, nlayers, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, w0, multdim, nax, ntrans, nlayers, lr_formin, lr_formax, epochs = get_params(par.pinn_par)
 
 x_domain = torch.linspace(0, Lx, n_space[0])
 y_domain = torch.linspace(0, Ly, n_space[1])
@@ -102,25 +102,30 @@ else:
     nndist.load_state_dict(torch.load('data//nnDist.pth'))
 """
 
+x, y, t = points['initial_points']
+x_in = x.to(device)
+y_in = y.to(device)
+t_in = t.to(device)
+in_points = torch.cat([x_in, y_in, t_in], dim=1)
 all_points = torch.cat(points['all_points'], dim=1)
-maxs_point = torch.max(all_points.detach(), dim=0)[0]
-maxs_point = maxs_point.tolist()
 
-pinn = PINN(multdim, nax, ntrans, w0, nlayers).to(device)
+penalties = [torch.ones(in_points.shape[0], 2),
+        torch.ones(all_points.shape[0], 2), torch.ones(n_time, 1)]
+pinn = PINN(multdim, nax, ntrans, w0, nlayers, penalties).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
 if retrain_PINN:
-    pinn_trained, ens_NN = train_model(pinn, calc=calculate, learning_rate=lr,
-                               max_epochs=epochs, path_logs=dir_logs)
+    pinn_trained, ens_NN = train_model(pinn, calc=calculate, lr_formin=lr_formin,
+            lr_formax=lr_formax, max_epochs=epochs, path_logs=dir_logs)
 
-    model_name = f'{lr}_{epochs}_{ntrans}.pth'
+    model_name = f'{lr_formin}_{epochs}_{ntrans}.pth'
     model_path = os.path.join(dir_model, model_name)
 
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(multdim, nax, ntrans, w0, nlayers).to(device)
+    pinn_trained = PINN(multdim, nax, ntrans, w0, nlayers, penalties).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
@@ -132,12 +137,6 @@ else:
 print(pinn_trained)
 
 pinn_trained.eval()
-
-x, y, t = points['initial_points']
-x_in = x.to(device)
-y_in = y.to(device)
-t_in = t.to(device)
-in_points = torch.cat([x_in, y_in, t_in], dim=1)
 
 space = torch.cat([x, y], dim=1)
 z = pinn_trained(space, t)

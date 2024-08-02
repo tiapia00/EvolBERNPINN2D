@@ -294,6 +294,10 @@ def omtogam_ax(omega: torch.tensor, prop: dict):
     return gamma
 
 
+def applymask(penalty: torch.tensor):
+    return torch.tanh(penalty)
+
+
 class PINN(nn.Module):
     def __init__(self,
                  dim_mult : tuple,
@@ -301,6 +305,7 @@ class PINN(nn.Module):
                  n_trans: int,
                  w0: float,
                  nlayers: tuple,
+                 penalties: list,
                  act=nn.Tanh(),
                  ):
 
@@ -311,7 +316,11 @@ class PINN(nn.Module):
 
         self.nhiddenspace = nlayers[0]
         self.nhiddentime = nlayers[1]
-        
+
+        self.penalty_in = nn.Parameter(penalties[0]) 
+        self.penalty_pde = nn.Parameter(penalties[1])
+        self.penalty_en = nn.Parameter(penalties[2])
+
         self.mult = dim_mult
         self.act = act
         self.w0 = w0
@@ -335,16 +344,6 @@ class PINN(nn.Module):
         self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2*self.mult[0], 1)
         self.outlayertrans = nn.Linear(self.nmodespacetrans*2*self.nmodespacetrans**2*self.mult[1], 1)
 
-    def parabolic(self, x):
-        return (self.a * x ** 2 - self.a * x)
-
-    @staticmethod
-    def apply_filter(alpha):
-        return (torch.tanh(alpha))
-
-    @staticmethod
-    def apply_compl_filter(alpha):
-        return (1-torch.tanh(alpha))
 
     def ff(self, x, Bs):
         xs = []
@@ -510,7 +509,7 @@ class Calculate:
             div_sig[:,:,:,i] = partial_div
         
         div_sig = div_sig.reshape(-1, 2)
-        diff = div_sig - self.m_par[2]*a
+        diff = applymask(pinn.penalty_pde) * (div_sig - self.m_par[2]*a)
         
         loss = 0
         
@@ -537,14 +536,15 @@ class Calculate:
         speed = getspeed(output, t, self.device)
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
-        action = torch.trapezoid(y = T - Pi, dx = dt)
+        Pi0, T0 = self.gete0(pinn)
+        loss = applymask(pinn.penalty_en) * ((Pi0 + T0) - (Pi+T))
+        print(loss.shape)
 
         # Hamilton principle: action should be minimized
         if verbose:
             return (Pi, T) 
         else:
-            return action.pow(2)
-            # action, in general, can be negative
+            return loss.pow(2).mean() 
 
 
     def gtdistance(self):
@@ -591,10 +591,7 @@ class Calculate:
         gt = initial_conditions(x, self.w0)
         v0gt = gt[:,2:]
         v0 = getspeed(output, t, self.device)
-        loss_speed = (v0gt - v0).pow(2).mean()
-
-        posgt = gt[:,:2] 
-        loss_position = (posgt - output).pow(2).mean()
+        loss_speed = applymask(nn.penalty_in) * (v0gt - v0).pow(2).mean()
 
         loss = loss_speed
 
@@ -608,14 +605,22 @@ class Calculate:
 def train_model(
     nn_approximator: PINN,
     calc: Callable,
-    learning_rate: int,
+    lr_formin: float,
+    lr_formax: float,
     max_epochs: int,
     path_logs: str
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.Adam(nn_approximator.parameters(), lr=learning_rate)
+    base_params = [p for name, p in nn_approximator.named_parameters() 
+            if name not in ['penalty_in', 'penalty_pde', 'penalty_en']]
+
+    optimizer = optim.Adam([
+    {'params': base_params, 'lr': lr_formin},  # Base learning rate for all parameters
+    {'params': [nn_approximator.penalty_in, nn_approximator.penalty_pde,
+            nn_approximator.penalty_en], 'lr': lr_formax}  
+])
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
