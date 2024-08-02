@@ -244,14 +244,14 @@ class URBF(nn.Module):
             centers_init = latin_hypercube_sampling(out_features, in_features, [0,0,0], max)
         self.register_buffer('centers', centers_init)
         """
-        self.centers = nn.Parameter(torch.rand(out_features, in_features))
-        #self.centers = nn.Parameter(latin_hypercube_sampling(out_features, in_features, [0,0,0], max))
-        self.log_sigma = nn.Parameter(torch.zeros(out_features))
+        #self.centers = nn.Parameter(torch.rand(out_features, in_features))
+        self.centers = nn.Parameter(latin_hypercube_sampling(out_features, in_features, [0,0,0], max))
+        self.sigma = nn.Parameter(torch.zeros(out_features))
     
     def forward(self, x):
         dists = torch.cdist(x, self.centers)
         
-        activations = torch.exp(-0.2 * (dists / torch.exp(self.log_sigma))**2)
+        activations = gaussian(dists, self.sigma)
         return activations
 
 
@@ -550,40 +550,42 @@ def train_model(
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
+    optimizer = optim.LBFGS(nn_approximator.parameters(), lr=learning_rate, max_iter=20, history_size=10)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
 
-        optimizer.zero_grad()
-        losses = []
-        losses.append(calc.pdeloss(nn_approximator))
-        losses.append(calc.inenloss(nn_approximator, False))
-        losses.append(calc.initial_loss(nn_approximator))
-        loss = sum(losses)
-        loss.backward()
-        optimizer.step()
+        def closure():
+            optimizer.zero_grad()
 
-        pbar.set_description(f"Loss: {loss.item():.3e}")
+            pde_loss = calc.pdeloss(nn_approximator)
+            inen_loss = calc.inenloss(nn_approximator, False)
+            init_loss = calc.initial_loss(nn_approximator)
 
-        writer.add_scalars('Loss', {
-            'pdeloss': losses[0].item(),
-            'encons': losses[1].item(),
-            'init_loss': losses[2].item()
-        }, epoch)
+            loss = pde_loss + inen_loss + init_loss
+            loss.backward()
 
+            writer.add_scalars('Loss', {
+                'pdeloss': pde_loss.item(),
+                'encons': inen_loss.item(),
+                'init_loss': init_loss.item()
+            }, epoch)
+
+            pbar.set_description(f"Loss: {loss.item():.3e}")
+            return loss
+
+        optimizer.step(closure)
         pbar.update(1)
 
     losses = calc.inenloss(nn_approximator, True)
     Pi, T = losses
     variables = {'Pi': Pi.detach().cpu().numpy(), 'T': T.detach().cpu().numpy()}
 
-    pbar.update(1)
     pbar.close()
-
     writer.close()
 
     return nn_approximator, variables
+
 
 def train_inbcs(nn: NNinbc, calc: Calculate, epochs: int, learning_rate: float):
     optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
