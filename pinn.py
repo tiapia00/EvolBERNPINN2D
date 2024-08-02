@@ -538,7 +538,6 @@ class Calculate:
 
         Pi0, T0 = self.gete0(pinn)
         loss = applymask(pinn.penalty_en) * ((Pi0 + T0) - (Pi+T))
-        print(loss.shape)
 
         # Hamilton principle: action should be minimized
         if verbose:
@@ -591,7 +590,7 @@ class Calculate:
         gt = initial_conditions(x, self.w0)
         v0gt = gt[:,2:]
         v0 = getspeed(output, t, self.device)
-        loss_speed = applymask(nn.penalty_in) * (v0gt - v0).pow(2).mean()
+        loss_speed = (applymask(nn.penalty_in) * (v0gt - v0)).pow(2).mean()
 
         loss = loss_speed
 
@@ -640,7 +639,14 @@ def train_model(
                 'encons': inen_loss.item(),
                 'init_loss': init_loss.item()
             }, epoch)
-
+            
+            writer.add_scalars('Penalty', {
+                'inpenalty': nn_approximator.penalty_in.mean().detach().item(),
+                'pdepenalty': nn_approximator.penalty_pde.mean().detach().item(),
+                'enpenalty': nn_approximator.penalty_en.mean().detach().item()
+            }, epoch)
+            
+            
             pbar.set_description(f"Loss: {loss.item():.3e}")
             return loss
 
