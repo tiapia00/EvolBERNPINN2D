@@ -109,8 +109,8 @@ t_in = t.to(device)
 in_points = torch.cat([x_in, y_in, t_in], dim=1)
 all_points = torch.cat(points['all_points'], dim=1)
 
-penalties = [2*torch.ones(in_points.shape[0], 2),
-        torch.ones(all_points.shape[0], 2), 3*torch.ones(n_time, 1)]
+penalties = [3*torch.ones(in_points.shape[0], 2),
+        torch.ones(all_points.shape[0], 2), 1.5*torch.ones(n_time, 1)]
 pinn = PINN(multdim, nax, ntrans, w0, nlayers, penalties).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
