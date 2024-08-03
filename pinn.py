@@ -335,12 +335,9 @@ class PINN(nn.Module):
         self.Bstimetrans = nn.ParameterList(torch.normal(1., 1.,
                 size=(1, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
 
-        self.layersspaceax = self.getlayersspace(self.nmodespaceax)
-        self.layersspacetrans = self.getlayersspace(self.nmodespacetrans)
+        self.layersax = self.getlayers(self.nmodespaceax)
+        self.layerstrans = self.getlayers(self.nmodespacetrans)
         
-        self.layerstimeax = self.getlayerstime(self.nmodespaceax)
-        self.layerstimetrans = self.getlayerstime(self.nmodespacetrans)
-
         self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2*self.mult[0], 1)
         self.outlayertrans = nn.Linear(self.nmodespacetrans*2*self.nmodespacetrans**2*self.mult[1], 1)
 
@@ -353,7 +350,7 @@ class PINN(nn.Module):
 
         return xs 
 
-    def getlayersspace(self, hiddendim):
+    def getlayers(self, hiddendim):
         hidspacedim = 2 * hiddendim
         multspace = self.mult[0]
         
@@ -365,17 +362,6 @@ class PINN(nn.Module):
         
         return layers
 
-    def getlayerstime(self, hiddendim):
-        hidtimedim = 2 * hiddendim
-        multtime = self.mult[1]
-
-        layers = nn.ModuleList()
-        layers.append(nn.Linear(hidtimedim, multtime * hidtimedim))
-        for _ in range(self.nhiddentime - 1):
-            layers.append(nn.Linear(multtime * hidtimedim, multtime * hidtimedim))
-            layers.append(self.act)
-        
-        return layers
     
     def forward(self, space, t):
         axials = self.ff(space, self.Bsspaceax)
@@ -388,28 +374,28 @@ class PINN(nn.Module):
         axial_list = []
         for l in range(len(axials)):
             axial = axials[l]
-            for layer in self.layersspaceax:
+            for layer in self.layersax:
                 axial = layer(axial) 
             axial_list.append(axial)
 
         trans_list = []
         for l in range(len(transs)):
             trans = transs[l]
-            for layer in self.layersspacetrans:
+            for layer in self.layerstrans:
                 trans = layer(trans) 
             trans_list.append(trans)
 
         timesax_list = []
         for l in range(len(times_ax)):
             time = times_ax[l]
-            for layer in self.layerstimeax:
+            for layer in self.layersax:
                 time = layer(time) 
             timesax_list.append(time)
 
         timestrans_list = []
         for l in range(len(times_trans)):
             time = times_trans[l]
-            for layer in self.layerstimetrans:
+            for layer in self.layerstrans:
                 time = layer(time) 
             timestrans_list.append(time)
         
