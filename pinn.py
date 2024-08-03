@@ -325,15 +325,11 @@ class PINN(nn.Module):
         self.act = act
         self.w0 = w0
 
-        self.Bsspaceax = nn.ParameterList(torch.normal(1., 1.,
-                size=(2, self.nmodespaceax)) for i in range(self.nmodespaceax))
-        self.Bsspacetrans = nn.ParameterList(torch.normal(1., 1.,
-                size=(2, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
+        self.Bsspaceax = nn.ParameterList(torch.rand(2, self.nmodespaceax) for _ in range(self.nmodespaceax))
+        self.Bsspacetrans = nn.ParameterList(torch.rand(2, self.nmodespacetrans) for _ in range(self.nmodespacetrans))
 
-        self.Bstimeax = nn.ParameterList(torch.normal(2., 1.,
-                size=(1, self.nmodespaceax)) for i in range(self.nmodespaceax))
-        self.Bstimetrans = nn.ParameterList(torch.normal(1., 1.,
-                size=(1, self.nmodespacetrans)) for i in range(self.nmodespacetrans))
+        self.Bstimeax = nn.ParameterList(torch.rand(1, self.nmodespaceax) for _ in range(self.nmodespaceax))
+        self.Bstimetrans = nn.ParameterList(torch.rand(1., self.nmodespacetrans) for _ in range(self.nmodespacetrans))
 
         self.layersax = self.getlayers(self.nmodespaceax)
         self.layerstrans = self.getlayers(self.nmodespacetrans)
