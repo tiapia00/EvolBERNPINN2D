@@ -3,8 +3,8 @@ class Parameters:
         self.x_end = 10
         self.y_end = 1e-1
         self.t_end = 10 
-        self.n_space = (50, 20)
-        self.n_modes = (0, 1)
+        self.n_space = (31, 11)
+        self.n_modes = (1, 1)
         self.n_time = 40
         self.multdim = (1, 1) 
         self.nlayers = (2, 2)

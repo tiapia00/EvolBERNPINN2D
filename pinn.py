@@ -8,6 +8,27 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 
+def simps(y, dx, dim=0):
+    device = y.device
+    n = y.size(dim)
+    if n % 2 == 0:
+        raise ValueError(
+            "The number of samples must be odd for Simpson's rule.")
+
+    shape = list(y.shape)
+    del(shape[dim])
+    shape = tuple(shape)
+
+    integral = torch.zeros(shape, device=device)
+    odd_sum = torch.sum(y.index_select(dim, torch.arange(1, n-1, 2, device=device)), dim=dim)
+    even_sum = torch.sum(y.index_select(dim, torch.arange(2, n-1, 2, device=device)), dim=dim)
+
+    integral += 4 * odd_sum + 2 * even_sum
+
+    integral *= dx / 3
+
+    return integral
+
 def initial_conditions(x: torch.tensor, w0: float, i: float = 1) -> torch.tensor:
     ux0 = torch.zeros_like(x)
     uy0 = w0*torch.sin(torch.pi*x/torch.max(x))
@@ -73,7 +94,7 @@ def getkinetic(speed: torch.tensor, nsamples: tuple, rho: float, ds: tuple):
     speed = speed.reshape(nsamples[0], nsamples[1], nsamples[2], 2)
     magnitude = torch.norm(speed, p=2, dim=3)
     ### ASSUMPTION: t = 1 ###
-    kinetic = 1/2 * rho * torch.trapezoid(torch.trapezoid(magnitude, dx=dy, dim=1),
+    kinetic = 1/2 * rho * simps(simps(magnitude, dx=dy, dim=1),
             dx = dx, dim=0)
 
     return kinetic
@@ -82,7 +103,7 @@ def getPsi(psi: torch.tensor, ds: tuple):
     dx = ds[0]
     dy = ds[1]
 
-    Psi = torch.trapezoid(torch.trapezoid(y = psi, dx = dy, dim=1), dx=dx, dim=0)
+    Psi = simps(simps(y = psi, dx = dy, dim=1), dx=dx, dim=0)
 
     return Psi
     
