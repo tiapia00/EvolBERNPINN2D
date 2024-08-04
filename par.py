@@ -22,7 +22,7 @@ class Parameters:
             'nlayers': self.nlayers,
             'lr_formin': 1e-3,
             'lr_formax': -1e-3,
-            'epochs': 4000
+            'epochs': 2000
         }
         self.beam_par = {
             'x_end': self.x_end,
@@ -31,7 +31,7 @@ class Parameters:
             'w0': self.w0
         }
         self.mat_par = {
-            'E': 68.0e9,
+            'E': 68.0e6,
             'rho': 27.,
             'nu': 0.26
         }
