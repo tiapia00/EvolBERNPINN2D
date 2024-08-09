@@ -341,7 +341,8 @@ class PINN(nn.Module):
 
         self.penalty_in = nn.Parameter(penalties[0]) 
         self.penalty_pde = nn.Parameter(penalties[1])
-        self.penalty_en = nn.Parameter(penalties[2])
+        self.penalty_cons = nn.Parameter(penalties[2])
+        self.penalty_der = nn.Parameter(penalties[3])
 
         self.mult = dim_mult
         self.act = act
@@ -540,14 +541,14 @@ class Calculate:
         speed = getspeed(output, t, self.device)
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
-        Pi0, T0 = self.gete0(pinn)
+        #Pi0, T0 = self.gete0(pinn)
 
         dPi = df_num_torch(dt, Pi)
         dT = df_num_torch(dt, T)
 
-        loss = (Pi0 + T0) - (Pi+T)
-        loss += dPi + dT
-        loss *= applymask(pinn.penalty_en.squeeze(1))
+        #loss = (Pi0 + T0) - (Pi+T)
+        #loss *= applymask(pinn.penalty_en.squeeze(1))
+        loss = applymask(pinn.penalty_der.squeeze(1)) * (dPi + dT)
 
         # Hamilton principle: action should be minimized
         if verbose:
