@@ -624,12 +624,12 @@ def train_model(
     writer = SummaryWriter(log_dir=path_logs)
 
     base_params = [p for name, p in nn_approximator.named_parameters() 
-            if name not in ['penalty_in', 'penalty_pde', 'penalty_en']]
+            if name not in ['penalty_in', 'penalty_pde', 'penalty_cons', 'penalty_der']]
 
     optimizer = optim.Adam([
     {'params': base_params, 'lr': lr_formin},  # Base learning rate for all parameters
     {'params': [nn_approximator.penalty_in, nn_approximator.penalty_pde,
-            nn_approximator.penalty_en], 'lr': lr_formax}  
+            nn_approximator.penalty_cons, nn_approximator.penalty_der], 'lr': lr_formax}  
 ])
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
@@ -654,7 +654,8 @@ def train_model(
             writer.add_scalars('Penalty', {
                 'inpenalty': nn_approximator.penalty_in.mean().detach().item(),
                 'pdepenalty': nn_approximator.penalty_pde.mean().detach().item(),
-                'enpenalty': nn_approximator.penalty_en.mean().detach().item()
+                'cons': nn_approximator.penalty_cons.mean().detach().item(),
+                'der': nn_approximator.penalty_der.mean().detach().item()
             }, epoch)
             
             
