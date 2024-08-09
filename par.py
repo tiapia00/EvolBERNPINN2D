@@ -1,6 +1,6 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 10
+        self.x_end = 5 
         self.y_end = 1e-1
         self.t_end = 10 
         self.n_space = (31, 11)
@@ -22,7 +22,7 @@ class Parameters:
             'nlayers': self.nlayers,
             'lr_formin': 1e-3,
             'lr_formax': -1e-3,
-            'epochs': 2000
+            'epochs': 5000
         }
         self.beam_par = {
             'x_end': self.x_end,

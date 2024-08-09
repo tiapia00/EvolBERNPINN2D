@@ -20,10 +20,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-dir_model = pass_folder('model')
-dir_logs = pass_folder('model/logs')
-
-restartraining = True
+restartraining = False 
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -116,28 +113,26 @@ pinn = PINN(multdim, nax, ntrans, w0, nlayers, penalties).to(device)
 Psi_0, K_0 = calculate.gete0(pinn)
 
 model_name = f'{lr_formin}_{epochs}_{ntrans}.pth'
+
+dir_model = pass_folder('model')
+dir_logs = pass_folder('model/logs')
+
+model_name = f'{lr_formin}_{epochs}_{ntrans}.pth'
 model_path = os.path.join(dir_model, model_name)
 
 if restartraining:
     pinn_trained, ens_NN = train_model(pinn, calc=calculate, lr_formin=lr_formin,
             lr_formax=lr_formax, max_epochs=epochs, path_logs=dir_logs)
-
-    model_name = f'{lr_formin}_{epochs}_{ntrans}.pth'
-    model_path = os.path.join(dir_model, model_name)
-
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
     pinn_trained = PINN(multdim, nax, ntrans, w0, nlayers, penalties).to(device)
     ### Specify here filename ###
-    filename = '' 
-    dir_model = os.path.dirname(filename)
-    print(f'Target for outputs: {dir_model}\n')
-
+    filename = 'model//08-04//1714//0.001_2000_1.pth' 
     pinn_trained.load_state_dict(torch.load(filename, map_location=device))
     print(f'{filename} loaded.\n')
 
-    pinn_trained, ens_NN = train_model(pinn, calc=calculate, lr_formin=lr_formin,
+    pinn_trained, ens_NN = train_model(pinn_trained, calc=calculate, lr_formin=lr_formin,
             lr_formax=lr_formax, max_epochs=epochs, path_logs=dir_logs)
     torch.save(pinn_trained.state_dict(), model_path)
 

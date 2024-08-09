@@ -116,8 +116,8 @@ def plot_energy(indicators_nn: dict, indicators_an: dict, t_nn: torch.tensor, t_
     plt.figure()
     plt.plot(t_nn, T_nn, label='$T_{{NN}}$')
     plt.plot(t_nn, Pi_nn, label='$\\Pi_{{NN}}$')
-    plt.plot(t_beam, T_an, label='$T_{{an}}$')
-    plt.plot(t_beam, Pi_an, label='$\\Pi_{{an}}$')
+    #plt.plot(t_beam, T_an, label='$T_{{an}}$')
+    #plt.plot(t_beam, Pi_an, label='$\\Pi_{{an}}$')
     plt.legend()
 
     file = f'{path}/energyfinal.png'
