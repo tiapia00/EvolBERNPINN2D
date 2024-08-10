@@ -138,7 +138,7 @@ def plot_centers(coord: torch.tensor, path: str):
     plt.savefig(file)
 
 def plot_deren(dPi: torch.tensor, dT: torch.tensor, t: torch.tensor, path: str):
-    t = t.detach().cpu().numpy()
+    t = torch.unique(t, sorted=True).detach().cpu().numpy()
 
     plt.figure()
     plt.plot(t, dT.cpu().numpy(), label='dT')

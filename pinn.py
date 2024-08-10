@@ -6,6 +6,7 @@ import torch
 from torch import nn
 import torch.optim as optim
 import torch.nn.functional as F
+from numpy.fft import fft
 
 
 def simps(y, dx, dim=0):
@@ -328,7 +329,7 @@ class PINN(nn.Module):
                  w0: float,
                  nlayers: tuple,
                  penalties: list,
-                 act=nn.Sigmoid(),
+                 act=nn.ReLU(),
                  ):
 
         super().__init__()
@@ -376,7 +377,7 @@ class PINN(nn.Module):
         layers.append(nn.Linear(hidspacedim, multspace * hidspacedim))
         for _ in range(self.nhiddenspace - 1):
             layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
-            #layers.append(self.act)
+            layers.append(self.act)
         
         return layers
 
@@ -782,3 +783,6 @@ def obtain_deren(ens: dict,  dt: float):
     dT = df_num_torch(dt, T)
 
     return dPi, dT
+
+def calculate_fft(signal: np.ndarray):
+    X = fft(signal)
