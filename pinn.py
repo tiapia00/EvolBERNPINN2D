@@ -376,7 +376,7 @@ class PINN(nn.Module):
         layers.append(nn.Linear(hidspacedim, multspace * hidspacedim))
         for _ in range(self.nhiddenspace - 1):
             layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
-            layers.append(self.act)
+            #layers.append(self.act)
         
         return layers
 
