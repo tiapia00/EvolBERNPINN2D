@@ -107,8 +107,8 @@ def plot_energy(indicators_nn: dict, indicators_an: dict, t_nn: torch.tensor, t_
     ### Correct: 2 oscillations per period ###
     t_nn = torch.unique(t_nn, sorted=True).detach().cpu().numpy()
 
-    T_nn = indicators_nn['T']
-    Pi_nn = indicators_nn['Pi']
+    T_nn = indicators_nn['T'].detach().cpu().numpy()
+    Pi_nn = indicators_nn['Pi'].detach().cpu().numpy()
 
     T_an = indicators_an['T']
     Pi_an = indicators_an['V']
@@ -138,9 +138,11 @@ def plot_centers(coord: torch.tensor, path: str):
     plt.savefig(file)
 
 def plot_deren(dPi: torch.tensor, dT: torch.tensor, t: torch.tensor, path: str):
+    t = t.detach().cpu().numpy()
+
     plt.figure()
-    plt.plot(t, dT, label='dT')
-    plt.plot(t, dPi, label='dPi')
+    plt.plot(t, dT.cpu().numpy(), label='dT')
+    plt.plot(t, dPi.cpu().numpy(), label='dPi')
     plt.xlabel('t')
     plt.legend()
     plt.savefig()

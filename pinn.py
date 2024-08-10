@@ -661,7 +661,7 @@ def train_model(
 
     losses = calc.inenloss(nn_approximator, True)
     Pi, T = losses
-    variables = {'Pi': Pi.detach().cpu().numpy(), 'T': T.detach().cpu().numpy()}
+    variables = {'Pi': Pi, 'T': T}
 
     pbar.close()
     writer.close()
@@ -775,8 +775,8 @@ def obtainsolt(pinn: PINN, space_in: torch.tensor, t:torch.tensor, nsamples: tup
 
 
 def obtain_deren(ens: dict,  dt: float):
-    Pi = ens['Pi']
-    T = ens['T']
+    Pi = ens['Pi'].detach()
+    T = ens['T'].detach()
 
     dPi = df_num_torch(dt, Pi)
     dT = df_num_torch(dt, T)
