@@ -349,10 +349,10 @@ class PINN(nn.Module):
         self.w0 = w0
 
         self.Bsspaceax = nn.ParameterList(torch.rand(2, self.nmodespaceax) for _ in range(self.nmodespaceax))
-        self.Bsspacetrans = nn.ParameterList(2 * torch.rand(2, self.nmodespacetrans) for _ in range(self.nmodespacetrans))
+        self.Bsspacetrans = nn.ParameterList(torch.rand(2, self.nmodespacetrans) for _ in range(self.nmodespacetrans))
 
         self.Bstimeax = nn.ParameterList(torch.rand(1, self.nmodespaceax) for _ in range(self.nmodespaceax))
-        self.Bstimetrans = nn.ParameterList(2**i * torch.rand(1, self.nmodespacetrans) for i in range(self.nmodespacetrans))
+        self.Bstimetrans = nn.ParameterList(2**i + torch.rand(1, self.nmodespacetrans) for i in range(self.nmodespacetrans))
 
         self.layersax = self.getlayers(self.nmodespaceax)
         self.layerstrans = self.getlayers(self.nmodespacetrans)
@@ -541,14 +541,10 @@ class Calculate:
         speed = getspeed(output, t, self.device)
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
-        #Pi0, T0 = self.gete0(pinn)
+        Pi0, T0 = self.gete0(pinn)
 
-        dPi = df_num_torch(dt, Pi)
-        dT = df_num_torch(dt, T)
-
-        #loss = (Pi0 + T0) - (Pi+T)
-        #loss *= applymask(pinn.penalty_en.squeeze(1))
-        loss = applymask(pinn.penalty_der.squeeze(1)) * (dPi + dT)
+        loss = (Pi0 + T0) - (Pi+T)
+        loss *= applymask(pinn.penalty_en.squeeze(1))
 
         # Hamilton principle: action should be minimized
         if verbose:
@@ -778,3 +774,10 @@ def obtainsolt(pinn: PINN, space_in: torch.tensor, t:torch.tensor, nsamples: tup
     
     sol = sol.reshape(nx*ny, -1, 2)
     return sol.detach().cpu().numpy()
+
+
+def obtain_deren(Pi: torch.tensor, T: torch.tensor, dt: float):
+    dPi = df_num_torch(dt, Pi)
+    dT = df_num_torch(dt, T)
+
+    return dPi, dT

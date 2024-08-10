@@ -136,3 +136,14 @@ def plot_centers(coord: torch.tensor, path: str):
 
     file = f'{path}/centers.png'
     plt.savefig(file)
+
+def plot_deren(dPi: torch.tensor, dT: torch.tensor, t: torch.tensor, path: str):
+    plt.figure()
+    plt.plot(t, dT, label='dT')
+    plt.plot(t, dPi, label='dPi')
+    plt.xlabel('t')
+    plt.legend()
+    plt.savefig()
+
+    file = f'{path}/deren.png'
+    plt.savefig(file)

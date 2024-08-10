@@ -20,7 +20,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-restartraining = True 
+restartraining = False 
 
 def get_step(tensors: tuple):
     a, b, c = tensors
