@@ -342,7 +342,6 @@ class PINN(nn.Module):
         self.penalty_in = nn.Parameter(penalties[0]) 
         self.penalty_pde = nn.Parameter(penalties[1])
         self.penalty_cons = nn.Parameter(penalties[2])
-        self.penalty_der = nn.Parameter(penalties[3])
 
         self.mult = dim_mult
         self.act = act
@@ -544,7 +543,7 @@ class Calculate:
         Pi0, T0 = self.gete0(pinn)
 
         loss = (Pi0 + T0) - (Pi+T)
-        loss *= applymask(pinn.penalty_en.squeeze(1))
+        loss *= applymask(pinn.penalty_cons.squeeze(1))
 
         # Hamilton principle: action should be minimized
         if verbose:
@@ -776,7 +775,10 @@ def obtainsolt(pinn: PINN, space_in: torch.tensor, t:torch.tensor, nsamples: tup
     return sol.detach().cpu().numpy()
 
 
-def obtain_deren(Pi: torch.tensor, T: torch.tensor, dt: float):
+def obtain_deren(ens: dict,  dt: float):
+    Pi = ens['Pi']
+    T = ens['T']
+
     dPi = df_num_torch(dt, Pi)
     dT = df_num_torch(dt, T)
 

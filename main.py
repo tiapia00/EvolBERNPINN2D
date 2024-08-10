@@ -159,3 +159,5 @@ sol = obtainsolt(pinn_trained, space_in, t, nsamples, device)
 plot_sol(sol, space_in, t, dir_model)
 
 plot_energy(ens_NN, ens_an, t, t_beam, dir_model)
+dPi, dT = obtain_deren(ens_NN, steps[2])
+plot_deren(dPi, dT, t, dir_model)
