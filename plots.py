@@ -159,12 +159,18 @@ def plot_fft(
     plt.figure()
 
     plt.subplot(2,1,1)
+    plt.title('Module')
     plt.plot(f, modPI, label='$|\\X_{{\\Pi}}|$') 
     plt.plot(f, modT, label='$|\\X_{{T}}|$') 
+    plt.xlabel('f')
+    plt.legend()
     
     plt.subplot(2,1,2)
+    plt.title('Angle')
     plt.plot(f, angPI, label='$\\varphi(X_{{\\Pi}})$')
     plt.plot(f, angT, label='$\\varphi(X_{{T}})$')
+    plt.xlabel('f')
+    plt.legend()
 
     plt.tight_layout()
 
