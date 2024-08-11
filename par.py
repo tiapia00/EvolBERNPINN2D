@@ -7,7 +7,7 @@ class Parameters:
         self.n_modes = (1, 5)
         self.n_time = 40
         self.multdim = (1, 1) 
-        self.nlayers = (2, 2)
+        self.nlayers = (2, 1)
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
