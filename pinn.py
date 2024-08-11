@@ -786,7 +786,6 @@ def obtain_deren(ens: dict,  dt: float):
 
 def calculate_fft(signal: np.ndarray, dt: float, t: torch.tensor):
     L = int(t[-1].item())
-    print(L)
     Fs = 1/dt
 
     X = fft(signal.detach().cpu().numpy())
