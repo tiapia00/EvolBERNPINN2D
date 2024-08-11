@@ -784,5 +784,19 @@ def obtain_deren(ens: dict,  dt: float):
 
     return dPi, dT
 
-def calculate_fft(signal: np.ndarray):
-    X = fft(signal)
+def calculate_fft(signal: np.ndarray, dt: float, t: torch.tensor):
+    L = t[-1].item()
+    Fs = 1/dt
+
+    X = fft(signal.detach().cpu().numpy())
+    P2 = np.abs(X/L)
+    P1 = P2[:L//2+1]
+    P1[1:-1] = 2 * P1[1:-1]
+    mod = P1
+
+    phase = np.angle(X)
+    phase = phase[:L//2+1]
+
+    f = Fs * np.arange(0, (L//2)+1) / L
+
+    return f, mod, phase

@@ -149,3 +149,26 @@ def plot_deren(dPi: torch.tensor, dT: torch.tensor, t: torch.tensor, path: str):
 
     file = f'{path}/deren.png'
     plt.savefig(file)
+
+def plot_fft(
+        f: np.ndarray,
+        modPI: np.ndarray,
+        angPI: np.ndarray,
+        modT: np.ndarray,
+        angT: np.ndarray,
+        path: str):
+    plt.figure()
+
+    plt.subplot(2,1,1)
+    plt.plot(f, modPI, label='$|\\X_{{\\Pi}}|$') 
+    plt.plot(f, modT, label='$|\\X_{{T}}|$') 
+    
+    plt.subplot(2,1,2)
+    plt.plot(f, angPI, label='$\\varphi(X_{{\\Pi}})$')
+    plt.plot(f, angT, label='$\\varphi(X_{{T}})$')
+
+    plt.tight_layout()
+
+    file = f'{path}/fft.png'
+    plt.savefig(file)
+

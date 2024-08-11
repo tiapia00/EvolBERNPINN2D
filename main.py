@@ -161,3 +161,7 @@ plot_sol(sol, space_in, t, dir_model)
 plot_energy(ens_NN, ens_an, t, t_beam, dir_model)
 dPi, dT = obtain_deren(ens_NN, steps[2])
 plot_deren(dPi, dT, t, dir_model)
+
+f, modPI, angPI = calculate_fft(ens_NN['Pi'], steps[2], torch.unique(t, sorted=True))
+f, modT, angT = calculate_fft(ens_NN['T'], steps[2], torch.unique(t, sorted=True))
+plot_fft(f, modPI, angPI, modT, angT, dir_model)
