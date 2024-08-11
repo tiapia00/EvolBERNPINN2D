@@ -329,7 +329,7 @@ class PINN(nn.Module):
                  w0: float,
                  nlayers: tuple,
                  penalties: list,
-                 act=nn.Sigmoid(),
+                 act=TrigAct(),
                  ):
 
         super().__init__()
@@ -348,16 +348,17 @@ class PINN(nn.Module):
         self.act = act
         self.w0 = w0
 
-        self.Bsspaceax = nn.ParameterList(torch.rand(2, self.nmodespaceax) for _ in range(self.nmodespaceax))
-        self.Bsspacetrans = nn.ParameterList(torch.rand(2, self.nmodespacetrans) for _ in range(self.nmodespacetrans))
+        if n_ax != 0:
+            self.Bsspaceax = nn.ParameterList(torch.rand(2, self.nmodespaceax) for _ in range(self.nmodespaceax))
+            self.Bstimeax = nn.ParameterList(torch.rand(1, self.nmodespaceax) for _ in range(self.nmodespaceax))
+            self.layersax = self.getlayers(self.nmodespaceax)
+            self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2*self.mult[0], 1)
 
-        self.Bstimeax = nn.ParameterList(torch.rand(1, self.nmodespaceax) for _ in range(self.nmodespaceax))
+        self.Bsspacetrans = nn.ParameterList(torch.rand(2, self.nmodespacetrans) for _ in range(self.nmodespacetrans))
         self.Bstimetrans = nn.ParameterList(torch.rand(1, self.nmodespacetrans) for i in range(self.nmodespacetrans))
 
-        self.layersax = self.getlayers(self.nmodespaceax)
         self.layerstrans = self.getlayers(self.nmodespacetrans)
         
-        self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2*self.mult[0], 1)
         self.outlayertrans = nn.Linear(self.nmodespacetrans*2*self.nmodespacetrans**2*self.mult[1], 1)
 
 
