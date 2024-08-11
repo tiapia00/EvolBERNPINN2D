@@ -329,7 +329,7 @@ class PINN(nn.Module):
                  w0: float,
                  nlayers: tuple,
                  penalties: list,
-                 act=nn.ReLU(),
+                 act=nn.Sigmoid(),
                  ):
 
         super().__init__()
