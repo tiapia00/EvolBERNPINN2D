@@ -412,8 +412,8 @@ class PINN(nn.Module):
             trans = layer(trans)
             times_trans = layer(times_trans)
         
-        axial *= times_ax
-        trans *= times_trans
+        axial = axial * times_ax
+        trans = trans * times_trans
 
         outax = self.outlayerax(axial)
         outtrans = self.outlayertrans(trans)
@@ -423,13 +423,13 @@ class PINN(nn.Module):
         for layer in self.y:
             y = layer(y)
         
-        out += y
+        out = out + y
 
-        out *= t
-        out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
+        out = out * t
+        out = out + torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
         out_in = initial_conditions(space[:,0].unsqueeze(1), self.w0)[:,:2]
 
-        out += out_in
+        out = out + out_in
 
         return out
 
