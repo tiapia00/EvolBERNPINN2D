@@ -364,6 +364,7 @@ class PINN(nn.Module):
         self.y.append(nn.Linear(1, self.nmodespaceax + self.nmodespacetrans))
         self.y.extend(self.getlayers((self.nmodespaceax +  self.nmodespacetrans)))
         self.y.append(nn.Linear((self.nmodespaceax + self.nmodespacetrans)*self.mult[0], 2))
+        print(self.y)
 
     def ff(self, x, B):
         x_proj = x @ B
