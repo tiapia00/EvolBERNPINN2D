@@ -355,15 +355,15 @@ class PINN(nn.Module):
         self.Btimetrans = nn.Parameter(torch.rand(1, self.nmodespacetrans))
 
         self.layersax = self.getlayersff(self.nmodespaceax)
-        self.outlayerax = nn.Linear(2*self.nmodespaceax*self.mult[0], 1)
+        self.outlayerax = nn.Linear(2*self.nmodespaceax, 1)
 
         self.layerstrans = self.getlayersff(self.nmodespacetrans)
-        self.outlayertrans = nn.Linear(2*self.nmodespacetrans*self.mult[0], 1)
+        self.outlayertrans = nn.Linear(2*self.nmodespacetrans, 1)
 
         self.y = nn.ModuleList()
-        self.y.append(nn.Linear(1, self.mult[0] * (self.nmodespaceax + self.nmodespacetrans)))
+        self.y.append(nn.Linear(1, self.mult[1] * (self.nmodespaceax + self.nmodespacetrans)))
         self.y.extend(self.getlayers((self.nmodespaceax +  self.nmodespacetrans)))
-        self.y.append(nn.Linear((self.nmodespaceax + self.nmodespacetrans) * self.mult[0], 2))
+        self.y.append(nn.Linear((self.nmodespaceax + self.nmodespacetrans) * self.mult[1], 2))
 
     def ff(self, x, B):
         x_proj = x @ B
