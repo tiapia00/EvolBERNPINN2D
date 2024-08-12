@@ -366,7 +366,7 @@ class PINN(nn.Module):
         self.y.append(nn.Linear((self.nmodespaceax + self.nmodespacetrans) * self.mult[0], 2))
 
     def ff(self, x, B):
-        x_proj = x @ B + nn.Parameter(torch.rand(x.shape[0], B.shape[1]))
+        x_proj = x @ B
         x = torch.cat([torch.cos(x_proj), torch.sin(x_proj)], dim=1)
 
         return x 
