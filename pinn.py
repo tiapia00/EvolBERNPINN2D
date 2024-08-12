@@ -354,15 +354,15 @@ class PINN(nn.Module):
         self.Btimeax = nn.Parameter(torch.rand(1, self.nmodespaceax))
         self.Btimetrans = nn.Parameter(torch.rand(1, self.nmodespacetrans))
 
-        self.layersax = self.getlayers(self.nmodespaceax)
+        self.layersax = self.getlayersff(self.nmodespaceax)
         self.outlayerax = nn.Linear(2*self.nmodespaceax*self.mult[0], 1)
 
-        self.layerstrans = self.getlayers(self.nmodespacetrans)
+        self.layerstrans = self.getlayersff(self.nmodespacetrans)
         self.outlayertrans = nn.Linear(2*self.nmodespacetrans*self.mult[0], 1)
 
         self.y = nn.ModuleList()
         self.y.append(nn.Linear(1, self.nmodespaceax + self.nmodespacetrans))
-        self.y.extend(self.getlayers((self.nmodespaceax +  self.nmodespacetrans)*self.mult[0]))
+        self.y.extend(self.getlayers((self.nmodespaceax +  self.nmodespacetrans)))
         self.y.append(nn.Linear((self.nmodespaceax + self.nmodespacetrans)*self.mult[0], 2))
 
     def ff(self, x, B):
@@ -371,7 +371,7 @@ class PINN(nn.Module):
 
         return x 
 
-    def getlayers(self, hiddendim):
+    def getlayersff(self, hiddendim):
         hidspacedim = 2 * hiddendim
         multspace = self.mult[0]
         
@@ -379,6 +379,17 @@ class PINN(nn.Module):
         layers.append(nn.Linear(hidspacedim, multspace * hidspacedim))
         for _ in range(self.nhiddenspace - 1):
             layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
+            layers.append(self.act)
+        
+        return layers
+
+    def getlayers(self, hiddendim):
+        multspace = self.mult[0]
+        
+        layers = nn.ModuleList()
+        layers.append(nn.Linear(hiddendim, multspace * hiddendim))
+        for _ in range(self.nhiddenspace - 1):
+            layers.append(nn.Linear(multspace * hiddendim, multspace * hiddendim))
             layers.append(self.act)
         
         return layers
