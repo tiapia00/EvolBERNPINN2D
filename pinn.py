@@ -399,8 +399,6 @@ class PINN(nn.Module):
         times_ax = self.ff(t, self.Btimeax)
         times_trans = self.ff(t, self.Btimetrans)
 
-        points = torch.cat([space, t], dim=1)
-
         for layer in self.layersax:
             axial = layer(axial)
             times_ax = layer(times_ax)
