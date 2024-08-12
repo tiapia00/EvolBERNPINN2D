@@ -9,6 +9,7 @@ from analytical import obtain_analytical_free
 from eigenNN import MLNet, denormalizematr
 
 torch.set_default_dtype(torch.float32)
+torch.autograd.set_detect_anomaly(True)
 
 if torch.backends.mps.is_available():
     device = torch.device("mps")
