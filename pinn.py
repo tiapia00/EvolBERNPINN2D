@@ -394,8 +394,9 @@ class PINN(nn.Module):
         return layers
 
     def forward(self, space, t):
-        axial = self.ff(space[:,0].unsqueeze(1), self.Bxax)
-        trans = self.ff(space[:,0].unsqueeze(1), self.Bxtrans)
+        x = space[:,0].unsqueeze(1)
+        axial = self.ff(x, self.Bxax)
+        trans = self.ff(x, self.Bxtrans)
         y = space[:,1].unsqueeze(1)
 
         times_ax = self.ff(t, self.Btimeax)
