@@ -420,8 +420,8 @@ class PINN(nn.Module):
         
         out = out + y
 
-        out = out + torch.sin(np.pi * x/torch.max(x)).expand(-1,2)
         out = out * t
+        out = out * torch.sin(np.pi * x/torch.max(x)).expand(-1,2)
         out_in = initial_conditions(x, self.w0)[:,:2]
 
         out = out + out_in
