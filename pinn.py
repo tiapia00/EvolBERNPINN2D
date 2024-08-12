@@ -361,10 +361,9 @@ class PINN(nn.Module):
         self.outlayertrans = nn.Linear(2*self.nmodespacetrans*self.mult[0], 1)
 
         self.y = nn.ModuleList()
-        self.y.append(nn.Linear(1, self.nmodespaceax + self.nmodespacetrans))
+        self.y.append(nn.Linear(1, self.mult[0] * (self.nmodespaceax + self.nmodespacetrans)))
         self.y.extend(self.getlayers((self.nmodespaceax +  self.nmodespacetrans)))
-        self.y.append(nn.Linear((self.nmodespaceax + self.nmodespacetrans)*self.mult[0], 2))
-        print(self.y)
+        self.y.append(nn.Linear((self.nmodespaceax + self.nmodespacetrans) * self.mult[0], 2))
 
     def ff(self, x, B):
         x_proj = x @ B
@@ -388,7 +387,6 @@ class PINN(nn.Module):
         multspace = self.mult[0]
         
         layers = nn.ModuleList()
-        layers.append(nn.Linear(hiddendim, multspace * hiddendim))
         for _ in range(self.nhiddenspace - 1):
             layers.append(nn.Linear(multspace * hiddendim, multspace * hiddendim))
             layers.append(self.act)
