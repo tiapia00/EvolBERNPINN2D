@@ -419,10 +419,10 @@ class PINN(nn.Module):
 
         out = torch.cat([outax, outtrans], dim=1)
 
-        for layer in self.y:
-            y = layer(y)
+        #for layer in self.y:
+        #    y = layer(y)
         
-        out += y
+        #out += y
 
         out *= t
         out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
