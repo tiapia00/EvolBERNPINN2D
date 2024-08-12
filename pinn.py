@@ -80,9 +80,9 @@ def getacc(output: torch.tensor, t: torch.tensor, device: torch.device):
     n = output.shape[0]
 
     v = getspeed(output, t, device)
-    ax = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones(n, 1, device=device),
+    ax = torch.autograd.grad(v[:,0].unsqueeze(1), t, torch.ones(n, 1, device=device),
              create_graph=True, retain_graph=True)[0]
-    ay = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones(n, 1, device=device),
+    ay = torch.autograd.grad(v[:,1].unsqueeze(1), t, torch.ones(n, 1, device=device),
              create_graph=True, retain_graph=True)[0]
     
     return torch.cat([ax, ay], dim=1)
