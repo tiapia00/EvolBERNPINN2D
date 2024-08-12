@@ -329,7 +329,7 @@ class PINN(nn.Module):
                  w0: float,
                  nlayers: tuple,
                  penalties: list,
-                 act=nn.Sigmoid(),
+                 act=nn.Softmax(dim=1),
                  ):
 
         super().__init__()
@@ -373,23 +373,20 @@ class PINN(nn.Module):
 
     def getlayersff(self, hiddendim):
         hidspacedim = 2 * hiddendim
-        multspace = self.mult[0]
         
         layers = nn.ModuleList()
-        layers.append(nn.Linear(hidspacedim, multspace * hidspacedim))
-        for _ in range(self.nhiddenspace - 1):
-            layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
-            layers.append(self.act)
+        layers.append(nn.Linear(hidspacedim, hidspacedim))
+        layers.append(self.act)
         
         return layers
 
     def getlayers(self, hiddendim):
-        multspace = self.mult[0]
+        mult = self.mult[1]
         
         layers = nn.ModuleList()
         for _ in range(self.nhiddenspace - 1):
-            layers.append(nn.Linear(multspace * hiddendim, multspace * hiddendim))
-            layers.append(self.act)
+            layers.append(nn.Linear(mult * hiddendim, mult * hiddendim))
+            layers.append(nn.Sigmoid())
         
         return layers
 
