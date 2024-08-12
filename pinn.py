@@ -355,10 +355,10 @@ class PINN(nn.Module):
         self.Btimetrans = nn.Parameter(torch.rand(1, self.nmodespacetrans))
 
         self.layersax = self.getlayers(self.nmodespaceax)
-        self.outlayerax = nn.Linear(self.nmodespaceax*self.mult[0], 1)
+        self.outlayerax = nn.Linear(2*self.nmodespaceax*self.mult[0], 1)
 
         self.layerstrans = self.getlayers(self.nmodespacetrans)
-        self.outlayertrans = nn.Linear(self.nmodespacetrans*self.mult[1], 1)
+        self.outlayertrans = nn.Linear(2*self.nmodespacetrans*self.mult[0], 1)
 
         self.y = nn.ModuleList()
         self.y.append(nn.Linear(1, self.nmodespaceax + self.nmodespacetrans))
