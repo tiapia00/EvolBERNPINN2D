@@ -537,41 +537,6 @@ class Calculate:
             return loss.pow(2).mean() 
 
 
-    def gtdistance(self):
-        x, y, t = self.points['all_points']
-        points = torch.cat([x, y, t], dim=1)
-        down, up, _, _, _ = self.points['boundary_points']
-        bound_points = torch.cat([down, up], dim=0)
-
-        x = points[:,:-1]
-        t = points[:,-1]
-
-        x_bc = bound_points[:,:-1]
-        t_bc = bound_points[:,-1]
-
-        n = x.shape[0]
-        dists = torch.zeros(n, device=self.device)
-        
-        for i in range(n):
-            dist = torch.norm(x[i,:] - x_bc, dim=1)**2 + (t[i] - t_bc)**2
-            dists[i] = torch.sqrt(torch.min(dist))
-        
-        return dists
-    
-    def distance_loss(self, nn):
-        x, y, t = self.points['all_points']
-        points = torch.cat([x, y, t], dim=1)
-
-        output = nn(points)
-        loss = (output.squeeze() - self.dists.detach()).pow(2).mean()
-
-        ddot = torch.autograd.grad(output, t, torch.ones(output.shape[0], 1, device=self.device),
-                 create_graph=True, retain_graph=True)[0]
-        idx_0 = torch.nonzero(t == 0, as_tuple=False)
-        loss += ddot[idx_0].pow(2).mean()
-        
-        return loss
-
     def initial_loss(self, nn):
         x, y, t = self.points['initial_points']
         points = torch.cat([x, y], dim=1)
@@ -693,22 +658,6 @@ def train_dist(nn: NNd, calc: Calculate, epochs: int, learning_rate: float):
     pbar.close()
 
     return nn
-
-
-
-def calculate_speed(pinn_trained: PINN, points: tuple, device: torch.device) -> torch.tensor:
-    x, y, t = points
-    space = torch.cat([x, y], dim=1)
-    n = space.shape[0]
-
-    output = pinn_trained(space, t)
-
-    vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones(n, 1, device=device),
-             create_graph=True, retain_graph=True)[0]
-    vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones(n, 1, device=device),
-             create_graph=True, retain_graph=True)[0]
-
-    return torch.cat([vx, vy], dim=1)
 
 
 def df_num_torch(dx: float, y: torch.tensor):
