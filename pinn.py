@@ -427,10 +427,6 @@ class PINN(nn.Module):
 
         self.w0 = w0
 
-        self.penalty_in = nn.Parameter(penalties[0]) 
-        self.penalty_pde = nn.Parameter(penalties[1])
-        self.penalty_cons = nn.Parameter(penalties[2])
-
     def forward(self, space, t):
         src = torch.cat((space,t), dim=-1)
         src = self.linear_emb(src)
@@ -519,7 +515,7 @@ class Calculate:
             div_sig[:,:,:,i] = partial_div
         
         div_sig = div_sig.reshape(-1, 2)
-        diff = applymask(pinn.penalty_pde) * (div_sig - self.m_par[2]*a)
+        diff = (div_sig - self.m_par[2]*a)
         
         loss = 0
         
@@ -549,7 +545,6 @@ class Calculate:
         Pi0, T0 = self.gete0(pinn)
 
         loss = (Pi0 + T0) - (Pi+T)
-        loss *= applymask(pinn.penalty_cons.squeeze(1))
 
         # Hamilton principle: action should be minimized
         if verbose:
@@ -602,7 +597,7 @@ class Calculate:
         gt = initial_conditions(x, self.w0)
         v0gt = gt[:,2:]
         v0 = getspeed(output, t, self.device)
-        loss_speed = (applymask(nn.penalty_in) * (v0gt - v0))
+        loss_speed = (v0gt - v0)
 
         loss = loss_speed.pow(2).mean()
 
@@ -623,7 +618,7 @@ def train_model(
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
-
+    """
     base_params = [p for name, p in nn_approximator.named_parameters() 
             if name not in ['penalty_in', 'penalty_pde', 'penalty_cons']]
 
@@ -632,6 +627,8 @@ def train_model(
     {'params': [nn_approximator.penalty_in, nn_approximator.penalty_pde,
             nn_approximator.penalty_cons], 'lr': lr_formax}  
 ])
+    """
+    optimizer = optim.Adam(nn_approximator.parameters(), lr_formin)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
