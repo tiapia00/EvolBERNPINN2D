@@ -1,10 +1,10 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 5 
+        self.x_end = 2 
         self.y_end = 1e-1
-        self.t_end = 2 
-        self.n_space = (31, 11)
-        self.n_time = 40
+        self.t_end = 1 
+        self.n_space = (21, 5)
+        self.n_time = 50
         self.dimhid = 2 
         self.dmodel = 4 
         self.nheads = 2 
