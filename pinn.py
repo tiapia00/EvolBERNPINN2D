@@ -714,6 +714,22 @@ def obtain_deren(ens: dict,  dt: float):
 
     return dPi, dT
 
+
+def calculate_speed(pinn_trained: PINN, points: tuple, device: torch.device) -> torch.tensor:
+    x, y, t = points
+    space = torch.cat([x, y], dim=1)
+    n = space.shape[0]
+
+    output = pinn_trained(space, t)
+
+    vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones(n, 1, device=device),
+             create_graph=True, retain_graph=True)[0]
+    vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones(n, 1, device=device),
+             create_graph=True, retain_graph=True)[0]
+
+    return torch.cat([vx, vy], dim=1)
+
+
 def calculate_fft(signal: np.ndarray, dt: float, t: torch.tensor):
     L = int(t[-1].item())
     Fs = 1/dt

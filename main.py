@@ -143,7 +143,7 @@ pinn_trained.eval()
 
 space = torch.cat([x, y], dim=1)
 z = pinn_trained(space, t)
-v = calculate_speed(pinn_trained, (x, y, t), device)
+v = getspeed(pinn_trained, (x, y, t), device)
 z = torch.cat([z, v], dim=1)
 
 cond0 = initial_conditions(x_in, w0)
