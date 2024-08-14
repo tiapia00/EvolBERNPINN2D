@@ -206,9 +206,6 @@ class Grid:
         y = grids[:, 1].unsqueeze(1).to(self.device)
         y.requires_grad = True
         t = grids[:, 2].unsqueeze(1).to(self.device)
-        nx = self.x_domain.shape[0] 
-        ny = self.y_domain.shape[0]
-        print(t.squeeze(1)[:nx*ny])
         t.requires_grad = True
 
         return (x, y, t)
