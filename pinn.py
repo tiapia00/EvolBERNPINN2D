@@ -337,9 +337,6 @@ class PINN(nn.Module):
         self.nmodespaceax = n_ax
         self.nmodespacetrans = n_trans
 
-        self.nhiddenspace = nlayers[0]
-        self.nhiddentime = nlayers[1]
-
         self.penalty_in = nn.Parameter(penalties[0]) 
         self.penalty_pde = nn.Parameter(penalties[1])
         self.penalty_cons = nn.Parameter(penalties[2])
@@ -362,7 +359,7 @@ class PINN(nn.Module):
 
         self.y = nn.ModuleList()
         self.y.append(nn.Linear(1, self.mult[1] * (self.nmodespaceax + self.nmodespacetrans)))
-        self.y.extend(self.getlayers((self.nmodespaceax +  self.nmodespacetrans)))
+        self.y.extend(self.getlayers((self.nmodespaceax +  self.nmodespacetrans), nlayers[1]))
         self.y.append(nn.Linear((self.nmodespaceax + self.nmodespacetrans) * self.mult[1], 2))
 
     def ff(self, x, B):
@@ -380,11 +377,11 @@ class PINN(nn.Module):
         
         return layers
 
-    def getlayers(self, hiddendim):
+    def getlayers(self, hiddendim, nhidden):
         mult = self.mult[1]
         
         layers = nn.ModuleList()
-        for _ in range(self.nhiddenspace - 1):
+        for _ in range(nhidden - 1):
             layers.append(nn.Linear(mult * hiddendim, mult * hiddendim))
             layers.append(nn.Sigmoid())
         
