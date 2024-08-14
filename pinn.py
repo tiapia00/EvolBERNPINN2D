@@ -198,18 +198,17 @@ class Grid:
         y = grids[1].reshape(-1, 1)
         t = grids[2].reshape(-1, 1)
 
-        grid = torch.cat((x, y, t), dim=1)
+        grids = torch.stack(grids, dim=-1)
+        grids = grids.view(-1, 3)
 
-        x = grid[:, 0].unsqueeze(1).to(self.device)
+        x = grids[:, 0].unsqueeze(1).to(self.device)
         x.requires_grad = True
-        y = grid[:, 1].unsqueeze(1).to(self.device)
+        y = grids[:, 1].unsqueeze(1).to(self.device)
         y.requires_grad = True
-        t = grid[:, 2].unsqueeze(1).to(self.device)
+        t = grids[:, 2].unsqueeze(1).to(self.device)
         nx = self.x_domain.shape[0] 
         ny = self.y_domain.shape[0]
-        ok = t.squeeze(1)[:nx*ny] == 0
-        print(t)
-        print(torch.all(ok))
+        print(t[:nx*ny, 1])
         t.requires_grad = True
 
         return (x, y, t)
