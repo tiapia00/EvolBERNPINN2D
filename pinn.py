@@ -7,7 +7,7 @@ from torch import nn
 import torch.optim as optim
 import torch.nn.functional as F
 from numpy.fft import fft
-
+import copy
 
 def simps(y, dx, dim=0):
     device = y.device
@@ -321,132 +321,129 @@ def applymask(penalty: torch.tensor):
     return torch.tanh(penalty)
 
 
+class WaveAct(nn.Module):
+    def __init__(self):
+        super(WaveAct, self).__init__() 
+        self.w1 = nn.Parameter(torch.ones(1), requires_grad=True)
+        self.w2 = nn.Parameter(torch.ones(1), requires_grad=True)
+
+    def forward(self, x):
+        return self.w1 * torch.sin(x)+ self.w2 * torch.cos(x)
+
+class FeedForward(nn.Module):
+    def __init__(self, d_model, d_ff=256):
+        super(FeedForward, self).__init__() 
+        self.linear = nn.Sequential(*[
+            nn.Linear(d_model, d_ff),
+            WaveAct(),
+            nn.Linear(d_ff, d_ff),
+            WaveAct(),
+            nn.Linear(d_ff, d_model)
+        ])
+
+    def forward(self, x):
+        return self.linear(x)
+
+
+class EncoderLayer(nn.Module):
+    def __init__(self, d_model, heads):
+        super(EncoderLayer, self).__init__()
+
+        self.attn = nn.MultiheadAttention(embed_dim=d_model, num_heads=heads, batch_first=True)
+        self.ff = FeedForward(d_model)
+        self.act1 = WaveAct()
+        self.act2 = WaveAct()
+        
+    def forward(self, x):
+        x2 = self.act1(x)
+        # pdb.set_trace()
+        x = x + self.attn(x2,x2,x2)[0]
+        x2 = self.act2(x)
+        x = x + self.ff(x2)
+        return x
+
+
+class DecoderLayer(nn.Module):
+    def __init__(self, d_model, heads):
+        super(DecoderLayer, self).__init__()
+
+        self.attn = nn.MultiheadAttention(embed_dim=d_model, num_heads=heads, batch_first=True)
+        self.ff = FeedForward(d_model)
+        self.act1 = WaveAct()
+        self.act2 = WaveAct()
+
+    def forward(self, x, e_outputs): 
+        x2 = self.act1(x)
+        x = x + self.attn(x2, e_outputs, e_outputs)[0]
+        x2 = self.act2(x)
+        x = x + self.ff(x2)
+        return x
+
+
+class Encoder(nn.Module):
+    def __init__(self, d_model, N, heads):
+        super(Encoder, self).__init__()
+        self.N = N
+        self.layers = get_clones(EncoderLayer(d_model, heads), N)
+        self.act = WaveAct()
+
+    def forward(self, x):
+        for i in range(self.N):
+            x = self.layers[i](x)
+        return self.act(x)
+
+def get_clones(module, N):
+    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
+
+
+class Decoder(nn.Module):
+    def __init__(self, d_model, N, heads):
+        super(Decoder, self).__init__()
+        self.N = N
+        self.layers = get_clones(DecoderLayer(d_model, heads), N)
+        self.act = WaveAct()
+        
+    def forward(self, x, e_outputs):
+        for i in range(self.N):
+            x = self.layers[i](x, e_outputs)
+        return self.act(x)
+
 class PINN(nn.Module):
-    def __init__(self,
-                 dim_mult : tuple,
-                 n_ax: int,
-                 n_trans: int,
-                 w0: float,
-                 nlayers: tuple,
-                 penalties: list,
-                 act=nn.Softmax(dim=1),
-                 ):
+    def __init__(self, d_out, d_model, w0, d_hidden, N, heads, penalties):
+        super(PINN, self).__init__()
 
-        super().__init__()
+        self.linear_emb = nn.Linear(3, d_model)
 
-        self.nmodespaceax = n_ax
-        self.nmodespacetrans = n_trans
+        self.encoder = Encoder(d_model, N, heads)
+        self.decoder = Decoder(d_model, N, heads)
+        self.linear_out = nn.Sequential(*[
+            nn.Linear(d_model, d_hidden),
+            WaveAct(),
+            nn.Linear(d_hidden, d_hidden),
+            WaveAct(),
+            nn.Linear(d_hidden, d_out)
+        ])
 
-        self.nhiddenspace = nlayers[0]
-        self.nhiddentime = nlayers[1]
+        self.w0 = w0
 
         self.penalty_in = nn.Parameter(penalties[0]) 
         self.penalty_pde = nn.Parameter(penalties[1])
         self.penalty_cons = nn.Parameter(penalties[2])
 
-        self.mult = dim_mult
-        self.act = act
-        self.w0 = w0
-
-        if n_ax != 0:
-            self.Bsspaceax = nn.ParameterList(torch.rand(2, self.nmodespaceax) for _ in range(self.nmodespaceax))
-            self.Bstimeax = nn.ParameterList(torch.rand(1, self.nmodespaceax) for _ in range(self.nmodespaceax))
-            self.layersax = self.getlayers(self.nmodespaceax)
-            self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2*self.mult[0], 1)
-
-        self.Bsspacetrans = nn.ParameterList(torch.rand(2, self.nmodespacetrans) for _ in range(self.nmodespacetrans))
-        self.Bstimetrans = nn.ParameterList(torch.rand(1, self.nmodespacetrans) for i in range(self.nmodespacetrans))
-
-        self.layerstrans = self.getlayers(self.nmodespacetrans)
-        
-        self.outlayertrans = nn.Linear(self.nmodespacetrans*2*self.nmodespacetrans**2*self.mult[1], 1)
-
-
-    def ff(self, x, Bs):
-        xs = []
-        for i in range(len(Bs)):
-            x_proj = x @ Bs[i]
-            xs.append(torch.cat([torch.cos(x_proj), torch.sin(x_proj)], dim=1))
-
-        return xs 
-
-    def getlayers(self, hiddendim):
-        hidspacedim = 2 * hiddendim
-        multspace = self.mult[0]
-        
-        layers = nn.ModuleList()
-        layers.append(nn.Linear(hidspacedim, multspace * hidspacedim))
-        for _ in range(self.nhiddenspace - 1):
-            layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
-            layers.append(self.act)
-        
-        return layers
-
-    
     def forward(self, space, t):
-        axials = self.ff(space, self.Bsspaceax)
-        transs = self.ff(space, self.Bsspacetrans)
-        times_ax = self.ff(t, self.Bstimeax)
-        times_trans = self.ff(t, self.Bstimetrans)
+        src = torch.cat((space,t), dim=-1)
+        src = self.linear_emb(src)
 
-        points = torch.cat([space, t], dim=1)
-
-        axial_list = []
-        for l in range(len(axials)):
-            axial = axials[l]
-            for layer in self.layersax:
-                axial = layer(axial) 
-            axial_list.append(axial)
-
-        trans_list = []
-        for l in range(len(transs)):
-            trans = transs[l]
-            for layer in self.layerstrans:
-                trans = layer(trans) 
-            trans_list.append(trans)
-
-        timesax_list = []
-        for l in range(len(times_ax)):
-            time = times_ax[l]
-            for layer in self.layersax:
-                time = layer(time) 
-            timesax_list.append(time)
-
-        timestrans_list = []
-        for l in range(len(times_trans)):
-            time = times_trans[l]
-            for layer in self.layerstrans:
-                time = layer(time) 
-            timestrans_list.append(time)
+        e_outputs = self.encoder(src)
+        d_output = self.decoder(src, e_outputs)
+        output = self.linear_out(d_output)
         
-        multax = []
-        for mt in range(len(times_ax)):
-            for mx in range(len(axials)):
-                multax.append(axial_list[mx] * timesax_list[mt])
+        return output
+    
 
-        multtrans = []
-        for mt in range(len(times_trans)):
-            for mx in range(len(transs)):
-                multtrans.append(trans_list[mx] * timestrans_list[mt])
-        
-        concax = torch.cat(multax, dim=1)
-        conctrans = torch.cat(multtrans, dim=1)
+def applymask(penalty: torch.tensor):
+    return torch.tanh(penalty)
 
-        outax = self.outlayerax(concax)
-        outtrans = self.outlayertrans(conctrans)
-
-        out = torch.cat([outax, outtrans], dim=1)
-
-        out *= t
-        out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
-        out_in = initial_conditions(space[:,0].unsqueeze(1), self.w0)[:,:2]
-
-        out += out_in
-
-        return out
-
-    def device(self):
-        return next(self.parameters()).device
 
 
 class Calculate:

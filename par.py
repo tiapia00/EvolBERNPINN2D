@@ -3,11 +3,13 @@ class Parameters:
         self.x_end = 5 
         self.y_end = 1e-1
         self.t_end = 2 
-        self.n_space = (31, 11)
+        self.n_space = (11, 7)
         self.n_modes = (1, 1)
         self.n_time = 40
-        self.multdim = (4, 4) 
-        self.nlayers = (2, 2)
+        self.dimhid = 2 
+        self.dmodel = 4
+        self.nheads = 3
+        self.nblocks = 3
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
@@ -16,10 +18,10 @@ class Parameters:
             'n_space': self.n_space,
             'n_time': self.n_time,
             'w0': self.w0,
-            'mult_dim': self.multdim,
-            'n_ax': self.n_modes[0],
-            'n_trans': self.n_modes[1],
-            'nlayers': self.nlayers,
+            'dmodel': self.dmodel,
+            'dimhid': self.dimhid,
+            'nheads': self.nheads,
+            'nblocks': self.nblocks,
             'lr_formin': 1e-3,
             'lr_formax': -1e-3,
             'epochs': int(1e3) 
