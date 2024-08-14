@@ -4,7 +4,7 @@ class Parameters:
         self.y_end = 1e-1
         self.t_end = 4 
         self.n_space = (27, 11)
-        self.n_modes = (1, 5)
+        self.n_modes = (1, 10)
         self.n_time = 40
         self.multdim = (3, 2) 
         self.nlayers = (2, 2)
