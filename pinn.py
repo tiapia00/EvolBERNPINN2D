@@ -205,6 +205,10 @@ class Grid:
         y = grid[:, 1].unsqueeze(1).to(self.device)
         y.requires_grad = True
         t = grid[:, 2].unsqueeze(1).to(self.device)
+        nx = self.x_domain.shape[0] 
+        ny = self.y_domain.shape[0]
+        ok = t.squeeze(1)[:nx*ny] == 0
+        print(torch.all(ok))
         t.requires_grad = True
 
         return (x, y, t)

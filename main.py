@@ -61,8 +61,6 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-print(points['res_points'])
-
 prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A, 'A': my_beam.A}
 m_par = (lam, mu, rho)
 nsamples = n_space + (n_time,)

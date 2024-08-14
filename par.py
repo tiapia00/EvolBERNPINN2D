@@ -8,7 +8,7 @@ class Parameters:
         self.n_time = 40
         self.dimhid = 2 
         self.dmodel = 4
-        self.nheads = 3
+        self.nheads = 2 
         self.nblocks = 3
         self.w0 = 0.3
         self.pinn_par = {
