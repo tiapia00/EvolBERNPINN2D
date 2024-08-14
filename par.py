@@ -3,12 +3,12 @@ class Parameters:
         self.x_end = 5 
         self.y_end = 1e-1
         self.t_end = 2 
-        self.n_space = (3, 3)
+        self.n_space = (31, 11)
         self.n_time = 40
         self.dimhid = 2 
-        self.dmodel = 4
+        self.dmodel = 4 
         self.nheads = 2 
-        self.nblocks = 4 
+        self.nblocks = 2 
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
@@ -21,9 +21,9 @@ class Parameters:
             'dimhid': self.dimhid,
             'nheads': self.nheads,
             'nblocks': self.nblocks,
-            'lr_formin': 1e-3,
-            'lr_formax': -1e-3,
-            'epochs': int(1e3) 
+            'lr_formin': 8e-4,
+            'lr_formax': -8e-4,
+            'epochs': int(4e3) 
         }
         self.beam_par = {
             'x_end': self.x_end,
