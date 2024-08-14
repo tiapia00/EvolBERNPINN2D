@@ -3,7 +3,7 @@ class Parameters:
         self.x_end = 2 
         self.y_end = 1e-1
         self.t_end = 1 
-        self.n_space = (21, 5)
+        self.n_space = (9, 5)
         self.n_time = 50
         self.dimhid = 2 
         self.dmodel = 4 
