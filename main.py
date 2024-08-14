@@ -21,7 +21,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-restartraining = True 
+restartraining = False 
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -118,7 +118,7 @@ model_name = f'{lr_formin}_{epochs}_{ntrans}.pth'
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 
-model_name = f'{lr_formin}_{epochs}_{ntrans}.pth'
+model_name = 'model.pth'
 model_path = os.path.join(dir_model, model_name)
 
 if restartraining:
@@ -129,7 +129,7 @@ if restartraining:
 else:
     pinn_trained = PINN(multdim, nax, ntrans, w0, nlayers, penalties).to(device)
     ### Specify here filename ###
-    filename = 'model//08-04//1714//0.001_2000_1.pth' 
+    filename = 'model//08-14//1954//0.001_1000_3.pth' 
     pinn_trained.load_state_dict(torch.load(filename, map_location=device))
     print(f'{filename} loaded.\n')
 
