@@ -649,13 +649,6 @@ def train_model(
                 'init_loss': init_loss.item()
             }, epoch)
             
-            writer.add_scalars('Penalty', {
-                'inpenalty': nn_approximator.penalty_in.mean().detach().item(),
-                'pdepenalty': nn_approximator.penalty_pde.mean().detach().item(),
-                'cons': nn_approximator.penalty_cons.mean().detach().item()
-            }, epoch)
-            
-            
             pbar.set_description(f"Loss: {loss.item():.3e}")
             return loss
 
