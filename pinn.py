@@ -359,7 +359,7 @@ class PINN(nn.Module):
 
         self.y = nn.ModuleList()
         self.y.append(nn.Linear(1, self.mult[1] * (self.nmodespaceax + self.nmodespacetrans)))
-        self.y.extend(self.getlayers((self.nmodespaceax +  self.nmodespacetrans), nlayers[1]))
+        self.y.extend(self.getlayers((self.nmodespaceax +  self.nmodespacetrans), nlayers))
         self.y.append(nn.Linear((self.nmodespaceax + self.nmodespacetrans) * self.mult[1], 2))
 
     def ff(self, x, B):
