@@ -3,8 +3,7 @@ class Parameters:
         self.x_end = 5 
         self.y_end = 1e-1
         self.t_end = 2 
-        self.n_space = (11, 7)
-        self.n_modes = (1, 1)
+        self.n_space = (3, 3)
         self.n_time = 40
         self.dimhid = 2 
         self.dmodel = 4

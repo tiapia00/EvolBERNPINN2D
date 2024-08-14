@@ -108,7 +108,7 @@ all_points = torch.cat(points['all_points'], dim=1)
 
 penalties = [3*torch.ones(in_points.shape[0], 2),
         torch.ones(all_points.shape[0], 2), 1.5*torch.ones(n_time, 1), torch.ones(n_time, 1)]
-pinn = PINN(2, dmodel, dimhid, w0, nblocks, nheads, penalties).to(device)
+pinn = PINN(2, dmodel, dimhid, nblocks, nheads, w0, penalties).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
@@ -124,7 +124,7 @@ if restartraining:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(2, dmodel, dimhid, w0, nblocks, nheads, penalties).to(device)
+    pinn_trained = PINN(2, dmodel, dimhid, nblocks, nheads, w0, penalties).to(device)
     ### Specify here filename ###
     filename = 'model//08-04//1714//0.001_2000_1.pth' 
     pinn_trained.load_state_dict(torch.load(filename, map_location=device))

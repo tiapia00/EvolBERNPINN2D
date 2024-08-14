@@ -208,6 +208,7 @@ class Grid:
         nx = self.x_domain.shape[0] 
         ny = self.y_domain.shape[0]
         ok = t.squeeze(1)[:nx*ny] == 0
+        print(t)
         print(torch.all(ok))
         t.requires_grad = True
 
@@ -413,7 +414,7 @@ class Decoder(nn.Module):
         return self.act(x)
 
 class PINN(nn.Module):
-    def __init__(self, d_out, d_model, w0, d_hidden, N, heads, penalties):
+    def __init__(self, d_out, d_model, d_hidden, N, heads, w0, penalties):
         super(PINN, self).__init__()
 
         self.linear_emb = nn.Linear(3, d_model)
