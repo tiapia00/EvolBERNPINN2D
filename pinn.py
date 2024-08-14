@@ -437,9 +437,15 @@ class PINN(nn.Module):
 
         e_outputs = self.encoder(src)
         d_output = self.decoder(src, e_outputs)
-        output = self.linear_out(d_output)
+        out = self.linear_out(d_output)
+
+        out *= t
+        out *= torch.sin(np.pi * space[:,0]/torch.max(space[:,0])).unsqueeze(1).expand(-1,2)
+        out_in = initial_conditions(space[:,0].unsqueeze(1), self.w0)[:,:2]
+
+        out += out_in
         
-        return output
+        return out
     
 
 def applymask(penalty: torch.tensor):

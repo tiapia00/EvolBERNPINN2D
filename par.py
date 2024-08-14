@@ -8,7 +8,7 @@ class Parameters:
         self.dimhid = 2 
         self.dmodel = 4
         self.nheads = 2 
-        self.nblocks = 3
+        self.nblocks = 4 
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
