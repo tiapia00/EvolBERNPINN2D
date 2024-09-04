@@ -4,7 +4,7 @@ class Parameters:
         self.y_end = 1e-1
         self.t_end = 2 
         self.n_space = (31, 11)
-        self.n_modes = (1, 1)
+        self.n_modes = (1, 4)
         self.n_time = 40
         self.multdim = (4, 4) 
         self.nlayers = (2, 2)
@@ -20,7 +20,7 @@ class Parameters:
             'n_ax': self.n_modes[0],
             'n_trans': self.n_modes[1],
             'nlayers': self.nlayers,
-            'lr_formin': 1e-3,
+            'lr_formin': 4e-3,
             'lr_formax': -1e-3,
             'epochs': int(1e3) 
         }
