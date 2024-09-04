@@ -38,18 +38,18 @@ E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, 4e-3, 2000)
 
 t_beam = np.linspace(0, t, 2000)
-w, ens_an = obtain_analytical_free(my_beam, w0, t_beam)
+w, ens_an, T_tild = obtain_analytical_free(my_beam, w0, t_beam)
 ens_an = {'V': ens_an[:,0], 'T': ens_an[:,1]}
-
+print(T_tild)
 #t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
 
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, multdim, nax, ntrans, nlayers, lr_formin, lr_formax, epochs = get_params(par.pinn_par)
 
-x_domain = torch.linspace(0, Lx, n_space[0])
-y_domain = torch.linspace(0, Ly, n_space[1])
-t_domain = torch.linspace(0, T, n_time)
+x_domain = torch.linspace(0, Lx, n_space[0])/Lx
+y_domain = torch.linspace(0, Ly, n_space[1])/Lx
+t_domain = torch.linspace(0, T, n_time)/T_tild
 
 steps = get_step((x_domain, y_domain, t_domain))
 
@@ -74,7 +74,6 @@ calculate = Calculate(
         w0,
         device
     )
-
 """
 eigenNN = MLNet(4, 60, 9)
 eigenNN.load_state_dict(torch.load('data//eigenestmodel.pth'))

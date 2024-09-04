@@ -459,7 +459,7 @@ class Calculate:
         nsamples: tuple,
         steps_int: tuple,
         w0: float,
-        device: torch.device,
+        device: torch.device
     ):
         self.initial_condition = initial_condition
         self.m_par = m_par
@@ -468,9 +468,6 @@ class Calculate:
         self.nsamples = nsamples 
         self.steps = steps_int
         self.device = device
-
-    def gettraction(self, pinn):
-        pass
 
     def gete0(self, pinn):
         x, y, t = self.points['initial_points']

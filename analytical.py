@@ -22,6 +22,9 @@ def obtain_analytical_free(my_beam: Beam, w0: float, t: np.ndarray):
     my_beam.update_phi(phi)
     my_In_Cond = In_Cond(my_beam)
 
+    omega0 = np.min(my_beam.omega)
+    T_tild = 2*np.pi/omega0
+
     w0 = w0*my_beam.phi[:, 0]
     wdot_0 = np.zeros(len(w0))
 
@@ -33,7 +36,7 @@ def obtain_analytical_free(my_beam: Beam, w0: float, t: np.ndarray):
 
     ens = getesnum(my_beam, t, w)
 
-    return w, ens 
+    return w, ens, T_tild
 
 
 def getesnum(my_beam: Beam, ts: np.ndarray, w: np.ndarray) -> np.ndarray:
