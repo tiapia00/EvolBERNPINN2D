@@ -42,6 +42,7 @@ E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, 4e-3, n_space_beam)
 
 t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
+print(t_tild)
 
 load_dist = (np.sin, np.sin)
 #t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
@@ -72,7 +73,7 @@ pinn = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, devic
 
 En0 = calc_initial_energy(pinn, n_space, points, device)
 
-in_penalty = np.array([1, 1, 1.2])
+in_penalty = np.array([1, 1.5])
 loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),
         initial_conditions,
@@ -129,8 +130,8 @@ x, y, t = grid.get_all_points()
 plot_sol(pinn_trained, x, y, t, n_space, n_time, dir_model, device)
 
 plot_compliance(pinn_trained, x, y, t, w_ad, dir_model, device)
-plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,
-                    n_time, n_space_beam, dir_model, device)
+#plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,
+#                    n_time, n_space_beam, dir_model, device)
 
 t, en, en_p, en_k = calc_energy(pinn_trained, points, n_space, n_time, device)
 plot_energy(t, en_k, en_p, en, En0, dir_model)

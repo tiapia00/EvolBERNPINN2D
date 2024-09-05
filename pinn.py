@@ -434,9 +434,6 @@ class Loss:
         for loss_bound in loss_v:
             loss += loss_bound.pow(2).mean()
 
-        m = self.penalty[1]
-        loss = m * loss
-
         return loss
 
 
@@ -479,11 +476,11 @@ class Loss:
         return loss
 
 
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.):
+    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.3):
         lambda_o = np.array(self.penalty)
         mean = np.array(mean)
         
-        lambda_n = max_grad / (lambda_o * (np.abs(mean)+0.1))
+        lambda_n = max_grad / (lambda_o * (np.abs(mean)))
 
         self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
 
@@ -527,10 +524,13 @@ def train_model(
 
             means = []
 
+            i = 0
             for loss in losses:
                 loss.backward()
-                means.append(get_mean_grad(nn_approximator))
+                if i != 1:
+                    means.append(get_mean_grad(nn_approximator))
                 optimizer.zero_grad()
+                i += 1
 
             loss_fn.update_penalty(max_grad, means)
 
@@ -550,8 +550,7 @@ def train_model(
 
         writer.add_scalars('Penalty_terms', {
             'init': loss_fn.penalty[0].item(),
-            'boundary': loss_fn.penalty[1].item(),
-            'en_dev': loss_fn.penalty[2].item()
+            'en_dev': loss_fn.penalty[1].item()
         }, epoch)
 
         pbar.update(1)
