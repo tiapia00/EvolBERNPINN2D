@@ -192,7 +192,7 @@ class PINN(nn.Module):
                  initial_conditions: callable,
                  device,
                  a: float = 1,
-                 act=nn.Sigmoid(),
+                 act=nn.Tanh(),
                  n_hidden: int = 1,
                  ):
 

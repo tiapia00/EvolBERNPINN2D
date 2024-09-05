@@ -4,8 +4,8 @@ class Parameters:
         self.y_end = 1e-3
         self.t_end = 0.4
         self.n_space = 10
-        self.n_time = 30
-        self.dim_hidden = (5, 10, 10)
+        self.n_time = 50
+        self.dim_hidden = (2, 20, 15)
         self.n_hidden : int = 3
         self.w0 = 0.3
         self.pinn_par = {
