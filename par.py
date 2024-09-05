@@ -3,9 +3,9 @@ class Parameters:
         self.x_end = 5 
         self.y_end = 1e-1
         self.t_end = 4 
-        self.n_space = (27, 11)
+        self.n_space = (20, 11)
         self.n_modes = (1, 3)
-        self.n_time = 40
+        self.n_time = 35
         self.multdim = (2, 2) 
         self.nlayers = 4
         self.w0 = 0.3
@@ -20,9 +20,9 @@ class Parameters:
             'n_ax': self.n_modes[0],
             'n_trans': self.n_modes[1],
             'nlayers': self.nlayers,
-            'lr_formin': 1e-3,
+            'lr_formin': 8e-4,
             'lr_formax': -1e-3,
-            'epochs': int(1e3) 
+            'epochs': int(5e3) 
         }
         self.beam_par = {
             'x_end': self.x_end,
