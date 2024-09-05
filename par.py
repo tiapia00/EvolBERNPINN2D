@@ -3,7 +3,7 @@ class Parameters:
         self.x_end = 1
         self.y_end = 1e-3
         self.t_end = 0.4
-        self.n_space = 10
+        self.n_space = 20
         self.n_time = 50
         self.dim_hidden = (2, 20, 15)
         self.n_hidden : int = 3
@@ -18,7 +18,7 @@ class Parameters:
             'dim_hidden': self.dim_hidden,
             'n_hidden_space': self.n_hidden,
             'lr': 1e-3,
-            'epochs': 4000
+            'epochs': 6000
         }
         self.beam_par = {
             'x_end': self.x_end,
