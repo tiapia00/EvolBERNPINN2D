@@ -4,10 +4,10 @@ class Parameters:
         self.y_end = 1e-1
         self.t_end = 0.5 
         self.n_space = (21, 11)
-        self.n_modes = (1, 5)
-        self.n_time = 40
+        self.n_modes = (1, 3)
+        self.n_time = 30
         self.multdim = (1, 1) 
-        self.nlayers = 4
+        self.nlayers = 2 
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
