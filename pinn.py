@@ -185,11 +185,7 @@ def parabolic(a, x):
 class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: tuple,
-                 n_hidden_space: int,
-                 points: dict,
                  w0: float,
-                 prop: dict,
-                 initial_conditions: callable,
                  device,
                  a: float = 1,
                  act=nn.Tanh(),
@@ -201,7 +197,7 @@ class PINN(nn.Module):
         self.w0 = w0
         self.a = a
         self.n_mode_spacex = dim_hidden[0]
-        self.n_mode_spacey = dim_hidden[1]
+        self.n_mode_spacey = gammas.shape[0]
 
         multipliers_x = torch.arange(1, self.n_mode_spacex + 1, device=device)
         self.Bx = 0.1 * torch.ones((2, self.n_mode_spacex), device=device)
