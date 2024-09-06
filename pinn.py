@@ -243,6 +243,62 @@ def parabolic(a, x):
     return (a * x ** 2 - a * x)
 
 
+class NNinbc(nn.Module):
+    def __init__(self, dim_hidden, n_hidden):
+
+        super().__init__()
+
+        self.layerin = nn.Linear(3, dim_hidden)
+
+        self.layers = nn.ModuleList()
+        for _ in range(n_hidden - 1):
+            self.layers.append(nn.Linear(dim_hidden, dim_hidden))
+            self.layers.append(TrigAct())
+        
+        self.layerout = nn.Linear(dim_hidden, 2)
+
+    def forward(self, points):
+        output = self.layerin(points)
+
+        for layer in self.layers:
+            output = layer(output)
+        
+        output = self.layerout(output)
+
+        ### Transformation for Dirichlet BCs ###
+
+        return output
+
+
+class NNd(nn.Module):
+    def __init__(self, dim_hidden, n_hidden):
+
+        super().__init__()
+
+        self.dim_hidden = dim_hidden
+        self.n_hidden = n_hidden
+
+        self.layerin = nn.Linear(3, dim_hidden)
+
+        self.layers = nn.ModuleList()
+        for _ in range(n_hidden - 1):
+            self.layers.append(nn.Linear(dim_hidden, dim_hidden))
+            self.layers.append(nn.ReLU())
+        
+        self.layerout = nn.Linear(dim_hidden, 1)
+
+    def forward(self, points):
+        output = self.layerin(points)
+
+        for layer in self.layers:
+            output = layer(output)
+        
+        output = self.layerout(output)
+        output *= points[:,2].unsqueeze(1)
+
+        return output
+
+
 def omtogam_trans(omega: torch.tensor, prop: dict):
     E = prop['E']
     m = prop['m']
@@ -272,13 +328,18 @@ class PINN(nn.Module):
                  n_trans: int,
                  w0: float,
                  nlayers: tuple,
-                 act=nn.Sigmoid(),
+                 penalties: list,
+                 act=nn.Softmax(dim=1),
                  ):
 
         super().__init__()
 
         self.nmodespaceax = n_ax
         self.nmodespacetrans = n_trans
+
+        self.penalty_in = nn.Parameter(penalties[0]) 
+        self.penalty_pde = nn.Parameter(penalties[1])
+        self.penalty_cons = nn.Parameter(penalties[2])
 
         self.mult = dim_mult
         self.act = act
@@ -378,7 +439,6 @@ class Calculate:
         nsamples: tuple,
         steps_int: tuple,
         w0: float,
-        penalties: np.ndarray,
         device: torch.device,
     ):
         self.initial_condition = initial_condition
@@ -387,7 +447,6 @@ class Calculate:
         self.w0 = w0
         self.nsamples = nsamples 
         self.steps = steps_int
-        self.penalties = penalties
         self.device = device
 
     def gettraction(self, pinn):
@@ -436,7 +495,7 @@ class Calculate:
             div_sig[:,:,:,i] = partial_div
         
         div_sig = div_sig.reshape(-1, 2)
-        diff = div_sig - rho*a
+        diff = applymask(pinn.penalty_pde) * (div_sig - rho*a)
         
         loss = 0
         
@@ -466,7 +525,7 @@ class Calculate:
         Pi0, T0 = self.gete0(pinn)
 
         loss = (Pi0 + T0) - (Pi+T)
-        loss *= self.penalties[0]
+        loss *= applymask(pinn.penalty_cons.squeeze(1))
 
         # Hamilton principle: action should be minimized
         if verbose:
@@ -484,21 +543,11 @@ class Calculate:
         gt = initial_conditions(x, self.w0)
         v0gt = gt[:,2:]
         v0 = getspeed(output, t, self.device)
-        loss_speed = v0gt - v0
+        loss_speed = (applymask(nn.penalty_in) * (v0gt - v0))
 
         loss = loss_speed.pow(2).mean()
-        loss *= self.penalties[1]
 
         return loss
-
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.3):
-        lambda_o = self.penalty
-        mean = np.array(mean)
-        
-        lambda_n = max_grad / (lambda_o * (np.abs(mean)))
-
-        self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
-
 
     def boundary_loss(self, pinn):
         ### Maybe just for Neumann ##
@@ -508,44 +557,54 @@ class Calculate:
 def train_model(
     nn_approximator: PINN,
     calc: Callable,
-    lr: float,
+    lr_formin: float,
+    lr_formax: float,
     max_epochs: int,
     path_logs: str
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.Adam(nn_approximator.parameters(), lr=lr)
+    base_params = [p for name, p in nn_approximator.named_parameters() 
+            if name not in ['penalty_in', 'penalty_pde', 'penalty_cons']]
+
+    optimizer = optim.Adam([
+    {'params': base_params, 'lr': lr_formin},  # Base learning rate for all parameters
+    {'params': [nn_approximator.penalty_in, nn_approximator.penalty_pde,
+            nn_approximator.penalty_cons], 'lr': lr_formax}  
+])
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
-        optimizer.zero_grad()
 
-        pde_loss = calc.pdeloss(nn_approximator)
-        inen_loss = calc.inenloss(nn_approximator, False)
-        init_loss = calc.initial_loss(nn_approximator)
-        loss = pde_loss + inen_loss + init_loss
-
-        losses = (inen_loss, init_loss)
-
-        if epoch != 0 and epoch % 100 == 0 :
-            pde_loss.backward()
-            max_grad = get_max_grad(nn_approximator)
+        def closure():
             optimizer.zero_grad()
 
-            means = []
+            pde_loss = calc.pdeloss(nn_approximator)
+            inen_loss = calc.inenloss(nn_approximator, False)
+            init_loss = calc.initial_loss(nn_approximator)
 
-            i = 0
-            for loss in losses:
-                loss.backward()
-                means.append(get_mean_grad(nn_approximator))
-                optimizer.zero_grad()
-                i += 1
+            loss = pde_loss + inen_loss + init_loss
+            loss.backward()
 
-            calc.update_penalty(max_grad, means)
+            writer.add_scalars('Loss', {
+                'pdeloss': pde_loss.item(),
+                'encons': inen_loss.item(),
+                'init_loss': init_loss.item()
+            }, epoch)
+            
+            writer.add_scalars('Penalty', {
+                'inpenalty': nn_approximator.penalty_in.mean().detach().item(),
+                'pdepenalty': nn_approximator.penalty_pde.mean().detach().item(),
+                'cons': nn_approximator.penalty_cons.mean().detach().item()
+            }, epoch)
+            
+            
+            pbar.set_description(f"Loss: {loss.item():.3e}")
+            return loss
 
-        loss.backward()
-        optimizer.step()
+        optimizer.step(closure)
+        pbar.update(1)
 
     losses = calc.inenloss(nn_approximator, True)
     Pi, T = losses
@@ -555,6 +614,47 @@ def train_model(
     writer.close()
 
     return nn_approximator, variables
+
+
+def train_inbcs(nn: NNinbc, calc: Calculate, epochs: int, learning_rate: float):
+    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
+    pbar = tqdm(total=epochs, desc="Training", position=0)
+
+    for epoch in range(epochs):
+
+        optimizer.zero_grad()
+        loss = calc.initial_loss(nn)
+        loss.backward()
+        optimizer.step()
+
+        pbar.set_description(f"Loss: {loss.item():.3e}")
+
+        pbar.update(1)
+
+    pbar.update(1)
+    pbar.close()
+
+    return nn
+
+def train_dist(nn: NNd, calc: Calculate, epochs: int, learning_rate: float):
+    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
+    pbar = tqdm(total=epochs, desc="Training", position=0)
+
+    for epoch in range(epochs):
+
+        optimizer.zero_grad()
+        loss = calc.distance_loss(nn)
+        loss.backward()
+        optimizer.step()
+
+        pbar.set_description(f"Loss: {loss.item():.3e}")
+
+        pbar.update(1)
+
+    pbar.update(1)
+    pbar.close()
+
+    return nn
 
 
 def df_num_torch(dx: float, y: torch.tensor):
@@ -575,6 +675,18 @@ def df_num_torch(dx: float, y: torch.tensor):
     derivative[-1] = dy[-1] / dx
 
     return derivative
+
+
+def get_max_grad(pinn: PINN):
+    max_grad = None
+
+    for name, param in pinn.named_parameters():
+        if param.requires_grad:
+            param_max_grad = param.grad.abs().max().item()
+            if max_grad is None or param_max_grad > max_grad:
+                max_grad = param_max_grad
+
+    return max_grad
 
 
 def obtainsolt(pinn: PINN, space_in: torch.tensor, t:torch.tensor, nsamples: tuple, device):
@@ -634,28 +746,3 @@ def calculate_fft(signal: np.ndarray, dt: float, t: torch.tensor):
     f = Fs * np.arange(0, (L//2)+1) / L
 
     return f, mod, phase
-
-def get_max_grad(pinn: PINN):
-    max_grad = None
-
-    for name, param in pinn.named_parameters():
-        if param.requires_grad:
-            param_max_grad = param.grad.abs().max().item()
-            if max_grad is None or param_max_grad > max_grad:
-                max_grad = param_max_grad
-
-    return max_grad
-
-
-def get_mean_grad(pinn: PINN):
-    all_grads = []
-
-    for param in pinn.parameters():
-        if param.grad is not None:
-            all_grads.append(param.grad.view(-1))
-
-    all_grads = torch.cat(all_grads)
-
-    mean = all_grads.mean().cpu().numpy()
-
-    return mean
