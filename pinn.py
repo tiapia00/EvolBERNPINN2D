@@ -544,7 +544,7 @@ def train_model(
             calc.update_penalty(max_grad, means)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
-        loss.backward()
+        loss.backward(retain_graph=True)
         optimizer.step()
         pbar.update(1)
 
