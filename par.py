@@ -6,7 +6,7 @@ class Parameters:
         self.n_space = (21, 3)
         self.n_modes = (1, 3)
         self.n_time = 25 
-        self.multdim = (1, 1) 
+        self.multdim = (2, 2) 
         self.nlayers = 2 
         self.w0 = 0.3
         self.pinn_par = {
