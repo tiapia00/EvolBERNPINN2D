@@ -491,7 +491,6 @@ class Calculate:
 
     def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.3):
         lambda_o = self.penalties
-        print(type(lambda_o))
         mean = np.array(mean)
         
         lambda_n = max_grad / (lambda_o * (np.abs(mean)))
