@@ -492,7 +492,7 @@ class Calculate:
         return loss
 
     def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.3):
-        lambda_o = self.penalty
+        lambda_o = self.penalties
         mean = np.array(mean)
         
         lambda_n = max_grad / (lambda_o * (np.abs(mean)))
