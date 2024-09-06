@@ -1,11 +1,11 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 5 
-        self.y_end = 1e-1
+        self.x_end = 1 
+        self.y_end = 1e-3
         self.t_end = 0.5 
-        self.n_space = (21, 11)
+        self.n_space = (21, 3)
         self.n_modes = (1, 3)
-        self.n_time = 30
+        self.n_time = 25 
         self.multdim = (1, 1) 
         self.nlayers = 2 
         self.w0 = 0.3
