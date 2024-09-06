@@ -536,7 +536,7 @@ def train_model(
 
             i = 0
             for loss in losses:
-                loss.backward()
+                loss.backward(retain_graph=True)
                 means.append(get_mean_grad(nn_approximator))
                 optimizer.zero_grad()
                 i += 1
@@ -544,7 +544,7 @@ def train_model(
             calc.update_penalty(max_grad, means)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
-        loss.backward(retain_graph=True)
+        loss.backward()
         optimizer.step()
         pbar.update(1)
 
