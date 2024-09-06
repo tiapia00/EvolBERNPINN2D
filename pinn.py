@@ -185,11 +185,9 @@ def parabolic(a, x):
 class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: tuple,
-                 n_hidden_space: int,
-                 points: dict,
+                 gammas: np.ndarray,
+                 omegas: np.ndarray,
                  w0: float,
-                 prop: dict,
-                 initial_conditions: callable,
                  device,
                  a: float = 1,
                  act=nn.Tanh(),
@@ -201,18 +199,19 @@ class PINN(nn.Module):
         self.w0 = w0
         self.a = a
         self.n_mode_spacex = dim_hidden[0]
-        self.n_mode_spacey = dim_hidden[1]
+        self.n_mode_spacey = omegas.shape[0]
 
-        multipliers_x = torch.arange(1, self.n_mode_spacex + 1, device=device)
-        self.Bx = 0.1 * torch.ones((2, self.n_mode_spacex), device=device)
-        self.Bx[0,:] *= multipliers_x
+        self.Bx = torch.rand((2, self.n_mode_spacex), device=device)
 
-        multipliers_y = torch.arange(1, self.n_mode_spacey + 1, device=device) **2
-        self.By = 0.005 * torch.ones((2, self.n_mode_spacey), device=device)
-        self.By[0,:] *= multipliers_y
+        self.By = torch.zeros((2, self.n_mode_spacey), device=device)
+        self.By[0,:] = torch.tensor(gammas, device=device, dtype=torch.float)
 
-        self.in_time = nn.Linear(1, dim_hidden[2])
-        self.act_time = TrigAct()
+        self.Btx = torch.rand((1, self.n_mode_spacex), device=device)
+
+        multipliers_t = torch.arange(1, self.n_mode_spacey + 1, device=device) **2
+        self.Bty = torch.zeros((1, self.n_mode_spacey), device=device)
+        self.Bty[0,:] = torch.tensor(omegas, device=device, dtype=torch.float)
+        self.Bty *= multipliers_t
 
         self.hid_space_layers_x = nn.ModuleList()
         for i in range(n_hidden - 1):
@@ -226,7 +225,17 @@ class PINN(nn.Module):
             self.hid_space_layers_y.append(act)
         self.outFC_space_y = nn.Linear(4 * self.n_mode_spacey, 1)
 
-        self.mid_time_layer = nn.Linear(dim_hidden[2], 2)
+        self.hid_layers_tx = nn.ModuleList()
+        for i in range(0):
+            self.hid_space_layers_tx.append(nn.Linear(2 * self.n_mode_spacex, 2 * self.n_mode_spacex))
+            self.hid_space_layers_tx.append(act)
+        self.outFC_tx = nn.Linear(2 * self.n_mode_spacex, 1)
+
+        self.hid_layers_ty = nn.ModuleList()
+        for i in range(0):
+            self.hid_space_layers_ty.append(nn.Linear(2 * self.n_mode_spacey, 2 * self.n_mode_spacey))
+            self.hid_space_layers_ty.append(act)
+        self.outFC_ty = nn.Linear(2 * self.n_mode_spacey, 1)
 
     def parabolic(self, x):
         return (self.a * x ** 2 - self.a * x)
@@ -249,6 +258,12 @@ class PINN(nn.Module):
         return torch.cat([torch.sin(np.pi * x_proj), torch.cos(np.pi * x_proj),
                 torch.sinh(np.pi * x_proj), torch.cosh(np.pi * x_proj)], dim=1)
 
+    def fourier_features_t(self, t, B):
+        x_proj = t @ B 
+        return torch.cat([torch.sin(np.pi * x_proj),
+                torch.cos(np.pi * x_proj)], dim=1)
+        
+
     def forward(self, x, y, t):
         space = torch.cat([x,y], dim=1)
         time = t
@@ -256,8 +271,14 @@ class PINN(nn.Module):
         fourier_space_x = self.fourier_features_ux(space)
         fourier_space_y = self.fourier_features_uy(space)
 
+        fourier_tx = self.fourier_features_t(time, self.Btx)
+        fourier_ty = self.fourier_features_t(time, self.Bty)
+
         x_in = fourier_space_x
         y_in = fourier_space_y
+
+        tx_in = fourier_tx
+        ty_in = fourier_ty
 
         for layer in self.hid_space_layers_x:
             x_in= layer(x_in)
@@ -270,11 +291,15 @@ class PINN(nn.Module):
 
         out_space_FC = torch.cat([x_FC, y_FC], dim=1)
 
-        t = self.in_time(time)
+        for layer in self.hid_layers_tx:
+            tx_in = layer(tx_in)
 
-        t_act = self.act_time(t)
+        for layer in self.hid_layers_ty:
+            ty_in = layer(ty_in)
 
-        mid_t = self.mid_time_layer(t_act)
+        tx = self.outFC_tx(tx_in)
+        ty = self.outFC_ty(ty_in)
+        mid_t = torch.cat([tx, ty], dim=1)
 
         mid_x = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out_space_FC
         #mid_x = out_space_FC
@@ -476,7 +501,7 @@ class Loss:
         return loss
 
 
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.3):
+    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.5):
         lambda_o = np.array(self.penalty)
         mean = np.array(mean)
         

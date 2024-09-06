@@ -44,9 +44,6 @@ my_beam = Beam(Lx, E, rho, h, 4e-3, n_space_beam)
 t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
 print(t_tild)
 
-load_dist = (np.sin, np.sin)
-#t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
-
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hid_space, lr, epochs = get_params(par.pinn_par)
@@ -55,6 +52,8 @@ L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
 y_domain = torch.linspace(0, Ly, n_space)/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
+omegas = my_beam.omega * t_tild
+gammas = my_beam.gamma * Lx
 
 steps = get_step((x_domain, y_domain, t_domain))
 
@@ -69,7 +68,7 @@ points = {
 
 
 prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
-pinn = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
+pinn = PINN(dim_hidden, gammas, omegas, w0, device).to(device)
 
 En0 = calc_initial_energy(pinn, n_space, points, device)
 
@@ -100,7 +99,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, n_hid_space, points, w0, prop, initial_conditions, device).to(device)
+    pinn_trained = PINN(dim_hidden, gammas, omegas, w0, device).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
