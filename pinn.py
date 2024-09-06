@@ -465,8 +465,7 @@ class Calculate:
 
         Pi0, T0 = self.gete0(pinn)
 
-        loss = (Pi0 + T0) - (Pi+T)
-        loss *= self.penalties[0]
+        loss = self.penalties[0] * ((Pi0 + T0) - (Pi+T))
 
         # Hamilton principle: action should be minimized
         if verbose:
@@ -486,13 +485,13 @@ class Calculate:
         v0 = getspeed(output, t, self.device)
         loss_speed = v0gt - v0
 
-        loss = loss_speed.pow(2).mean()
-        loss *= self.penalties[1]
+        loss = self.penalties[1] * loss_speed.pow(2).mean()
 
         return loss
 
     def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.3):
         lambda_o = self.penalties
+        print(type(lambda_o))
         mean = np.array(mean)
         
         lambda_n = max_grad / (lambda_o * (np.abs(mean)))
@@ -544,13 +543,16 @@ def train_model(
 
             calc.update_penalty(max_grad, means)
 
+        pbar.set_description(f"Loss: {loss.item():.3e}")
         loss.backward()
         optimizer.step()
+        pbar.update(1)
 
     losses = calc.inenloss(nn_approximator, True)
     Pi, T = losses
     variables = {'Pi': Pi, 'T': T}
 
+    pbar.update(1)
     pbar.close()
     writer.close()
 

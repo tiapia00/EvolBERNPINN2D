@@ -66,7 +66,7 @@ prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A, 'A': my_beam.A}
 m_par = (lam, mu, rho)
 nsamples = n_space + (n_time,)
 
-penalties = np.array([1.5, 1.])
+penalties = np.array([1.5, 1.], dtype=np.float32)
 
 calculate = Calculate(
         initial_conditions,
