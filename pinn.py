@@ -261,10 +261,6 @@ def omtogam_ax(omega: torch.tensor, prop: dict):
     return gamma
 
 
-def applymask(penalty: torch.tensor):
-    return torch.tanh(penalty)
-
-
 class PINN(nn.Module):
     def __init__(self,
                  dim_mult : tuple,
@@ -284,8 +280,8 @@ class PINN(nn.Module):
         self.act = act
         self.w0 = w0
 
-        self.Bxax = nn.Parameter(0.05*torch.randn(1, self.nmodespaceax))
-        self.Bxtrans = nn.Parameter(0.1*torch.randn(1, self.nmodespacetrans))
+        self.Bxax = nn.Parameter(0.5*torch.randn(1, self.nmodespaceax))
+        self.Bxtrans = nn.Parameter(2*torch.randn(1, self.nmodespacetrans))
 
         self.Btimeax = nn.Parameter(torch.randn(1, self.nmodespaceax))
         self.Btimetrans = nn.Parameter(torch.randn(1, self.nmodespacetrans))
@@ -356,11 +352,10 @@ class PINN(nn.Module):
         
         out = out + y
 
-        out = out * t
         out = out * torch.sin(np.pi * x/torch.max(x)).expand(-1,2)
         out_in = initial_conditions(x, self.w0)[:,:2]
 
-        out = out + out_in
+        out = out*torch.tanh(t) + out_in*(1-torch.tanh(t))
 
         return out
 
