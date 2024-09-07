@@ -21,7 +21,7 @@ class Parameters:
             'n_trans': self.n_modes[1],
             'nlayers': self.nlayers,
             'lr': 1e-1,
-            'epochs': int(2e3) 
+            'epochs': 100
         }
         self.beam_par = {
             'x_end': self.x_end,
