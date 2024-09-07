@@ -1,8 +1,8 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 12 
+        self.x_end = 1
         self.y_end = 1e-1
-        self.t_end = 0.001 
+        self.t_end = 0.5 
         self.n_space = (40, 40)
         self.n_time = 30
         self.dim_hidden = 100 
@@ -29,7 +29,7 @@ class Parameters:
         }
         self.mat_par = {
             'E': 68.0e9,
-            'rho': 27.,
+            'rho': 8000.,
             'nu': 0.26
         }
 
