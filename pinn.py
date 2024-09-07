@@ -284,11 +284,11 @@ class PINN(nn.Module):
         self.act = act
         self.w0 = w0
 
-        self.Bxax = nn.Parameter(torch.rand(1, self.nmodespaceax))
-        self.Bxtrans = nn.Parameter(torch.rand(1, self.nmodespacetrans))
+        self.Bxax = nn.Parameter(0.05*torch.randn(1, self.nmodespaceax))
+        self.Bxtrans = nn.Parameter(0.1*torch.randn(1, self.nmodespacetrans))
 
-        self.Btimeax = nn.Parameter(torch.rand(1, self.nmodespaceax))
-        self.Btimetrans = nn.Parameter(torch.rand(1, self.nmodespacetrans))
+        self.Btimeax = nn.Parameter(torch.randn(1, self.nmodespaceax))
+        self.Btimetrans = nn.Parameter(torch.randn(1, self.nmodespacetrans))
 
         self.layersax = self.getlayersff(self.nmodespaceax)
         self.outlayerax = nn.Linear(2*self.nmodespaceax, 1)
