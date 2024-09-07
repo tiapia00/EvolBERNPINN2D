@@ -312,7 +312,7 @@ class PINN(nn.Module):
         
         layers = nn.ModuleList()
         layers.append(nn.Linear(hidspacedim, hidspacedim))
-        layers.append(self.act)
+        #layers.append(self.act)
         
         return layers
 
