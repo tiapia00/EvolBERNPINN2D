@@ -513,10 +513,10 @@ def train_model(
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.Adam(nn_approximator.parameters(), lr=lr)
+    optimizer = optim.LBFGS(nn_approximator.parameters(), lr=lr)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
-    for epoch in range(max_epochs):
+    def closure():
         optimizer.zero_grad()
 
         pde_loss = calc.pdeloss(nn_approximator)
@@ -544,7 +544,12 @@ def train_model(
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
         loss.backward()
-        optimizer.step()
+
+        return loss
+
+
+    for epoch in range(max_epochs):
+        optimizer.step(closure)
         pbar.update(1)
 
     losses = calc.inenloss(nn_approximator, True)
