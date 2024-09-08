@@ -328,8 +328,8 @@ class PINN(nn.Module):
 
     def forward(self, space, t):
         x = space[:,0].unsqueeze(1)
-        axial = self.ff(x, self.Bxax)
-        trans = self.ff(x, self.Bxtrans)
+        axial = self.ffax(x, self.Bxax)
+        trans = self.fftrans(x, self.Bxtrans)
         y = space[:,1].unsqueeze(1)
 
         times_ax = self.ffax(t, self.Btimeax)
