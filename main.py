@@ -45,7 +45,7 @@ ens_an = {'V': ens_an[:,0], 'T': ens_an[:,1]}
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, dmodel, dimhid, nheads, nblocks, lr_formin, lr_formax, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, w0, dmodel, dimhid, nheads, nblocks, lr, epochs = get_params(par.pinn_par)
 
 x_domain = torch.linspace(0, Lx, n_space[0])
 y_domain = torch.linspace(0, Ly, n_space[1])
@@ -106,9 +106,7 @@ t_in = t.to(device)
 in_points = torch.cat([x_in, y_in, t_in], dim=1)
 all_points = torch.cat(points['all_points'], dim=1)
 
-penalties = [3*torch.ones(in_points.shape[0], 2),
-        torch.ones(all_points.shape[0], 2), 1.5*torch.ones(n_time, 1), torch.ones(n_time, 1)]
-pinn = PINN(2, dmodel, dimhid, nblocks, nheads, w0, penalties).to(device)
+pinn = PINN(2, dmodel, dimhid, nblocks, nheads, w0).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
@@ -119,19 +117,19 @@ model_name = 'model.pth'
 model_path = os.path.join(dir_model, model_name)
 
 if restartraining:
-    pinn_trained, ens_NN = train_model(pinn, calc=calculate, lr_formin=lr_formin,
-            lr_formax=lr_formax, max_epochs=epochs, path_logs=dir_logs)
+    pinn_trained, ens_NN = train_model(pinn, calc=calculate, lr=lr,
+            max_epochs=epochs, path_logs=dir_logs)
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(2, dmodel, dimhid, nblocks, nheads, w0, penalties).to(device)
+    pinn_trained = PINN(2, dmodel, dimhid, nblocks, nheads, w0).to(device)
     ### Specify here filename ###
     filename = 'model//08-04//1714//0.001_2000_1.pth' 
     pinn_trained.load_state_dict(torch.load(filename, map_location=device))
     print(f'{filename} loaded.\n')
 
-    pinn_trained, ens_NN = train_model(pinn_trained, calc=calculate, lr_formin=lr_formin,
-            lr_formax=lr_formax, max_epochs=epochs, path_logs=dir_logs)
+    pinn_trained, ens_NN = train_model(pinn_trained, calc=calculate, lr=lr,
+            max_epochs=epochs, path_logs=dir_logs)
     torch.save(pinn_trained.state_dict(), model_path)
 
 print(pinn_trained)

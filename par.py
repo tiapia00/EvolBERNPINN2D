@@ -8,7 +8,7 @@ class Parameters:
         self.dimhid = 2 
         self.dmodel = 4 
         self.nheads = 2 
-        self.nblocks = 2 
+        self.nblocks = 3 
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
@@ -21,8 +21,7 @@ class Parameters:
             'dimhid': self.dimhid,
             'nheads': self.nheads,
             'nblocks': self.nblocks,
-            'lr_formin': 8e-4,
-            'lr_formax': -8e-4,
+            'lr': 8e-4,
             'epochs': int(4e3) 
         }
         self.beam_par = {

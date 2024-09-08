@@ -410,7 +410,7 @@ class Decoder(nn.Module):
         return self.act(x)
 
 class PINN(nn.Module):
-    def __init__(self, d_out, d_model, d_hidden, N, heads, w0, penalties):
+    def __init__(self, d_out, d_model, d_hidden, N, heads, w0):
         super(PINN, self).__init__()
 
         self.linear_emb = nn.Linear(3, d_model)
@@ -443,11 +443,6 @@ class PINN(nn.Module):
         
         return out
     
-
-def applymask(penalty: torch.tensor):
-    return torch.tanh(penalty)
-
-
 
 class Calculate:
     def __init__(
@@ -611,24 +606,13 @@ class Calculate:
 def train_model(
     nn_approximator: PINN,
     calc: Callable,
-    lr_formin: float,
-    lr_formax: float,
+    lr: float,
     max_epochs: int,
     path_logs: str
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
-    """
-    base_params = [p for name, p in nn_approximator.named_parameters() 
-            if name not in ['penalty_in', 'penalty_pde', 'penalty_cons']]
-
-    optimizer = optim.Adam([
-    {'params': base_params, 'lr': lr_formin},  # Base learning rate for all parameters
-    {'params': [nn_approximator.penalty_in, nn_approximator.penalty_pde,
-            nn_approximator.penalty_cons], 'lr': lr_formax}  
-])
-    """
-    optimizer = optim.Adam(nn_approximator.parameters(), lr_formin)
+    optimizer = optim.Adam(nn_approximator.parameters(), lr)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
