@@ -565,7 +565,7 @@ class Calculate:
         space = torch.cat([x, y], dim=1)
         pinn.nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
 
-        output = pinn(space, t)
+        output = pinn(space, t)[:,:2]
 
         lam, mu, rho = self.m_par
         dx, dy, dt = self.steps
@@ -631,7 +631,7 @@ class Calculate:
         points = torch.cat([x, y], dim=1)
         pinn.nsamples = (self.nsamples[0], self.nsamples[1], 1)
 
-        output = pinn(points, t)
+        output = pinn(points, t)[:,:2]
 
         v0gt = pinn.initial_conditions(space)[:,-2:]
         v0 = getspeed(output, t, self.device)
