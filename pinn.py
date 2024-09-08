@@ -32,10 +32,10 @@ def simps(y, dx, dim=0):
 
 def initial_conditions(x: torch.tensor, w0: float, i: float = 1) -> torch.tensor:
     ux0 = torch.zeros_like(x)
-    uy0 = w0*torch.sin(torch.pi*x/torch.max(x))
+    uy0 = w0*torch.sin(2*torch.pi*x/torch.max(x))
     #uy0 = torch.zeros_like(x)
     dotux0 = torch.zeros_like(x)
-    dotuy0 = torch.zeros_like(x)
+    dotuy0 = torch.ones_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
 
 def geteps(space, output, nsamples, device):
