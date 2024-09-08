@@ -224,6 +224,8 @@ class PINN(nn.Module):
 
         self.mid_time_layer = nn.Linear(dim_hidden[2], 2)
 
+        self._initialize_weights()
+
     def parabolic(self, x):
         return (self.a * x ** 2 - self.a * x)
 
@@ -244,6 +246,14 @@ class PINN(nn.Module):
         x_proj = space @ self.By
         return torch.cat([torch.sin(np.pi * x_proj), torch.cos(np.pi * x_proj),
                 torch.sinh(np.pi * x_proj), torch.cosh(np.pi * x_proj)], dim=1)
+
+    def _initialize_weights(self):
+        # Initialize all layers with Xavier initialization
+        for layer in self.modules():
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)  # Glorot uniform initialization
+                if layer.bias is not None:
+                    nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
     def forward(self, x, y, t):
         space = torch.cat([x,y], dim=1)
@@ -500,12 +510,11 @@ def train_model(
     learning_rate: int,
     max_epochs: int,
     path_logs: str,
-    points: dict
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.LBFGS(nn_approximator.parameters(), lr = learning_rate)
+    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     def closure():
@@ -684,6 +693,7 @@ def get_mean_grad(pinn: PINN):
     mean = all_grads.mean().cpu().numpy()
 
     return mean
+
 
 
 
