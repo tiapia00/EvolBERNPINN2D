@@ -432,11 +432,11 @@ class PINN(nn.Module):
 
         out = torch.cat([outax, outtrans], dim=1)
 
-        out *= t
+        out *= torch.tanh(t/torch.max(t))
         out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
         out_in = initial_conditions(space[:,0].unsqueeze(1), self.w0)[:,:2]
 
-        out += out_in
+        out += out_in * torch.tanh(1-t/torch.max(t))
 
         return out
 
