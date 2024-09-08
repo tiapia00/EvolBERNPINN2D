@@ -36,7 +36,7 @@ class Parameters:
 
     def to_matpar_PINN(self) -> float:
 
-        E = self.mat_par['E']
+        E = self.mat_par['E']/1e6
         nu = self.mat_par['nu']
         lam = E*nu/(1+nu)/(1-2*nu)
         mu = E/2/(1+nu)
