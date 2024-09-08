@@ -4,7 +4,7 @@ class Parameters:
         self.y_end = 1e-3
         self.t_end = 0.8
         self.n_space = 21 
-        self.n_time = 51
+        self.n_time = 71 
         self.dim_hidden = (1, 20, 20)
         self.n_hidden : int = 2 
         self.w0 = 0.3
