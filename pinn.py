@@ -231,11 +231,11 @@ class PINN(nn.Module):
 
     @staticmethod
     def apply_filter(alpha):
-        return (torch.tanh(alpha))
+        return (torch.tanh(alpha/torch.max(alpha)))
 
     @staticmethod
     def apply_compl_filter(alpha):
-        return (1-torch.tanh(alpha))
+        return (1-torch.tanh(alpha/torch.max(alpha)))
 
     def fourier_features_ux(self, space):
         x_proj = space @ self.Bx
