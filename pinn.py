@@ -621,7 +621,7 @@ def train_model(
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.LBFGS(nn_approximator.parameters(), lr=lr)
+    optimizer = optim.Adam(nn_approximator.parameters(), lr=lr)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     def closure():
