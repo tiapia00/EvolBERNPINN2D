@@ -20,9 +20,8 @@ class Parameters:
             'n_ax': self.n_modes[0],
             'n_trans': self.n_modes[1],
             'nlayers': self.nlayers,
-            'lr_formin': 9e-4,
-            'lr_formax': -1e-3,
-            'epochs': int(3e3) 
+            'lr': 1e-2,
+            'epochs': 100
         }
         self.beam_par = {
             'x_end': self.x_end,

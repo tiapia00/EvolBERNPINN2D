@@ -328,7 +328,6 @@ class PINN(nn.Module):
                  n_trans: int,
                  w0: float,
                  nlayers: tuple,
-                 penalties: list,
                  act=nn.Sigmoid(),
                  ):
 
@@ -339,10 +338,6 @@ class PINN(nn.Module):
 
         self.nhiddenspace = nlayers[0]
         self.nhiddentime = nlayers[1]
-
-        self.penalty_in = nn.Parameter(penalties[0]) 
-        self.penalty_pde = nn.Parameter(penalties[1])
-        self.penalty_cons = nn.Parameter(penalties[2])
 
         self.mult = dim_mult
         self.act = act
@@ -459,6 +454,7 @@ class Calculate:
         nsamples: tuple,
         steps_int: tuple,
         w0: float,
+        penalties: np.ndarray,
         device: torch.device
     ):
         self.initial_condition = initial_condition
@@ -468,6 +464,7 @@ class Calculate:
         self.nsamples = nsamples 
         self.steps = steps_int
         self.device = device
+        self.penalties = penalties
 
     def gete0(self, pinn):
         x, y, t = self.points['initial_points']
@@ -486,6 +483,14 @@ class Calculate:
         K = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
         return (Psi, K) 
+
+    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.3):
+        lambda_o = self.penalties
+        mean = np.array(mean)
+        
+        lambda_n = max_grad / (lambda_o * (np.abs(mean)))
+
+        self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
 
     def pdeloss(self, pinn):
         x, y, t = self.points['all_points']
@@ -512,7 +517,7 @@ class Calculate:
             div_sig[:,:,:,i] = partial_div
         
         div_sig = div_sig.reshape(-1, 2)
-        diff = applymask(pinn.penalty_pde) * (div_sig - self.m_par[2]*a)
+        diff = div_sig - self.m_par[2]*a
         
         loss = 0
         
@@ -542,7 +547,7 @@ class Calculate:
         Pi0, T0 = self.gete0(pinn)
 
         loss = (Pi0 + T0) - (Pi+T)
-        loss *= applymask(pinn.penalty_cons.squeeze(1))
+        loss *= self.penalties[0]
 
         # Hamilton principle: action should be minimized
         if verbose:
@@ -595,9 +600,9 @@ class Calculate:
         gt = initial_conditions(x, self.w0)
         v0gt = gt[:,2:]
         v0 = getspeed(output, t, self.device)
-        loss_speed = (applymask(nn.penalty_in) * (v0gt - v0))
+        loss_speed = v0gt - v0
 
-        loss = loss_speed.pow(2).mean()
+        loss = self.penalties[1] * loss_speed.pow(2).mean()
 
         return loss
 
@@ -609,52 +614,49 @@ class Calculate:
 def train_model(
     nn_approximator: PINN,
     calc: Callable,
-    lr_formin: float,
-    lr_formax: float,
+    lr: float,
     max_epochs: int,
     path_logs: str
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    base_params = [p for name, p in nn_approximator.named_parameters() 
-            if name not in ['penalty_in', 'penalty_pde', 'penalty_cons']]
-
-    optimizer = optim.Adam([
-    {'params': base_params, 'lr': lr_formin},  # Base learning rate for all parameters
-    {'params': [nn_approximator.penalty_in, nn_approximator.penalty_pde,
-            nn_approximator.penalty_cons], 'lr': lr_formax}  
-])
+    optimizer = optim.LBFGS(nn_approximator.parameters(), lr=lr)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
-    for epoch in range(max_epochs):
+    def closure():
+        optimizer.zero_grad()
 
-        def closure():
+        pde_loss = calc.pdeloss(nn_approximator)
+        inen_loss = calc.inenloss(nn_approximator, False)
+        init_loss = calc.initial_loss(nn_approximator)
+        loss = pde_loss + inen_loss + init_loss
+
+        losses = (inen_loss, init_loss)
+
+        if epoch != 0 and epoch % 100 == 0 :
+            pde_loss.backward()
+            max_grad = get_max_grad(nn_approximator)
             optimizer.zero_grad()
 
-            pde_loss = calc.pdeloss(nn_approximator)
-            inen_loss = calc.inenloss(nn_approximator, False)
-            init_loss = calc.initial_loss(nn_approximator)
+            means = []
 
-            loss = pde_loss + inen_loss + init_loss
-            loss.backward()
+            i = 0
+            for loss in losses:
+                loss.backward(retain_graph=True)
+                means.append(get_mean_grad(nn_approximator))
+                optimizer.zero_grad()
+                i += 1
 
-            writer.add_scalars('Loss', {
-                'pdeloss': pde_loss.item(),
-                'encons': inen_loss.item(),
-                'init_loss': init_loss.item()
-            }, epoch)
-            
-            writer.add_scalars('Penalty', {
-                'inpenalty': nn_approximator.penalty_in.mean().detach().item(),
-                'pdepenalty': nn_approximator.penalty_pde.mean().detach().item(),
-                'cons': nn_approximator.penalty_cons.mean().detach().item()
-            }, epoch)
-            
-            
-            pbar.set_description(f"Loss: {loss.item():.3e}")
-            return loss
+            calc.update_penalty(max_grad, means)
 
+        pbar.set_description(f"Loss: {loss.item():.3e}")
+        loss.backward()
+
+        return loss
+
+
+    for epoch in range(max_epochs):
         optimizer.step(closure)
         pbar.update(1)
 
@@ -662,6 +664,7 @@ def train_model(
     Pi, T = losses
     variables = {'Pi': Pi, 'T': T}
 
+    pbar.update(1)
     pbar.close()
     writer.close()
 
@@ -798,3 +801,17 @@ def calculate_fft(signal: np.ndarray, dt: float, t: torch.tensor):
     f = Fs * np.arange(0, (L//2)+1) / L
 
     return f, mod, phase
+
+
+def get_mean_grad(pinn: PINN):
+    all_grads = []
+
+    for param in pinn.parameters():
+        if param.grad is not None:
+            all_grads.append(param.grad.view(-1))
+
+    all_grads = torch.cat(all_grads)
+
+    mean = all_grads.mean().cpu().numpy()
+
+    return mean
