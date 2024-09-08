@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
-import torch.nn.functional as F
+import torch.nn.init as init
 from numpy.fft import fft
 
 
@@ -664,3 +664,8 @@ def get_mean_grad(pinn: PINN):
     mean = all_grads.mean().cpu().numpy()
 
     return mean
+
+
+def init_weights(m):
+    if isinstance(m, nn.Linear):
+        init.xavier_uniform_(m.weight)

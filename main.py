@@ -111,6 +111,7 @@ in_points = torch.cat([x_in, y_in, t_in], dim=1)
 all_points = torch.cat(points['all_points'], dim=1)
 
 pinn = PINN(multdim, nax, ntrans, w0, nlayers).to(device)
+pinn.apply(init_weights)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
