@@ -7,6 +7,28 @@ from torch import nn
 import torch.optim as optim
 
 
+def simps(y, dx, dim=0):
+    device = y.device
+    n = y.size(dim)
+    if n % 2 == 0:
+        raise ValueError(
+            "The number of samples must be odd for Simpson's rule.")
+
+    shape = list(y.shape)
+    del(shape[dim])
+    shape = tuple(shape)
+
+    integral = torch.zeros(shape, device=device)
+    odd_sum = torch.sum(y.index_select(dim, torch.arange(1, n-1, 2, device=device)), dim=dim)
+    even_sum = torch.sum(y.index_select(dim, torch.arange(2, n-1, 2, device=device)), dim=dim)
+
+    integral += 4 * odd_sum + 2 * even_sum
+
+    integral *= dx / 3
+
+    return integral
+
+
 def initial_conditions(initial_points: tuple, w0: float, i: float = 1) -> torch.tensor:
     x, y, _ = initial_points
     ux0 = torch.zeros_like(x)
@@ -197,7 +219,7 @@ class PINN(nn.Module):
         self.w0 = w0
         self.a = a
         self.n_mode_spacex = dim_hidden[0]
-        self.n_mode_spacey = gammas.shape[0]
+        self.n_mode_spacey = dim_hidden[1]
 
         multipliers_x = torch.arange(1, self.n_mode_spacex + 1, device=device)
         self.Bx = 0.1 * torch.rand((2, self.n_mode_spacex), device=device)
@@ -208,7 +230,7 @@ class PINN(nn.Module):
         self.By[0,:] *= multipliers_y
 
         self.in_time = nn.Linear(1, dim_hidden[2])
-        self.act_time = TrigAct()
+        self.act_time = nn.Tanh()
 
         self.hid_space_layers_x = nn.ModuleList()
         for i in range(n_hidden - 1):
@@ -231,11 +253,11 @@ class PINN(nn.Module):
 
     @staticmethod
     def apply_filter(alpha):
-        return (torch.tanh(alpha))
+        return (torch.sin(alpha))
 
     @staticmethod
     def apply_compl_filter(alpha):
-        return (1-torch.tanh(alpha))
+        return (1-torch.sin(alpha))
 
     def fourier_features_ux(self, space):
         x_proj = space @ self.Bx
@@ -465,13 +487,13 @@ class Loss:
         dy = self.steps[1]
         dt = self.steps[2]
 
-        d_en_y = torch.trapz(y=d_en, dx=dy, dim=1)
-        d_en_p_y = torch.trapz(y=d_en_p, dx=dy, dim=1)
-        d_en_k_y = torch.trapz(y=d_en_k, dx=dy, dim=1)
+        d_en_y = simps(y=d_en, dx=dy, dim=1)
+        d_en_p_y = simps(y=d_en_p, dx=dy, dim=1)
+        d_en_k_y = simps(y=d_en_k, dx=dy, dim=1)
 
-        En = torch.trapz(y=d_en_y, dx=dx, dim=0)
-        En_p = torch.trapz(y=d_en_p_y, dx=dx, dim=0)
-        En_k = torch.trapz(y=d_en_k_y, dx=dx, dim=0)
+        En = simps(y=d_en_y, dx=dx, dim=0)
+        En_p = simps(y=d_en_p_y, dx=dx, dim=0)
+        En_k = simps(y=d_en_k_y, dx=dx, dim=0)
 
         dEn_p = df_num_torch(dt, En_p)
         dEn_k = df_num_torch(dt, En_k)
@@ -610,7 +632,7 @@ def calc_initial_energy(pinn_trained: PINN, n_space: int, points: dict, device):
 
     return En
 
-def calc_energy(pinn_trained: PINN, points: dict, n_space: int, n_time: int, device) -> tuple:
+def calc_energy(pinn_trained: PINN, points: dict, n_space: int, n_time: int, dx: float, dy: float) -> tuple:
     x, y, t = points['all_points']
 
     output = f(pinn_trained, x, y, t)
@@ -625,13 +647,13 @@ def calc_energy(pinn_trained: PINN, points: dict, n_space: int, n_time: int, dev
     d_en_p = d_en_p.reshape(n_space, n_space, n_time)
     d_en = d_en.reshape(n_space, n_space, n_time)
 
-    d_en_k_y = torch.trapz(d_en_k, y[0,:,0], dim=1)
-    d_en_p_y = torch.trapz(d_en_p, y[0,:,0], dim=1)
-    d_en_y = torch.trapz(d_en, y[0,:,0], dim=1)
+    d_en_k_y = simps(d_en_k, dy, dim=1)
+    d_en_p_y = simps(d_en_p, dy, dim=1)
+    d_en_y = simps(d_en, dy, dim=1)
 
-    En_k_t = torch.trapz(d_en_k_y, x[:,0,0], dim=0)
-    En_p_t = torch.trapz(d_en_p_y, x[:,0,0], dim=0)
-    En_t = torch.trapz(d_en_y, x[:,0,0], dim=0)
+    En_k_t = simps(d_en_k_y, dx, dim=0)
+    En_p_t = simps(d_en_p_y, dx, dim=0)
+    En_t = simps(d_en_y, dx, dim=0)
 
     t = torch.unique(t)
 

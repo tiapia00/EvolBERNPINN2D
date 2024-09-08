@@ -19,7 +19,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN = True
+retrain_PINN =  True
 delete_old = False
 
 if delete_old:
@@ -72,7 +72,7 @@ pinn = PINN(dim_hidden, w0, device).to(device)
 
 En0 = calc_initial_energy(pinn, n_space, points, device)
 
-in_penalty = np.array([1, 3])
+in_penalty = np.array([1, 2])
 loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),
         initial_conditions,
@@ -132,5 +132,5 @@ plot_compliance(pinn_trained, x, y, t, w_ad, dir_model, device)
 #plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,
 #                    n_time, n_space_beam, dir_model, device)
 
-t, en, en_p, en_k = calc_energy(pinn_trained, points, n_space, n_time, device)
+t, en, en_p, en_k = calc_energy(pinn_trained, points, n_space, n_time, steps[0], steps[1])
 plot_energy(t, en_k, en_p, en, En0, dir_model)
