@@ -290,7 +290,7 @@ class PINN(nn.Module):
         self.outlayerax = nn.Linear(2*self.nmodespaceax, 1)
 
         self.layerstrans = self.getlayersff(4*self.nmodespacetrans)
-        self.outlayertrans = nn.Linear(2*self.nmodespacetrans, 1)
+        self.outlayertrans = nn.Linear(4*self.nmodespacetrans, 1)
 
         self.y = nn.ModuleList()
         self.y.append(nn.Linear(1, self.mult[1] * (self.nmodespaceax + self.nmodespacetrans)))
