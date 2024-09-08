@@ -69,7 +69,6 @@ nsamples = n_space + (n_time,)
 penalties = np.array([1.5, 1.], dtype=np.float32)
 
 calculate = Calculate(
-        initial_conditions,
         m_par,
         points,
         nsamples,
@@ -110,8 +109,7 @@ t_in = t.to(device)
 in_points = torch.cat([x_in, y_in, t_in], dim=1)
 all_points = torch.cat(points['all_points'], dim=1)
 
-pinn = PINN(multdim, nax, ntrans, w0, nlayers).to(device)
-pinn.apply(init_weights)
+pinn = PINN(multdim, nax, ntrans, w0, nlayers, nsamples, m_par).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
@@ -129,7 +127,7 @@ if restartraining:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(multdim, nax, ntrans, w0, nlayers).to(device)
+    pinn_trained = PINN(multdim, nax, ntrans, w0, nlayers, nsamples, m_par).to(device)
     ### Specify here filename ###
     filename = 'model//08-14//1954//0.001_1000_3.pth' 
     pinn_trained.load_state_dict(torch.load(filename, map_location=device))
@@ -148,7 +146,7 @@ z = pinn_trained(space, t)
 v = calculate_speed(pinn_trained, (x, y, t), device)
 z = torch.cat([z, v], dim=1)
 
-cond0 = initial_conditions(x_in, w0)
+cond0 = pinn.nitial_conditions(x_in, w0)
 
 plot_initial_conditions(z, cond0, x_in, y_in, n_space, dir_model)
 

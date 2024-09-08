@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
-import torch.nn.init as init
+import torch.nn.functional as F
 from numpy.fft import fft
 
 
@@ -30,13 +30,6 @@ def simps(y, dx, dim=0):
 
     return integral
 
-def initial_conditions(x: torch.tensor, w0: float, i: float = 1) -> torch.tensor:
-    ux0 = torch.zeros_like(x)
-    uy0 = w0*torch.sin(torch.pi*x/torch.max(x))
-    #uy0 = torch.zeros_like(x)
-    dotux0 = torch.zeros_like(x)
-    dotuy0 = torch.zeros_like(x)
-    return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
 
 def geteps(space, output, nsamples, device):
     duxdxy = torch.autograd.grad(output[:, 0].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
@@ -243,6 +236,62 @@ def parabolic(a, x):
     return (a * x ** 2 - a * x)
 
 
+class NNinbc(nn.Module):
+    def __init__(self, dim_hidden, n_hidden):
+
+        super().__init__()
+
+        self.layerin = nn.Linear(3, dim_hidden)
+
+        self.layers = nn.ModuleList()
+        for _ in range(n_hidden - 1):
+            self.layers.append(nn.Linear(dim_hidden, dim_hidden))
+            self.layers.append(TrigAct())
+        
+        self.layerout = nn.Linear(dim_hidden, 2)
+
+    def forward(self, points):
+        output = self.layerin(points)
+
+        for layer in self.layers:
+            output = layer(output)
+        
+        output = self.layerout(output)
+
+        ### Transformation for Dirichlet BCs ###
+
+        return output
+
+
+class NNd(nn.Module):
+    def __init__(self, dim_hidden, n_hidden):
+
+        super().__init__()
+
+        self.dim_hidden = dim_hidden
+        self.n_hidden = n_hidden
+
+        self.layerin = nn.Linear(3, dim_hidden)
+
+        self.layers = nn.ModuleList()
+        for _ in range(n_hidden - 1):
+            self.layers.append(nn.Linear(dim_hidden, dim_hidden))
+            self.layers.append(nn.ReLU())
+        
+        self.layerout = nn.Linear(dim_hidden, 1)
+
+    def forward(self, points):
+        output = self.layerin(points)
+
+        for layer in self.layers:
+            output = layer(output)
+        
+        output = self.layerout(output)
+        output *= points[:,2].unsqueeze(1)
+
+        return output
+
+
 def omtogam_trans(omega: torch.tensor, prop: dict):
     E = prop['E']
     m = prop['m']
@@ -261,6 +310,10 @@ def omtogam_ax(omega: torch.tensor, prop: dict):
     return gamma
 
 
+def applymask(penalty: torch.tensor):
+    return torch.tanh(penalty)
+
+
 class PINN(nn.Module):
     def __init__(self,
                  dim_mult : tuple,
@@ -268,98 +321,144 @@ class PINN(nn.Module):
                  n_trans: int,
                  w0: float,
                  nlayers: tuple,
-                 act=nn.Sigmoid(),
+                 nsamples: tuple,
+                 mat_par: tuple,
+                 act=nn.Sigmoid()
                  ):
 
         super().__init__()
 
         self.nmodespaceax = n_ax
+        self.bool = 0
         self.nmodespacetrans = n_trans
+
+        self.nhiddenspace = nlayers[0]
+        self.nhiddentime = nlayers[1]
 
         self.mult = dim_mult
         self.act = act
         self.w0 = w0
+        self.nsamples = nsamples
+        self.mat_par = mat_par
 
-        self.Bxax = nn.Parameter(0.5*torch.randn(1, self.nmodespaceax))
-        self.Bxtrans = nn.Parameter(2*torch.randn(1, self.nmodespacetrans))
+        if n_ax != 0:
+            self.Bsspaceax = nn.ParameterList(torch.rand(2, self.nmodespaceax) for _ in range(self.nmodespaceax))
+            self.Bstimeax = nn.ParameterList(torch.rand(1, self.nmodespaceax) for _ in range(self.nmodespaceax))
+            self.layersax = self.getlayers(self.nmodespaceax)
+            self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2*self.mult[0], 3)
 
-        self.Btimeax = nn.Parameter(torch.randn(1, self.nmodespaceax))
-        self.Btimetrans = nn.Parameter(torch.randn(1, self.nmodespacetrans))
+        self.Bsspacetrans = nn.ParameterList(torch.rand(2, self.nmodespacetrans) for _ in range(self.nmodespacetrans))
+        self.Bstimetrans = nn.ParameterList(torch.rand(1, self.nmodespacetrans) for i in range(self.nmodespacetrans))
 
-        self.layersax = self.getlayersff(2*self.nmodespaceax)
-        self.outlayerax = nn.Linear(2*self.nmodespaceax, 1)
-
-        self.layerstrans = self.getlayersff(4*self.nmodespacetrans)
-        self.outlayertrans = nn.Linear(4*self.nmodespacetrans, 1)
-
-        self.y = nn.ModuleList()
-        self.y.append(nn.Linear(1, self.mult[1] * (self.nmodespaceax + self.nmodespacetrans)))
-        self.y.extend(self.getlayers((self.nmodespaceax +  self.nmodespacetrans), nlayers))
-        self.y.append(nn.Linear((self.nmodespaceax + self.nmodespacetrans) * self.mult[1], 2))
-
-    def ffax(self, x, B):
-        x_proj = x @ B
-        x = torch.cat([torch.cos(x_proj), torch.sin(x_proj)], dim=1)
-        return x 
-
-    def fftrans(self, x, B):
-        x_proj = x @ B
-        x = torch.cat([torch.cos(x_proj), torch.sin(x_proj),
-                torch.cosh(x_proj), torch.sinh(x_proj)], dim=1)
-
-        return x 
-
-    def getlayersff(self, hiddendim):
-        layers = nn.ModuleList()
-        layers.append(nn.Linear(hiddendim, hiddendim))
-        #layers.append(self.act)
+        self.layerstrans = self.getlayers(self.nmodespacetrans)
         
-        return layers
+        self.outlayertrans = nn.Linear(self.nmodespacetrans*2*self.nmodespacetrans**2*self.mult[1], 5)
 
-    def getlayers(self, hiddendim, nhidden):
-        mult = self.mult[1]
-        
-        layers = nn.ModuleList()
-        for _ in range(nhidden - 1):
-            layers.append(nn.Linear(mult * hiddendim, mult * hiddendim))
-            layers.append(nn.Sigmoid())
-        
-        return layers
 
-    def forward(self, space, t):
+    def initial_conditions(self, space: torch.tensor) -> torch.tensor:
         x = space[:,0].unsqueeze(1)
-        axial = self.ffax(x, self.Bxax)
-        trans = self.fftrans(x, self.Bxtrans)
         y = space[:,1].unsqueeze(1)
+        device = x.device
 
-        times_ax = self.ffax(t, self.Btimeax)
-        times_trans = self.fftrans(t, self.Btimetrans)
+        ux0 = torch.zeros_like(x) + 0*y
+        uy0 = self.w0*torch.sin(2*torch.pi*x/torch.max(x)) + 0*y
+        output0 = torch.cat([ux0, uy0], dim=1)
+        #uy0 = torch.zeros_like(x)
+        dotux0 = torch.zeros_like(x)
+        dotuy0 = torch.ones_like(x)
 
-        for layer in self.layersax:
-            axial = layer(axial)
-            times_ax = layer(times_ax)
+        eps = geteps(space, output0, self.nsamples, device)
+        _, sig = material_model(eps, self.mat_par, device)
+        sig11 = sig[:,:,:,0,0].reshape(-1,1)
+        sig12 = sig[:,:,:,0,1].reshape(-1,1)
+        sig21 = sig[:,:,:,1,0].reshape(-1,1)
+        sig22 = sig[:,:,:,1,1].reshape(-1,1)
+        sigmas = torch.cat([sig11, sig12, sig21, sig22], dim=1)
+
+        return torch.cat((ux0, uy0, sigmas, dotux0, dotuy0), dim=1)
+
+
+    def ff(self, x, Bs):
+        xs = []
+        for i in range(len(Bs)):
+            x_proj = x @ Bs[i]
+            xs.append(torch.cat([torch.cos(x_proj), torch.sin(x_proj)], dim=1))
+
+        return xs 
+
+    def getlayers(self, hiddendim):
+        hidspacedim = 2 * hiddendim
+        multspace = self.mult[0]
         
-        for layer in self.layerstrans:
-            trans = layer(trans)
-            times_trans = layer(times_trans)
+        layers = nn.ModuleList()
+        layers.append(nn.Linear(hidspacedim, multspace * hidspacedim))
+        for _ in range(self.nhiddenspace - 1):
+            layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
+            layers.append(self.act)
         
-        axial = axial * times_ax
-        trans = trans * times_trans
+        return layers
 
-        outax = self.outlayerax(axial)
-        outtrans = self.outlayertrans(trans)
+    
+    def forward(self, space, t):
+        axials = self.ff(space, self.Bsspaceax)
+        transs = self.ff(space, self.Bsspacetrans)
+        times_ax = self.ff(t, self.Bstimeax)
+        times_trans = self.ff(t, self.Bstimetrans)
 
-        out = torch.cat([outax, outtrans], dim=1)
+        points = torch.cat([space, t], dim=1)
 
-        for layer in self.y:
-            y = layer(y)
+        axial_list = []
+        for l in range(len(axials)):
+            axial = axials[l]
+            for layer in self.layersax:
+                axial = layer(axial) 
+            axial_list.append(axial)
+
+        trans_list = []
+        for l in range(len(transs)):
+            trans = transs[l]
+            for layer in self.layerstrans:
+                trans = layer(trans) 
+            trans_list.append(trans)
+
+        timesax_list = []
+        for l in range(len(times_ax)):
+            time = times_ax[l]
+            for layer in self.layersax:
+                time = layer(time) 
+            timesax_list.append(time)
+
+        timestrans_list = []
+        for l in range(len(times_trans)):
+            time = times_trans[l]
+            for layer in self.layerstrans:
+                time = layer(time) 
+            timestrans_list.append(time)
         
-        out = out + y
+        multax = []
+        for mt in range(len(times_ax)):
+            for mx in range(len(axials)):
+                multax.append(axial_list[mx] * timesax_list[mt])
 
-        out = out * torch.sin(np.pi * x/torch.max(x)).expand(-1,2)
-        out_in = initial_conditions(x, self.w0)[:,:2]
+        multtrans = []
+        for mt in range(len(times_trans)):
+            for mx in range(len(transs)):
+                multtrans.append(trans_list[mx] * timestrans_list[mt])
+        
+        concax = torch.cat(multax, dim=1)
+        conctrans = torch.cat(multtrans, dim=1)
 
-        out = out*torch.tanh(t) + out_in*(1-torch.tanh(t))
+        outax = self.outlayerax(concax)
+        outtrans = self.outlayertrans(conctrans)
+
+        out = torch.stack([outax[:,0], outtrans[:,0], outax[:,1] + outtrans[:,1],
+                outtrans[:,2], outtrans[:,3], outax[:,2] + outtrans[:,4]], dim=1)
+
+        out *= torch.tanh(t)
+        out[:,:2] *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
+        out_in = self.initial_conditions(space)[:,:6]
+
+        out += out_in * torch.tanh(1-t)
 
         return out
 
@@ -370,7 +469,6 @@ class PINN(nn.Module):
 class Calculate:
     def __init__(
         self,
-        initial_condition: Callable,
         # lam, mu, rho
         m_par: tuple,
         points: dict,
@@ -378,24 +476,21 @@ class Calculate:
         steps_int: tuple,
         w0: float,
         penalties: np.ndarray,
-        device: torch.device,
+        device: torch.device
     ):
-        self.initial_condition = initial_condition
         self.m_par = m_par
         self.points = points
         self.w0 = w0
         self.nsamples = nsamples 
         self.steps = steps_int
-        self.penalties = penalties
         self.device = device
-
-    def gettraction(self, pinn):
-        pass
+        self.penalties = penalties
 
     def gete0(self, pinn):
         x, y, t = self.points['initial_points']
         nsamples = (self.nsamples[0], self.nsamples[1], 1)
         space = torch.cat([x, y], dim=1)
+        pinn.nsamples = (self.nsamples[0], self.nsamples[1], 1)
         output = pinn(space, t)
 
         lam, mu, rho = self.m_par
@@ -410,18 +505,27 @@ class Calculate:
 
         return (Psi, K) 
 
+    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.3):
+        lambda_o = self.penalties
+        mean = np.array(mean)
+        
+        lambda_n = max_grad / (lambda_o * (np.abs(mean)))
+
+        self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
+
     def pdeloss(self, pinn):
         x, y, t = self.points['all_points']
         nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
         space = torch.cat([x, y], dim=1)
+        pinn.nsamples = nsamples
         output = pinn(space, t)
 
         lam, mu, rho = self.m_par
 
-        eps = geteps(space, output, nsamples , self.device)
+        eps = geteps(space, output[:,:2], nsamples , self.device)
         _, sig = material_model(eps, (lam, mu), self.device)
 
-        a = getacc(output, t, self.device)
+        a = getacc(output[:,:2], t, self.device)
 
         div_sig = torch.zeros((sig.shape[0], sig.shape[1], sig.shape[2], 2), device=self.device)
         partial_div = torch.zeros((sig.shape[0], sig.shape[1], sig.shape[2]), device=self.device)
@@ -435,13 +539,23 @@ class Calculate:
             div_sig[:,:,:,i] = partial_div
         
         div_sig = div_sig.reshape(-1, 2)
-        diff = div_sig - rho*a
+        diff = div_sig - self.m_par[2]*a
         
         loss = 0
         
         loss += (diff[:,0]).pow(2).mean()
         loss += (diff[:,1]).pow(2).mean()
 
+        sigout = output[:,-4:]
+        sig11 = sig[:,:,:,0,0].reshape(-1,1)
+        sig12 = sig[:,:,:,0,1].reshape(-1,1)
+        sig21 = sig[:,:,:,1,0].reshape(-1,1)
+        sig22 = sig[:,:,:,1,1].reshape(-1,1)
+        sigauto = torch.cat([sig11, sig12, sig21, sig22], dim=1)
+
+        diffsig = sigout - sigauto
+        loss += diffsig.pow(2).mean(dim=0).sum()
+        
         return loss
 
 
@@ -449,6 +563,8 @@ class Calculate:
         x, y, t = self.points['all_points']
         nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
         space = torch.cat([x, y], dim=1)
+        pinn.nsamples = (self.nsamples[0], self.nsamples[1], self.nsamples[2])
+
         output = pinn(space, t)
 
         lam, mu, rho = self.m_par
@@ -464,7 +580,8 @@ class Calculate:
 
         Pi0, T0 = self.gete0(pinn)
 
-        loss = self.penalties[0] * ((Pi0 + T0) - (Pi+T))
+        loss = (Pi0 + T0) - (Pi+T)
+        loss *= self.penalties[0]
 
         # Hamilton principle: action should be minimized
         if verbose:
@@ -473,29 +590,56 @@ class Calculate:
             return loss.pow(2).mean() 
 
 
-    def initial_loss(self, nn):
+    def gtdistance(self):
+        x, y, t = self.points['all_points']
+        points = torch.cat([x, y, t], dim=1)
+        down, up, _, _, _ = self.points['boundary_points']
+        bound_points = torch.cat([down, up], dim=0)
+
+        x = points[:,:-1]
+        t = points[:,-1]
+
+        x_bc = bound_points[:,:-1]
+        t_bc = bound_points[:,-1]
+
+        n = x.shape[0]
+        dists = torch.zeros(n, device=self.device)
+        
+        for i in range(n):
+            dist = torch.norm(x[i,:] - x_bc, dim=1)**2 + (t[i] - t_bc)**2
+            dists[i] = torch.sqrt(torch.min(dist))
+        
+        return dists
+    
+    def distance_loss(self, nn):
+        x, y, t = self.points['all_points']
+        points = torch.cat([x, y, t], dim=1)
+
+        output = nn(points)
+        loss = (output.squeeze() - self.dists.detach()).pow(2).mean()
+
+        ddot = torch.autograd.grad(output, t, torch.ones(output.shape[0], 1, device=self.device),
+                 create_graph=True, retain_graph=True)[0]
+        idx_0 = torch.nonzero(t == 0, as_tuple=False)
+        loss += ddot[idx_0].pow(2).mean()
+        
+        return loss
+
+    def initial_loss(self, pinn):
         x, y, t = self.points['initial_points']
+        space = torch.cat([x,y], dim=1)
         points = torch.cat([x, y], dim=1)
+        pinn.nsamples = (self.nsamples[0], self.nsamples[1], 1)
 
-        output = nn(points, t)
+        output = pinn(points, t)
 
-        gt = initial_conditions(x, self.w0)
-        v0gt = gt[:,2:]
+        v0gt = pinn.initial_conditions(space)[:,-2:]
         v0 = getspeed(output, t, self.device)
         loss_speed = v0gt - v0
 
         loss = self.penalties[1] * loss_speed.pow(2).mean()
 
         return loss
-
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.3):
-        lambda_o = self.penalties
-        mean = np.array(mean)
-        
-        lambda_n = max_grad / (lambda_o * (np.abs(mean)))
-
-        self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
-
 
     def boundary_loss(self, pinn):
         ### Maybe just for Neumann ##
@@ -512,7 +656,7 @@ def train_model(
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.LBFGS(nn_approximator.parameters(), lr=lr)
+    optimizer = optim.Adam(nn_approximator.parameters(), lr=lr)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     def closure():
@@ -562,6 +706,63 @@ def train_model(
     return nn_approximator, variables
 
 
+def train_inbcs(nn: NNinbc, calc: Calculate, epochs: int, learning_rate: float):
+    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
+    pbar = tqdm(total=epochs, desc="Training", position=0)
+
+    for epoch in range(epochs):
+
+        optimizer.zero_grad()
+        loss = calc.initial_loss(nn)
+        loss.backward()
+        optimizer.step()
+
+        pbar.set_description(f"Loss: {loss.item():.3e}")
+
+        pbar.update(1)
+
+    pbar.update(1)
+    pbar.close()
+
+    return nn
+
+def train_dist(nn: NNd, calc: Calculate, epochs: int, learning_rate: float):
+    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
+    pbar = tqdm(total=epochs, desc="Training", position=0)
+
+    for epoch in range(epochs):
+
+        optimizer.zero_grad()
+        loss = calc.distance_loss(nn)
+        loss.backward()
+        optimizer.step()
+
+        pbar.set_description(f"Loss: {loss.item():.3e}")
+
+        pbar.update(1)
+
+    pbar.update(1)
+    pbar.close()
+
+    return nn
+
+
+
+def calculate_speed(pinn_trained: PINN, points: tuple, device: torch.device) -> torch.tensor:
+    x, y, t = points
+    space = torch.cat([x, y], dim=1)
+    n = space.shape[0]
+
+    output = pinn_trained(space, t)
+
+    vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones(n, 1, device=device),
+             create_graph=True, retain_graph=True)[0]
+    vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones(n, 1, device=device),
+             create_graph=True, retain_graph=True)[0]
+
+    return torch.cat([vx, vy], dim=1)
+
+
 def df_num_torch(dx: float, y: torch.tensor):
     dy = torch.diff(y)
     device = y.device
@@ -580,6 +781,18 @@ def df_num_torch(dx: float, y: torch.tensor):
     derivative[-1] = dy[-1] / dx
 
     return derivative
+
+
+def get_max_grad(pinn: PINN):
+    max_grad = None
+
+    for name, param in pinn.named_parameters():
+        if param.requires_grad:
+            param_max_grad = param.grad.abs().max().item()
+            if max_grad is None or param_max_grad > max_grad:
+                max_grad = param_max_grad
+
+    return max_grad
 
 
 def obtainsolt(pinn: PINN, space_in: torch.tensor, t:torch.tensor, nsamples: tuple, device):
@@ -607,22 +820,6 @@ def obtain_deren(ens: dict,  dt: float):
 
     return dPi, dT
 
-
-def calculate_speed(pinn_trained: PINN, points: tuple, device: torch.device) -> torch.tensor:
-    x, y, t = points
-    space = torch.cat([x, y], dim=1)
-    n = space.shape[0]
-
-    output = pinn_trained(space, t)
-
-    vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones(n, 1, device=device),
-             create_graph=True, retain_graph=True)[0]
-    vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones(n, 1, device=device),
-             create_graph=True, retain_graph=True)[0]
-
-    return torch.cat([vx, vy], dim=1)
-
-
 def calculate_fft(signal: np.ndarray, dt: float, t: torch.tensor):
     L = int(t[-1].item())
     Fs = 1/dt
@@ -640,17 +837,6 @@ def calculate_fft(signal: np.ndarray, dt: float, t: torch.tensor):
 
     return f, mod, phase
 
-def get_max_grad(pinn: PINN):
-    max_grad = None
-
-    for name, param in pinn.named_parameters():
-        if param.requires_grad:
-            param_max_grad = param.grad.abs().max().item()
-            if max_grad is None or param_max_grad > max_grad:
-                max_grad = param_max_grad
-
-    return max_grad
-
 
 def get_mean_grad(pinn: PINN):
     all_grads = []
@@ -664,8 +850,3 @@ def get_mean_grad(pinn: PINN):
     mean = all_grads.mean().cpu().numpy()
 
     return mean
-
-
-def init_weights(m):
-    if isinstance(m, nn.Linear):
-        init.xavier_uniform_(m.weight)

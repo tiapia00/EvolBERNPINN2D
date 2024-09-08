@@ -7,7 +7,7 @@ class Parameters:
         self.n_modes = (1, 1)
         self.n_time = 40 
         self.multdim = (2, 2) 
-        self.nlayers = 2 
+        self.nlayers = (2, 2) 
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
@@ -20,8 +20,8 @@ class Parameters:
             'n_ax': self.n_modes[0],
             'n_trans': self.n_modes[1],
             'nlayers': self.nlayers,
-            'lr': 1e-1,
-            'epochs': 100
+            'lr': 1e-3,
+            'epochs': 2000
         }
         self.beam_par = {
             'x_end': self.x_end,
