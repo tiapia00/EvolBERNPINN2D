@@ -286,10 +286,10 @@ class PINN(nn.Module):
         self.Btimeax = nn.Parameter(torch.randn(1, self.nmodespaceax))
         self.Btimetrans = nn.Parameter(torch.randn(1, self.nmodespacetrans))
 
-        self.layersax = self.getlayersff(self.nmodespaceax)
+        self.layersax = self.getlayersff(2*self.nmodespaceax)
         self.outlayerax = nn.Linear(2*self.nmodespaceax, 1)
 
-        self.layerstrans = self.getlayersff(self.nmodespacetrans)
+        self.layerstrans = self.getlayersff(4*self.nmodespacetrans)
         self.outlayertrans = nn.Linear(2*self.nmodespacetrans, 1)
 
         self.y = nn.ModuleList()
@@ -297,17 +297,21 @@ class PINN(nn.Module):
         self.y.extend(self.getlayers((self.nmodespaceax +  self.nmodespacetrans), nlayers))
         self.y.append(nn.Linear((self.nmodespaceax + self.nmodespacetrans) * self.mult[1], 2))
 
-    def ff(self, x, B):
+    def ffax(self, x, B):
         x_proj = x @ B
         x = torch.cat([torch.cos(x_proj), torch.sin(x_proj)], dim=1)
+        return x 
+
+    def fftrans(self, x, B):
+        x_proj = x @ B
+        x = torch.cat([torch.cos(x_proj), torch.sin(x_proj),
+                torch.cosh(x_proj), torch.sinh(x_proj)], dim=1)
 
         return x 
 
     def getlayersff(self, hiddendim):
-        hidspacedim = 2 * hiddendim
-        
         layers = nn.ModuleList()
-        layers.append(nn.Linear(hidspacedim, hidspacedim))
+        layers.append(nn.Linear(hiddendim, hiddendim))
         #layers.append(self.act)
         
         return layers
@@ -328,8 +332,8 @@ class PINN(nn.Module):
         trans = self.ff(x, self.Bxtrans)
         y = space[:,1].unsqueeze(1)
 
-        times_ax = self.ff(t, self.Btimeax)
-        times_trans = self.ff(t, self.Btimetrans)
+        times_ax = self.ffax(t, self.Btimeax)
+        times_trans = self.fftrans(t, self.Btimetrans)
 
         for layer in self.layersax:
             axial = layer(axial)
