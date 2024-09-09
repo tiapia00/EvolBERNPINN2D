@@ -3,7 +3,7 @@ class Parameters:
         self.x_end = 1
         self.y_end = 1e-3
         self.t_end = 0.8
-        self.n_space = 40 
+        self.n_space = 41 
         self.n_time = 61 
         self.dim_hidden = (1, 20, 20)
         self.n_hidden : int = 2 
