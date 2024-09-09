@@ -542,7 +542,7 @@ def train_model(
     for epoch in range(max_epochs):
         optimizer.zero_grad()
 
-        if epoch != 0 and epoch % 500 == 0 :
+        if epoch != 0 and epoch % 300 == 0 :
             _, res_loss, losses = loss_fn(nn_approximator)
 
             res_loss.backward()
