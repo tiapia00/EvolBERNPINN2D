@@ -39,11 +39,12 @@ par = Parameters()
 
 Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
-my_beam = Beam(Lx, E, rho, h, 4e-3, n_space_beam)
+my_beam = Beam(Lx, E, rho, h, 1, n_space_beam)
 
 t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
 print(t_tild)
 
+print(en0)
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, lr, epochs = get_params(par.pinn_par)

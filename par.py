@@ -24,7 +24,7 @@ class Parameters:
             'x_end': self.x_end,
             't_end': self.t_end,
             'h': self.y_end,
-            'n_space': 10,
+            'n_space': 2000,
             'n_time': self.n_time,
             'w0': self.w0
         }

@@ -2,6 +2,7 @@ import numpy as np
 from beam import Beam, Prob_Solv_Modes, In_Cond
 from par import Parameters, get_params
 from scipy import integrate
+import matplotlib.pyplot as plt
 
 
 def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: float,
@@ -51,6 +52,9 @@ def calculate_init_en(my_beam: Beam) -> float:
     dw_dxx = df_num(x, df_num(x, w))
 
     V0 = 1/2*EJ*integrate.simpson(y=dw_dxx**2, x=x)
+
+    plt.plot(x, w)
+    plt.show()
 
     return V0
 
