@@ -304,7 +304,6 @@ class Loss:
         n_space: int,
         n_time: int,
         w0: float,
-        E0: float,
         steps_int: tuple,
         in_penalty: np.ndarray,
         adim: tuple,
@@ -313,7 +312,6 @@ class Loss:
         self.z = z
         self.points = points
         self.w0 = w0
-        self.E0: float = E0
         self.n_space = n_space
         self.n_time = n_time
         self.steps = steps_int

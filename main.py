@@ -69,8 +69,6 @@ prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
 pinn = PINN(dim_hidden, n_hidden).to(device)
 adim = (Lx, Lx, t_tild, lam, mu)
 
-En0 = calc_initial_energy(pinn, n_space, points, device)
-
 in_penalty = np.array([1, 2])
 adim = ()
 loss_fn = Loss(
@@ -78,7 +76,6 @@ loss_fn = Loss(
         n_space,
         n_time,
         w0,
-        En0,
         steps,
         in_penalty,
         adim
