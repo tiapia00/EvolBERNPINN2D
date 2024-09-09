@@ -224,10 +224,10 @@ class PINN(nn.Module):
         self.n_mode_spacey = dim_hidden[1]
 
         multipliers_x = torch.arange(1, self.n_mode_spacex + 1, device=device)
-        self.Bx = 0.05 * torch.randn((2, self.n_mode_spacex), device=device)
+        self.Bx = 0.05 * torch.rand((2, self.n_mode_spacex), device=device)
         self.Bx[0,:] *= multipliers_x
 
-        self.By = 0.1 * torch.randn((2, self.n_mode_spacey), device=device)
+        self.By = 0.1 * torch.rand((2, self.n_mode_spacey), device=device)
 
         self.in_time = nn.Linear(1, dim_hidden[2])
         self.act_time = nn.Tanh()
