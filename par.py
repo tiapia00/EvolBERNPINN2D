@@ -5,8 +5,8 @@ class Parameters:
         self.t_end = 0.8
         self.n_space = 41 
         self.n_time = 61 
-        self.dim_hidden = (1, 10, 10)
-        self.n_hidden : int = 2 
+        self.dim_hidden = 50 
+        self.n_hidden = 4
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
@@ -16,7 +16,7 @@ class Parameters:
             'n_time': self.n_time,
             'w0': self.w0,
             'dim_hidden': self.dim_hidden,
-            'n_hidden_space': self.n_hidden,
+            'n_hidden': self.n_hidden,
             'lr': 1e-3,
             'epochs': 7000
         }
@@ -29,14 +29,14 @@ class Parameters:
             'w0': self.w0
         }
         self.mat_par = {
-            'E': 68.0e9,
-            'rho': 7000,
+            'E': 68.0,
+            'rho': 700,
             'nu': 0.26
         }
 
     def to_matpar_PINN(self) -> float:
 
-        E = self.mat_par['E']/1e6
+        E = self.mat_par['E']
         nu = self.mat_par['nu']
         lam = E*nu/(1+nu)/(1-2*nu)
         mu = E/2/(1+nu)

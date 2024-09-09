@@ -5,7 +5,7 @@ import torch
 from read_write import get_last_modified_file, pass_folder, delete_old_files
 from pinn import *
 from par import Parameters, get_params
-from analytical import obtain_analytical_free, obtain_analytical_forced
+from analytical import obtain_analytical_free
 
 torch.set_default_dtype(torch.float32)
 
@@ -44,20 +44,15 @@ my_beam = Beam(Lx, E, rho, h, 4e-3, n_space_beam)
 t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
 print(t_tild)
 
-load_dist = (np.sin, np.sin)
-#t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
-
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hid_space, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, lr, epochs = get_params(par.pinn_par)
 
-L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
 y_domain = torch.linspace(0, Ly, n_space)/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
-omegas = my_beam.omega * t_tild
-gammas = my_beam.gamma * Lx
+adim = (t_tild**2/(rho*w0)*30/Lx, (lam+2+mu)/Lx*w0, mu/Lx*w0)
 
 steps = get_step((x_domain, y_domain, t_domain))
 
@@ -71,21 +66,22 @@ points = {
 }
 
 prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
-pinn = PINN(dim_hidden, w0, gammas, omegas, device).to(device)
+pinn = PINN(dim_hidden, n_hidden).to(device)
+adim = (Lx, Lx, t_tild, lam, mu)
 
 En0 = calc_initial_energy(pinn, n_space, points, device)
 
 in_penalty = np.array([1, 2])
+adim = ()
 loss_fn = Loss(
-        return_adim(L_tild, t_tild, rho, mu, lam),
-        initial_conditions,
         points,
         n_space,
         n_time,
         w0,
         En0,
         steps,
-        in_penalty
+        in_penalty,
+        adim
     )
 
 
@@ -102,7 +98,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, w0, gammas, omegas, device).to(device)
+    pinn_trained = PINN(dim_hidden, n_hidden).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
