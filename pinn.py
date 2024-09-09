@@ -570,8 +570,8 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
-            'init': losses[0].item(),
-            'boundary': losses[1].item(),
+            'bound': losses[0].item(),
+            'init': losses[1].item(),
             'en_dev': losses[2].item()
         }, epoch)
 
