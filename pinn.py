@@ -499,7 +499,7 @@ class Loss:
         dEn_k = df_num_torch(dt, En_k)
 
         m = self.penalty[-1]
-        loss = m * (self.E0 * torch.ones_like(En) - En).pow(2).mean()
+        loss = 1 * (self.E0 * torch.ones_like(En) - En).pow(2).mean()
 
         return loss
 
@@ -518,7 +518,7 @@ class Loss:
         en_dev = self.en_loss(pinn)
         init_loss = self.initial_loss(pinn)
         bound_loss = self.bound_loss(pinn)
-        loss = res_loss + bound_loss + init_loss + en_dev
+        loss = res_loss + bound_loss + init_loss + 0*en_dev
 
         return loss, res_loss, (bound_loss, init_loss, en_dev)
 
