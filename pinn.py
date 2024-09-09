@@ -634,7 +634,7 @@ def train_model(
 
         losses = (inen_loss, init_loss)
 
-        if epoch != 0 and epoch % 200 == 0 :
+        if epoch != 0 and epoch % 300 == 0 :
             pde_loss.backward()
             max_grad = get_max_grad(nn_approximator)
             optimizer.zero_grad()
