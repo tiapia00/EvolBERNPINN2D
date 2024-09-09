@@ -4,7 +4,7 @@ class Parameters:
         self.y_end = 1e-3
         self.t_end = 0.8
         self.n_space = (41, 7)
-        self.n_modes = (1, 3)
+        self.n_modes = (1, 6)
         self.n_time = 51 
         self.multdim = (2, 2) 
         self.nlayers = (1, 1) 
@@ -30,8 +30,8 @@ class Parameters:
             'w0': self.w0
         }
         self.mat_par = {
-            'E': 68.0e6,
-            'rho': 8000.,
+            'E': 68.0e3,
+            'rho': 7000.,
             'nu': 0.26
         }
 
