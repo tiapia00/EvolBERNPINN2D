@@ -29,8 +29,8 @@ class Parameters:
             'w0': self.w0
         }
         self.mat_par = {
-            'E': 68.0e9,
-            'rho': 8000.,
+            'E': 68.0e6,
+            'rho': 800.,
             'nu': 0.26
         }
 
