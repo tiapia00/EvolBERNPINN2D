@@ -323,13 +323,13 @@ class PINN(nn.Module):
                  nlayers: tuple,
                  nsamples: tuple,
                  mat_par: tuple,
+                 device: torch.device,
                  act=nn.Sigmoid()
                  ):
 
         super().__init__()
 
         self.nmodespaceax = n_ax
-        self.bool = 0
         self.nmodespacetrans = n_trans
 
         self.nhiddenspace = nlayers[0]
@@ -342,13 +342,13 @@ class PINN(nn.Module):
         self.mat_par = mat_par
 
         if n_ax != 0:
-            self.Bsspaceax = nn.ParameterList(torch.rand(2, self.nmodespaceax) for _ in range(self.nmodespaceax))
-            self.Bstimeax = nn.ParameterList(torch.rand(1, self.nmodespaceax) for _ in range(self.nmodespaceax))
+            self.Bsspaceax = [0.05*torch.randn(2, self.nmodespaceax, device=device) for _ in range(self.nmodespaceax)]
+            self.Bstimeax = [0.05*torch.randn(1, self.nmodespaceax, device=device) for _ in range(self.nmodespaceax)]
             self.layersax = self.getlayers(self.nmodespaceax)
             self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2*self.mult[0], 3)
 
-        self.Bsspacetrans = nn.ParameterList(torch.rand(2, self.nmodespacetrans) for _ in range(self.nmodespacetrans))
-        self.Bstimetrans = nn.ParameterList(torch.rand(1, self.nmodespacetrans) for i in range(self.nmodespacetrans))
+        self.Bsspacetrans = [0.1*torch.randn(2, self.nmodespacetrans, device=device) for _ in range(self.nmodespacetrans)]
+        self.Bstimetrans = [0.1*torch.randn(1, self.nmodespacetrans, device=device) for _ in range(self.nmodespacetrans)]
 
         self.layerstrans = self.getlayers(self.nmodespacetrans)
         

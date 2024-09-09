@@ -109,7 +109,7 @@ t_in = t.to(device)
 in_points = torch.cat([x_in, y_in, t_in], dim=1)
 all_points = torch.cat(points['all_points'], dim=1)
 
-pinn = PINN(multdim, nax, ntrans, w0, nlayers, nsamples, m_par).to(device)
+pinn = PINN(multdim, nax, ntrans, w0, nlayers, nsamples, m_par, device).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
@@ -127,7 +127,7 @@ if restartraining:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(multdim, nax, ntrans, w0, nlayers, nsamples, m_par).to(device)
+    pinn_trained = PINN(multdim, nax, ntrans, w0, nlayers, nsamples, m_par, device).to(device)
     ### Specify here filename ###
     filename = 'model//08-14//1954//0.001_1000_3.pth' 
     pinn_trained.load_state_dict(torch.load(filename, map_location=device))
