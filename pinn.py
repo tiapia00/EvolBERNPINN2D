@@ -505,7 +505,7 @@ class Calculate:
 
         return (Psi, K) 
 
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.3):
+    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
         lambda_o = self.penalties
         mean = np.array(mean)
         
