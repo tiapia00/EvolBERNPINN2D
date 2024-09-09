@@ -344,13 +344,13 @@ class PINN(nn.Module):
         self.w0 = w0
 
         if n_ax != 0:
-            self.Bsspaceax = nn.ParameterList(torch.rand(2, self.nmodespaceax) for _ in range(self.nmodespaceax))
-            self.Bstimeax = nn.ParameterList(torch.rand(1, self.nmodespaceax) for _ in range(self.nmodespaceax))
+            self.Bsspaceax = nn.ParameterList(0.05*torch.randn(2, self.nmodespaceax) for _ in range(self.nmodespaceax))
+            self.Bstimeax = nn.ParameterList(torch.randn(1, self.nmodespaceax) for _ in range(self.nmodespaceax))
             self.layersax = self.getlayers(self.nmodespaceax)
             self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2*self.mult[0], 1)
 
-        self.Bsspacetrans = nn.ParameterList(torch.rand(2, self.nmodespacetrans) for _ in range(self.nmodespacetrans))
-        self.Bstimetrans = nn.ParameterList(torch.rand(1, self.nmodespacetrans) for i in range(self.nmodespacetrans))
+        self.Bsspacetrans = nn.ParameterList(0.1*torch.randn(2, self.nmodespacetrans) for _ in range(self.nmodespacetrans))
+        self.Bstimetrans = nn.ParameterList(torch.randn(1, self.nmodespacetrans) for i in range(self.nmodespacetrans))
 
         self.layerstrans = self.getlayers(self.nmodespacetrans)
         
@@ -634,7 +634,7 @@ def train_model(
 
         losses = (inen_loss, init_loss)
 
-        if epoch != 0 and epoch % 100 == 0 :
+        if epoch != 0 and epoch % 200 == 0 :
             pde_loss.backward()
             max_grad = get_max_grad(nn_approximator)
             optimizer.zero_grad()
