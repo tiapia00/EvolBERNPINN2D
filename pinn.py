@@ -504,7 +504,7 @@ class Loss:
         return loss
 
 
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.3):
+    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
         lambda_o = np.array(self.penalty)
         mean = np.array(mean)
         
@@ -542,7 +542,7 @@ def train_model(
     for epoch in range(max_epochs):
         optimizer.zero_grad()
 
-        if epoch != 0 and epoch % 100 == 0 :
+        if epoch != 0 and epoch % 500 == 0 :
             _, res_loss, losses = loss_fn(nn_approximator)
 
             res_loss.backward()
