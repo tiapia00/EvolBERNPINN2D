@@ -518,7 +518,7 @@ class Loss:
         en_dev = self.en_loss(pinn)
         init_loss = self.initial_loss(pinn)
         bound_loss = self.bound_loss(pinn)
-        loss = res_loss + bound_loss + init_loss + 0*en_dev
+        loss = res_loss + 0*bound_loss + init_loss + en_dev
 
         return loss, res_loss, (bound_loss, init_loss, en_dev)
 

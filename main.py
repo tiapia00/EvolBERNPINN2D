@@ -75,7 +75,7 @@ pinn = PINN(dim_hidden, w0, gammas, omegas, device).to(device)
 
 En0 = calc_initial_energy(pinn, n_space, points, device)
 
-in_penalty = np.array([1, 2])
+in_penalty = np.array([1, 3])
 loss_fn = Loss(
         return_adim(L_tild, t_tild, rho, mu, lam),
         initial_conditions,
