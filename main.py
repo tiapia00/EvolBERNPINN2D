@@ -56,6 +56,9 @@ x_domain = torch.linspace(0, Lx, n_space)/Lx
 y_domain = torch.linspace(0, Ly, n_space)/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
+omegas = my_beam.omega * t_tild
+gammas = my_beam.gamma * Lx
+
 steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, y_domain, t_domain, device)
@@ -68,7 +71,7 @@ points = {
 }
 
 prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
-pinn = PINN(dim_hidden, w0, device).to(device)
+pinn = PINN(dim_hidden, w0, gammas, omegas, device).to(device)
 
 En0 = calc_initial_energy(pinn, n_space, points, device)
 
@@ -99,7 +102,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, w0, device).to(device)
+    pinn_trained = PINN(dim_hidden, w0, gammas, omegas, device).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)

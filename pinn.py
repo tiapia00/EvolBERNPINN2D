@@ -208,6 +208,8 @@ class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: tuple,
                  w0: float,
+                 gammas: np.ndarray,
+                 omegas: np.ndarray,
                  device,
                  a: float = 1,
                  act=nn.Tanh(),
@@ -222,12 +224,11 @@ class PINN(nn.Module):
         self.n_mode_spacey = dim_hidden[1]
 
         multipliers_x = torch.arange(1, self.n_mode_spacex + 1, device=device)
-        self.Bx = 0.05 * torch.rand((2, self.n_mode_spacex), device=device)
+        self.Bx = torch.rand((2, self.n_mode_spacex), device=device)
         self.Bx[0,:] *= multipliers_x
 
-        multipliers_y = torch.arange(1, self.n_mode_spacey + 1, device=device) **2
-        self.By = 0.1 * torch.rand((2, self.n_mode_spacey), device=device)
-        self.By[0,:] *= multipliers_y
+        self.By = torch.rand((2, self.n_mode_spacey), device=device)
+        self.By[0,:] = torch.tensor(gammas)
 
         self.in_time = nn.Linear(1, dim_hidden[2])
         self.act_time = nn.Tanh()
