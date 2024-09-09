@@ -29,14 +29,14 @@ class Parameters:
             'w0': self.w0
         }
         self.mat_par = {
-            'E': 68.0e9,
+            'E': 68.0e3,
             'rho': 7000,
             'nu': 0.26
         }
 
     def to_matpar_PINN(self) -> float:
 
-        E = self.mat_par['E']/1e6
+        E = self.mat_par['E']
         nu = self.mat_par['nu']
         lam = E*nu/(1+nu)/(1-2*nu)
         mu = E/2/(1+nu)
