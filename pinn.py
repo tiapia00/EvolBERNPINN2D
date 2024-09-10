@@ -320,123 +320,67 @@ def omtogam_ax(omega: torch.tensor, prop: dict):
 def applymask(penalty: torch.tensor):
     return torch.tanh(penalty)
 
-
 class PINN(nn.Module):
     def __init__(self,
-                 dim_mult : tuple,
-                 n_ax: int,
-                 n_trans: int,
-                 w0: float,
-                 nlayers: tuple,
-                 act=nn.Sigmoid(),
+                 hiddendim: int,
+                 nhidden: int,
+                 adim_NN: tuple,
+                 act=nn.Tanh(),
                  ):
 
         super().__init__()
-
-        self.nmodespaceax = n_ax
-        self.nmodespacetrans = n_trans
-
-        self.nhiddenspace = nlayers[0]
-        self.nhiddentime = nlayers[1]
-
-        self.mult = dim_mult
+        self.hiddendim = hiddendim
+        self.nhidden = nhidden
+        self.adim = adim_NN
         self.act = act
-        self.w0 = w0
 
-        if n_ax != 0:
-            self.Bsspaceax = nn.ParameterList(0.05*torch.randn(2, self.nmodespaceax) for _ in range(self.nmodespaceax))
-            self.Bstimeax = nn.ParameterList(torch.randn(1, self.nmodespaceax) for _ in range(self.nmodespaceax))
-            self.layersax = self.getlayers(self.nmodespaceax)
-            self.outlayerax = nn.Linear(self.nmodespaceax*2*self.nmodespaceax**2*self.mult[0], 1)
+        self.U = nn.ModuleList([
+            nn.Linear(3, hiddendim),
+            act
+        ])
 
-        self.Bsspacetrans = nn.ParameterList(0.1*torch.randn(2, self.nmodespacetrans) for _ in range(self.nmodespacetrans))
-        self.Bstimetrans = nn.ParameterList(torch.randn(1, self.nmodespacetrans) for i in range(self.nmodespacetrans))
+        self.V = nn.ModuleList([
+            nn.Linear(3, hiddendim),
+            act
+        ])
 
-        self.layerstrans = self.getlayers(self.nmodespacetrans)
+        self.initlayer = nn.Linear(3, hiddendim)
+        self.layers = nn.ModuleList([])
         
-        self.outlayertrans = nn.Linear(self.nmodespacetrans*2*self.nmodespacetrans**2*self.mult[1], 1)
-
-
-    def ff(self, x, Bs):
-        xs = []
-        for i in range(len(Bs)):
-            x_proj = x @ Bs[i]
-            xs.append(torch.cat([torch.cos(x_proj), torch.sin(x_proj)], dim=1))
-
-        return xs 
-
-    def getlayers(self, hiddendim):
-        hidspacedim = 2 * hiddendim
-        multspace = self.mult[0]
+        for _ in range(nhidden):
+            self.layers.append(nn.Linear(hiddendim, hiddendim))
         
-        layers = nn.ModuleList()
-        layers.append(nn.Linear(hidspacedim, multspace * hidspacedim))
-        for _ in range(self.nhiddenspace - 1):
-            layers.append(nn.Linear(multspace * hidspacedim, multspace * hidspacedim))
-            layers.append(self.act)
-        
-        return layers
+        self.outlayer = nn.Linear(hiddendim, 2)
 
-    
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        for layer in self.modules():
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
+                if layer.bias is not None:
+                    nn.init.zeros_(layer.bias)
+
     def forward(self, space, t):
-        axials = self.ff(space, self.Bsspaceax)
-        transs = self.ff(space, self.Bsspacetrans)
-        times_ax = self.ff(t, self.Bstimeax)
-        times_trans = self.ff(t, self.Bstimetrans)
-
-        points = torch.cat([space, t], dim=1)
-
-        axial_list = []
-        for l in range(len(axials)):
-            axial = axials[l]
-            for layer in self.layersax:
-                axial = layer(axial) 
-            axial_list.append(axial)
-
-        trans_list = []
-        for l in range(len(transs)):
-            trans = transs[l]
-            for layer in self.layerstrans:
-                trans = layer(trans) 
-            trans_list.append(trans)
-
-        timesax_list = []
-        for l in range(len(times_ax)):
-            time = times_ax[l]
-            for layer in self.layersax:
-                time = layer(time) 
-            timesax_list.append(time)
-
-        timestrans_list = []
-        for l in range(len(times_trans)):
-            time = times_trans[l]
-            for layer in self.layerstrans:
-                time = layer(time) 
-            timestrans_list.append(time)
+        input = torch.cat([space, t], dim=1)
+        input0 = input
+        for layer in self.U:
+            U = layer(input)
+            input = U
         
-        multax = []
-        for mt in range(len(times_ax)):
-            for mx in range(len(axials)):
-                multax.append(axial_list[mx] * timesax_list[mt])
-
-        multtrans = []
-        for mt in range(len(times_trans)):
-            for mx in range(len(transs)):
-                multtrans.append(trans_list[mx] * timestrans_list[mt])
+        input = input0
+        for layer in self.V:
+            V = layer(input)
+            input = V
         
-        concax = torch.cat(multax, dim=1)
-        conctrans = torch.cat(multtrans, dim=1)
+        input = input0
+        out = self.initlayer(input)
 
-        outax = self.outlayerax(concax)
-        outtrans = self.outlayertrans(conctrans)
+        for layer in self.layers:
+            out = layer(out)
+            out = self.act(out) * U + (1-self.act(out)) * V
 
-        out = torch.cat([outax, outtrans], dim=1)
-
-        out *= torch.tanh(t)
-        out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
-        out_in = initial_conditions(space[:,0].unsqueeze(1), self.w0)[:,:2]
-
-        out += out_in * torch.sigmoid(1-t)
+        out = self.outlayer(out)
 
         return out
 
