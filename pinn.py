@@ -289,7 +289,7 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(init_points, self.w0)
-        init[:,:2] *= self.adim[4]
+        init[:,:2] *= 1/self.adim[4]
 
         m = self.penalty[0]
         loss = 0 
