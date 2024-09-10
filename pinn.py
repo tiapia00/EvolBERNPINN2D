@@ -7,6 +7,35 @@ from torch import nn
 import torch.optim as optim
 
 
+class NN(nn.Module):
+    def __init__(self, dim_hidden, n_hidden, out_dim):
+
+        super().__init__()
+
+        self.dim_hidden = dim_hidden
+        self.n_hidden = n_hidden
+
+        self.layerin = nn.Linear(3, dim_hidden)
+
+        self.layers = nn.ModuleList()
+        for _ in range(n_hidden - 1):
+            self.layers.append(nn.Linear(dim_hidden, dim_hidden))
+            self.layers.append(nn.Tanh())
+        
+        self.layerout = nn.Linear(dim_hidden, out_dim)
+
+    def forward(self, space, t):
+        points = torch.cat([space, t], dim=1)
+        output = self.layerin(points)
+
+        for layer in self.layers:
+            output = layer(output)
+        
+        output = self.layerout(output)
+
+        return output
+
+
 def simps(y, dx, dim=0):
     device = y.device
     n = y.size(dim)
@@ -156,6 +185,8 @@ class PINN(nn.Module):
                  hiddendim: int,
                  nhidden: int,
                  adim_NN: tuple,
+                 nn_inbcs: NN,
+                 nn_d: NN,
                  act=nn.Tanh(),
                  ):
 
@@ -164,6 +195,9 @@ class PINN(nn.Module):
         self.nhidden = nhidden
         self.adim = adim_NN
         self.act = act
+
+        self.nninbcs = nn_inbcs
+        self.nnd = nn_d
 
         self.U = nn.ModuleList([
             nn.Linear(3, hiddendim),
@@ -211,7 +245,11 @@ class PINN(nn.Module):
             out = layer(out)
             out = self.act(out) * U + (1-self.act(out)) * V
 
-        out = self.outlayer(out)
+        outres = self.outlayer(out)
+        with torch.no_grad():
+            outinbcs = self.nninbcs(space, t)
+            outd = self.nnd(space, t)
+        out = outinbcs + outd * outres 
 
         if not self.training:
             out[:,:2] *= self.adim[0]
@@ -233,6 +271,7 @@ class Loss:
         steps_int: tuple,
         in_penalty: np.ndarray,
         adim: tuple,
+        device,
         verbose: bool = False
     ):
         self.points = points
@@ -242,13 +281,52 @@ class Loss:
         self.steps = steps_int
         self.penalty = in_penalty
         self.adim = adim
-        self.device: torch.device
+        self.device = device
+        self.dists = self.gtdistance()
+
+    def gtdistance(self):
+            x, y, t = self.points['all_points']
+            points = torch.cat([x, y, t], dim=1)
+            down, up, _, _, _ = self.points['boundary_points']
+            bound_points = torch.cat([down, up], dim=0)
+            x_in, y_in, t_in = self.points['initial_points']
+            inpoints = torch.cat([x_in, y_in, t_in], dim=1)
+
+            allextermalpoints = torch.cat([bound_points, inpoints], dim=0)
+
+            x = points[:,:-1]
+            t = points[:,-1]
+
+            x_bc = allextermalpoints[:,:-1]
+            t_bc = allextermalpoints[:,-1]
+
+            n = x.shape[0]
+            dists = torch.zeros(n, device=self.device)
+            
+            for i in range(n):
+                dist = torch.norm(x[i,:] - x_bc, dim=1)**2 + (t[i] - t_bc)**2
+                dists[i] = torch.sqrt(torch.min(dist))
+            
+            return dists
+        
+    def distance_loss(self, nn):
+        x, y, t = self.points['all_points']
+        space = torch.cat([x, y], dim=1)
+
+        output = nn(space, t)
+        loss = (output.squeeze() - self.dists.detach()).pow(2).mean()
+
+        ddot = torch.autograd.grad(output, t, torch.ones(output.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        idx_0 = torch.nonzero(t == 0, as_tuple=False)
+        loss += ddot[idx_0].pow(2).mean()
+        
+        return loss
 
     def res_loss(self, pinn):
         x, y, t = self.points['res_points']
         space = torch.cat([x,y], dim=1)
         output = pinn(space, t) 
-        self.device = x.device
         loss = 0
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -282,16 +360,15 @@ class Loss:
         return loss 
 
 
-    def initial_loss(self, pinn):
+    def initial_loss(self, nn):
         init_points = self.points['initial_points']
         x, y, t = init_points
         space = torch.cat([x, y], dim=1)
-        output = pinn(space, t)
+        output = nn(space, t)
 
         init = initial_conditions(init_points, self.w0)
         init[:,:2] *= 1/self.adim[4]
 
-        m = self.penalty[0]
         loss = 0 
         u = output[:,:2]
         loss += (u - init[:,:2]).pow(2).mean(dim=0).sum()
@@ -303,7 +380,7 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
 
         loss += (v - init[:,-2:]).pow(2).mean(dim=0).sum()
-        loss *= m
+        
 
         return loss
 
@@ -363,7 +440,7 @@ class Loss:
         #en_dev = self.en_loss(pinn)
         init_loss = self.initial_loss(pinn)
         #bound_loss = self.bound_loss(pinn)
-        loss = res_loss + init_loss
+        loss = res_loss
 
         return loss, res_loss, (init_loss,)
 
@@ -527,7 +604,9 @@ def df_num_torch(dx: float, y: torch.tensor):
 def get_max_grad(pinn: PINN):
     max_grad = None
 
-    for name, param in pinn.named_parameters():
+    for _, param in pinn.named_parameters():
+        if param.grad is None:
+            continue
         if param.requires_grad:
             param_max_grad = param.grad.abs().max().item()
             if max_grad is None or param_max_grad > max_grad:
@@ -565,6 +644,45 @@ def obtainsolt(pinn: PINN, space_in: torch.tensor, t:torch.tensor, nsamples: tup
     sol = sol.reshape(nx*ny, -1, 2)
     return sol.detach().cpu().numpy()
 
+def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
+    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
+    pbar = tqdm(total=epochs, desc="Training", position=0)
+
+    for epoch in range(epochs):
+
+        optimizer.zero_grad()
+        loss = lossfn.initial_loss(nn)
+        loss.backward()
+        optimizer.step()
+
+        pbar.set_description(f"Loss: {loss.item():.3e}")
+
+        pbar.update(1)
+
+    pbar.update(1)
+    pbar.close()
+
+    return nn
+
+def train_dist(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
+    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
+    pbar = tqdm(total=epochs, desc="Training", position=0)
+
+    for epoch in range(epochs):
+
+        optimizer.zero_grad()
+        loss = lossfn.distance_loss(nn)
+        loss.backward()
+        optimizer.step()
+
+        pbar.set_description(f"Loss: {loss.item():.3e}")
+
+        pbar.update(1)
+
+    pbar.update(1)
+    pbar.close()
+
+    return nn
 
 
 

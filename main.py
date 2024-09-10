@@ -6,6 +6,7 @@ from read_write import get_last_modified_file, pass_folder, delete_old_files
 from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free, obtain_max_stress
+import matplotlib.pyplot as plt
 
 torch.set_default_dtype(torch.float32)
 
@@ -77,8 +78,8 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A}
-pinn = PINN(dim_hidden, n_hidden, adim_NN).to(device)
+nn_inbcs = NN(20, 2, 5).to(device)
+nn_d = NN(10, 2, 1).to(device)
 
 in_penalty = np.array([1, 2])
 loss_fn = Loss(
@@ -88,9 +89,47 @@ loss_fn = Loss(
         w0,
         steps,
         in_penalty,
-        adim
+        adim,
+        device
     )
 
+nn_d = train_dist(nn_d, loss_fn, 2000, 1e-3)
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 2000, 1e-3)
+x, y, t = points['initial_points']
+x = x.to(device)
+y = y.to(device)
+t_in = t.to(device)
+space_in = torch.cat([x, y], dim=1)
+
+output = nn_inbcs(space_in, t)
+v = calculate_speed(output[:,:2], t_in).detach().cpu().numpy()
+output = output.detach().cpu().numpy()
+
+fig, axs = plt.subplots(2, 2, figsize=(10, 8), gridspec_kw={'height_ratios': [1, 1], 'width_ratios': [2, 1]})
+ax_big = plt.subplot2grid((2, 2), (0, 0), colspan=2)
+
+ax_big.plot(x.squeeze().detach().cpu().numpy() + output[:,0], y.squeeze().detach().cpu().numpy() + output[:,1])
+ax_big.set_title('Displacement')
+ax_big.set_xlabel(r'$\hat{x}$')
+ax_big.set_ylabel(r'$\hat{y}$')
+
+scattervx = axs[1, 0].scatter(x.squeeze().detach().cpu().numpy() + output[:,0], y.squeeze().detach().cpu().numpy() + output[:,1],
+        c=v[:,0], cmap='viridis')
+axs[1, 0].set_xlabel(r'$\hat{x}$')
+axs[1, 0].set_ylabel(r'$\hat{y}$')
+cbar1 = fig.colorbar(scattervx, ax=axs[1,0])
+cbar1.set_label(r'$v_x$')
+axs[1, 1].scatter(x.squeeze().detach().cpu().numpy() + output[:,0], y.squeeze().detach().cpu().numpy() + output[:,1],
+        c=v[:,0], cmap='viridis')
+axs[1, 1].set_xlabel(r'$\hat{x}$')
+axs[1, 1].set_ylabel(r'$\hat{y}$')
+cbar2 = fig.colorbar(scattervx, ax=axs[1,1])
+cbar2.set_label(r'$v_y$')
+
+plt.show()
+
+
+pinn = PINN(dim_hidden, n_hidden, adim_NN,  nn_inbcs, nn_d).to(device)
 
 if retrain_PINN:
     dir_model = pass_folder('model')
@@ -105,7 +144,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, n_hidden).to(device)
+    pinn_trained = PINN(dim_hidden, n_hidden, adim_NN,  nn_inbcs, nn_d).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
@@ -118,11 +157,6 @@ print(pinn_trained)
 
 pinn_trained.eval()
 
-x, y, t = points['initial_points']
-x = x.to(device)
-y = y.to(device)
-t_in = t.to(device)
-space_in = torch.cat([x, y], dim=1)
 z = pinn_trained(space_in, t_in)[:,:2]
 v = calculate_speed(z, t_in)
 z = torch.cat([z, v], dim=1)

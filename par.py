@@ -1,13 +1,13 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 1
-        self.y_end = 1e-3
+        self.x_end = 1000
+        self.y_end = 1
         self.t_end = 0.8
-        self.n_space = (41, 41)
-        self.n_time = 51 
+        self.n_space = (21, 21)
+        self.n_time = 41 
         self.dim_hidden = 20 
         self.n_hidden = 4
-        self.w0 = 0.3
+        self.w0 = 300
         self.pinn_par = {
             'x_end': self.x_end,
             'y_end': self.y_end,
@@ -29,8 +29,8 @@ class Parameters:
             'w0': self.w0
         }
         self.mat_par = {
-            'E': 68.0e6,
-            'rho': 7000,
+            'E': 0.5,
+            'rho': 7e-9,
             'nu': 0.26
         }
 
