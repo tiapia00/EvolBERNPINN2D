@@ -249,11 +249,11 @@ class PINN(nn.Module):
         with torch.no_grad():
             outinbcs = self.nninbcs(space, t)
             outd = self.nnd(space, t)
-        out = outinbcs + outd * outres 
+        out = outinbcs + outd * t * outres 
 
-        if not self.training:
-            out[:,:2] *= self.adim[0]
-            out[:,2:] *= self.adim[1]
+        #if not self.training:
+        #    out[:,:2] *= self.adim[0]
+        #    out[:,2:] *= self.adim[1]
 
         return out
 
