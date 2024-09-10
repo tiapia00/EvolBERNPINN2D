@@ -3,11 +3,11 @@ from matplotlib.cm import viridis
 from mpl_toolkits.mplot3d import Axes3D
 import torch
 from matplotlib.animation import FuncAnimation
-from pinn import PINN, f
+from pinn import PINN
 import numpy as np
 
 
-def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, n_space: int, path: str):
+def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, path: str):
     """Plot initial conditions.
     z0: tensor describing analytical initial conditions
     z: tensor describing predicted initial conditions"""
@@ -24,10 +24,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
 
     cmap = 'coolwarm'
 
-    norm_z0 = np.linalg.norm(z0, axis=1).reshape(-1)
-
-    u_a_scatter = ax[0, 0].scatter(X.reshape(-1)+z0[:, 0],
-                                 Y.reshape(-1)+z0[:, 1])
+    ax[0, 0].scatter(X.reshape(-1)+z0[:, 0], Y.reshape(-1)+z0[:, 1])
     ax[0, 0].set_xlabel('$\\hat{x}$')
     ax[0, 0].set_ylabel('$\\hat{y}$')
 
@@ -45,8 +42,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     cbar2 = fig.colorbar(vy_a_scatter, ax=ax[0, 2], orientation='vertical')
     cbar2.set_label('$v_y$')
     
-    nn_scatter = ax[1, 0].scatter(X.reshape(-1)+z[:, 0],
-                                 Y.reshape(-1)+z[:, 1])
+    ax[1, 0].scatter(X.reshape(-1)+z[:, 0], Y.reshape(-1)+z[:, 1])
     ax[1, 0].set_xlabel('$\\hat{x}$')
     ax[1, 0].set_ylabel('$\\hat{y}$')
 
@@ -70,172 +66,34 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(f'{path}/init.png')
 
-
-def plot_sol_comparison(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor, w_ad: np.ndarray,
-                        n_space: int, n_time: int, n_beam: int, path: str, device):
-
+def plot_sol(sol: torch.tensor, space: torch.tensor, t: torch.tensor, path: str):
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
 
-    nx = n_space
-    ny = n_space
-    nt = n_time
-
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
+    t = torch.unique(t, sorted=True).detach().cpu().numpy()
+    space = space.detach().cpu().numpy()
+    ax.scatter(space[:,0]+sol[:,0,0], space[:,1]+sol[:,0,1])
 
-    t_raw = torch.unique(t, sorted=True)
-    t_raw = t_raw.reshape(-1, 1)
+    ax.set_title(f'$\\hat{{t}} = {t[0]:.2f}$')
 
-    x_raw = x.reshape(nx, ny, nt)
-    y_raw = y.reshape(nx, ny, nt)
-
-    x = x_raw[:, :, 0]
-    y = y_raw[:, :, 0]
-
-    x = x.reshape(-1, 1).to(device)
-    y = y.reshape(-1, 1).to(device)
-
-    x_mid = torch.unique(x).reshape(-1, 1)
-    y_mid = torch.zeros_like(x_mid)
-
-    t_shaped = torch.ones_like(x).to(device)
-    t = t_shaped*t_raw[0].to(device)
-
-    output = f(pinn, x, y, t)
-
-    x_plot = x.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
-    y_plot = 1/10*y.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
-
-    z0 = output.cpu().detach().numpy()
-
-    sc = ax.scatter(x_plot+z0[:, 0], y_plot+z0[:, 1])
-    ax.scatter(np.unique(x_plot), w_ad[::int(n_beam/n_space),0])
-    t_value = float(t_raw[0])
-
-    ax.set_title(f'$\\hat{{t}} = {t_value:.2f}$')
-
-    def update(
-            frame,
-            x: torch.tensor,
-            y: torch.tensor,
-            x_mid: torch.tensor,
-            y_mid: torch.tensor,
-            n: int,
-            w_ad: np.ndarray,
-            x_plot: np.ndarray,
-            y_plot: np.ndarray,
-            t_raw: torch.tensor,
-            t_shaped: torch.tensor,
-            pinn: PINN,
-            ax):
-
-        x_limts = np.array([0, 2])
+    def update(frame):
         y_limts = np.array([-0.5, 0.5])
-        t = t_shaped*t_raw[frame].to(device)
-
-        output = f(pinn, x, y, t)
-
-        z = output.cpu().detach().numpy()
-
-        t_value = float(t[0])
 
         ax.clear()
 
-        ax.set_xlabel('$\\hat{x}$')
-        ax.set_ylabel('$\\hat{y}$')
-        ax.set_title(f'$\\hat{{t}} = {t_value:.2f}$')
+        ax.set_xlabel('$x$')
+        ax.set_ylabel('$y$')
+        ax.set_title(f'$t = {t[frame]:.2f}$')
 
-        ax.set_xlim(np.min(x_limts), np.max(x_limts))
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
-        sc = ax.scatter(x_plot+z[:, 0], y_plot+z[:, 1])
-        ax.scatter(np.unique(x_plot), w_ad[::int(n_beam/n_space), frame])
+        ax.scatter(space[:,0]+sol[:,frame,0], space[:,1]+sol[:,frame,1])
 
         return ax
 
-    n_frames = len(t_raw)
-    ani = FuncAnimation(fig, update, frames=n_frames,
-                        fargs=(x, y, x_mid, y_mid, nx, w_ad, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
+    n_frames = t.shape[0]
+    ani = FuncAnimation(fig, update, frames=n_frames, interval=50, blit=False)
 
-    file = f'{path}/sol_time_comparison.gif'
-    ani.save(file, fps=5)
-
-
-def plot_sol(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor,
-             n_space: int, n_time: int, path: str, device):
-
-    # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
-
-    nx = n_space
-    ny = n_space
-    nt = n_time
-
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
-
-    t_raw = torch.unique(t, sorted=True)
-    t_raw = t_raw.reshape(-1, 1)
-
-    x_raw = x.reshape(nx, ny, nt)
-    y_raw = y.reshape(nx, ny, nt)
-
-    x = x_raw[:, :, 0]
-    y = y_raw[:, :, 0]
-
-    x = x.reshape(-1, 1).to(device)
-    y = y.reshape(-1, 1).to(device)
-
-    t_shaped = torch.ones_like(x).to(device)
-    t = t_shaped*t_raw[0].to(device)
-
-    output = f(pinn, x, y, t)
-
-    x_plot = x.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
-    y_plot = 1/10*y.cpu().detach().numpy().reshape(nx, ny).reshape(-1)
-
-    z0 = output.cpu().detach().numpy()
-    norm = np.linalg.norm(z0, axis=1).reshape(-1)
-
-    ax.scatter(x_plot+z0[:, 0], y_plot+z0[:, 1], c=norm, cmap='viridis')
-    t_value = float(t_raw[0])
-
-    ax.set_title(f'$\\hat{{t}} = {t_value:.2f}$')
-
-    def update(
-            frame,
-            x: torch.tensor,
-            y: torch.tensor,
-            x_plot: np.ndarray,
-            y_plot: np.ndarray,
-            t_raw: torch.tensor,
-            t_shaped: torch.tensor,
-            pinn: PINN,
-            ax):
-
-        x_limts = np.array([0, 2])
-        y_limts = np.array([-0.5, 0.5])
-        t = t_shaped*t_raw[frame].to(device)
-
-        output = f(pinn, x, y, t)
-
-        z = output.cpu().detach().numpy()
-        norm = np.linalg.norm(z, axis=1).reshape(-1)
-        t_value = float(t[0])
-
-        ax.clear()
-
-        ax.set_xlabel('$\\hat{x}$')
-        ax.set_ylabel('$\\hat{y}$')
-        ax.set_title(f'$\\hat{{t}} = {t_value:.2f}$')
-
-        ax.set_xlim(np.min(x_limts), np.max(x_limts))
-        ax.set_ylim(np.min(y_limts), np.max(y_limts))
-        ax.scatter(x_plot+z[:, 0], y_plot+z[:, 1], c=norm, cmap='viridis')
-
-        return ax
-
-    n_frames = len(t_raw)
-    ani = FuncAnimation(fig, update, frames=n_frames,
-                        fargs=(x, y, x_plot, y_plot, t_raw, t_shaped, pinn, ax), interval=100, blit=False)
-
-    file = f'{path}/sol_time_comparison.gif'
+    file = f'{path}/sol_time.gif'
     ani.save(file, fps=5)
 
 

@@ -10,7 +10,7 @@ import matplotlib.animation as animation
 class Beam:
     def __init__(self, length, E, rho, H, b, n_points):
         self.length = length  # m
-        self.E = E  # Nm^2
+        self.E = E  # N/m^2
         self.J = H**3*b/12
         self.rho = rho  # kg/m
         self.H = H

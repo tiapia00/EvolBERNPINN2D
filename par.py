@@ -3,9 +3,9 @@ class Parameters:
         self.x_end = 1
         self.y_end = 1e-3
         self.t_end = 0.8
-        self.n_space = 41 
-        self.n_time = 61 
-        self.dim_hidden = 50 
+        self.n_space = (41, 41)
+        self.n_time = 51 
+        self.dim_hidden = 20 
         self.n_hidden = 4
         self.w0 = 0.3
         self.pinn_par = {
@@ -17,19 +17,19 @@ class Parameters:
             'w0': self.w0,
             'dim_hidden': self.dim_hidden,
             'n_hidden': self.n_hidden,
-            'lr': 1e-3,
-            'epochs': 7000
+            'lr': 1e-4,
+            'epochs': 500
         }
         self.beam_par = {
             'x_end': self.x_end,
             't_end': self.t_end,
             'h': self.y_end,
-            'n_space': 2000,
+            'n_space': 3000,
             'n_time': self.n_time,
             'w0': self.w0
         }
         self.mat_par = {
-            'E': 68.0e9,
+            'E': 68.0e6,
             'rho': 7000,
             'nu': 0.26
         }

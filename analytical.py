@@ -5,7 +5,7 @@ from scipy import integrate
 import matplotlib.pyplot as plt
 
 
-def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: float,
+def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, tf: float,
                            n_time: int):
 
     prob = Prob_Solv_Modes(my_beam)
@@ -33,7 +33,7 @@ def obtain_analytical_free(par: Parameters, my_beam: Beam, w0: float, t_ad_f: fl
     my_In_Cond.pass_init_cond(w0, wdot_0)
     A, B = my_In_Cond.compute_coeff()
 
-    t_lin = np.linspace(0, t_ad_f, n_time)
+    t_lin = np.linspace(0, tf, n_time)
 
     my_beam.calculate_solution_free(A, B, t_lin)
     w = my_beam.w
@@ -47,16 +47,23 @@ def calculate_init_en(my_beam: Beam) -> float:
     x = my_beam.xi
 
     EJ = my_beam.E*my_beam.J
-    w = my_beam.w[:, 0]
+    w = my_beam.w[:,0]
 
     dw_dxx = df_num(x, df_num(x, w))
 
     V0 = 1/2*EJ*integrate.simpson(y=dw_dxx**2, x=x)
 
-    plt.plot(x, w)
-    plt.show()
-
     return V0
+
+
+def obtain_max_stress(my_beam: Beam, w: np.ndarray):
+    w0 = w[:,0]
+    x = my_beam.xi
+    E = my_beam.E
+    eps_max = -my_beam.H/2 * np.max(df_num(x, df_num(x, w0)))
+    sigma_max = E*eps_max
+
+    return sigma_max
 
 
 def df_num(x: np.ndarray, y: np.ndarray):
