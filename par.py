@@ -1,13 +1,13 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 1 
-        self.y_end = 1e-3
+        self.x_end = 1000 
+        self.y_end = 1
         self.t_end = 0.8 
         self.n_space = (21, 21)
         self.n_time = 50
         self.dimhidden = 20
         self.nhidden = 4
-        self.w0 = 0.3
+        self.w0 = 300
         self.pinn_par = {
             'x_end': self.x_end,
             'y_end': self.y_end,
@@ -16,7 +16,7 @@ class Parameters:
             'n_time': self.n_time,
             'dimhidden': self.dimhidden,
             'nhidden': self.nhidden,
-            'lr': 1e-3,
+            'lr': 1e-4,
             'epochs': 5000
         }
         self.beam_par = {
@@ -26,8 +26,8 @@ class Parameters:
             'w0': self.w0
         }
         self.mat_par = {
-            'E': 68.0e6,
-            'rho': 4000.,
+            'E': 68.0e3,
+            'rho': 4000e-12,
             'nu': 0.26
         }
 

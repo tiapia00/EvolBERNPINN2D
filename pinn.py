@@ -323,7 +323,7 @@ class PINN(nn.Module):
             out = self.act(out) * U + (1-self.act(out)) * V
 
         out = self.outlayer(out)
-        out *= torch.sin(space[:,0])
+        out *= torch.sin(space[:,0].unsqueeze(1))
 
         return out
 
