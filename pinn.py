@@ -311,7 +311,7 @@ class PINN(nn.Module):
 
         act_global = self.apply_filter(time.repeat(1, 2)) * merged
 
-        init = initial_conditions((x,y,t), self.w0)[:,:2]
+        init = 1/self.w0*initial_conditions((x,y,t), self.w0)[:,:2]
         act_init = self.apply_compl_filter(time.repeat(1, 2)) * init
 
         out = act_global + act_init
