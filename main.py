@@ -45,11 +45,11 @@ print(T_tild)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, multdim, nax, ntrans, nlayers, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, dimhidden, nhidden, lr, epochs = get_params(par.pinn_par)
 
-x_domain = torch.linspace(0, Lx, n_space[0])/Lx
-y_domain = torch.linspace(0, Ly, n_space[1])/Lx
-t_domain = torch.linspace(0, T, n_time)/T_tild
+x_domain = torch.linspace(0, Lx, n_space[0])
+y_domain = torch.linspace(0, Ly, n_space[1])
+t_domain = torch.linspace(0, T, n_time)
 
 steps = get_step((x_domain, y_domain, t_domain))
 
@@ -107,16 +107,16 @@ t_in = t.to(device)
 in_points = torch.cat([x_in, y_in, t_in], dim=1)
 all_points = torch.cat(points['all_points'], dim=1)
 
-pinn = PINN(multdim, nax, ntrans, w0, nlayers).to(device)
+pinn = PINN(hiddendim=dimhidden, nhidden=nhidden).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
-model_name = f'{lr}_{epochs}_{ntrans}.pth'
+model_name = f'{lr}_{epochs}_{dimhidden}.pth'
 
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 
-model_name = f'{lr}_{epochs}_{ntrans}.pth'
+model_name = f'{lr}_{epochs}_{dimhidden}.pth'
 model_path = os.path.join(dir_model, model_name)
 
 if restartraining:
@@ -125,7 +125,7 @@ if restartraining:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(multdim, nax, ntrans, w0, nlayers).to(device)
+    pinn_trained = PINN(hiddendim=dimhidden, nhidden=nhidden).to(device)
     ### Specify here filename ###
     filename = 'model//08-04//1714//0.001_2000_1.pth' 
     pinn_trained.load_state_dict(torch.load(filename, map_location=device))

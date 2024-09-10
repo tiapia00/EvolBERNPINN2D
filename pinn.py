@@ -243,62 +243,6 @@ def parabolic(a, x):
     return (a * x ** 2 - a * x)
 
 
-class NNinbc(nn.Module):
-    def __init__(self, dim_hidden, n_hidden):
-
-        super().__init__()
-
-        self.layerin = nn.Linear(3, dim_hidden)
-
-        self.layers = nn.ModuleList()
-        for _ in range(n_hidden - 1):
-            self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.layers.append(TrigAct())
-        
-        self.layerout = nn.Linear(dim_hidden, 2)
-
-    def forward(self, points):
-        output = self.layerin(points)
-
-        for layer in self.layers:
-            output = layer(output)
-        
-        output = self.layerout(output)
-
-        ### Transformation for Dirichlet BCs ###
-
-        return output
-
-
-class NNd(nn.Module):
-    def __init__(self, dim_hidden, n_hidden):
-
-        super().__init__()
-
-        self.dim_hidden = dim_hidden
-        self.n_hidden = n_hidden
-
-        self.layerin = nn.Linear(3, dim_hidden)
-
-        self.layers = nn.ModuleList()
-        for _ in range(n_hidden - 1):
-            self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.layers.append(nn.ReLU())
-        
-        self.layerout = nn.Linear(dim_hidden, 1)
-
-    def forward(self, points):
-        output = self.layerin(points)
-
-        for layer in self.layers:
-            output = layer(output)
-        
-        output = self.layerout(output)
-        output *= points[:,2].unsqueeze(1)
-
-        return output
-
-
 def omtogam_trans(omega: torch.tensor, prop: dict):
     E = prop['E']
     m = prop['m']
@@ -324,14 +268,12 @@ class PINN(nn.Module):
     def __init__(self,
                  hiddendim: int,
                  nhidden: int,
-                 adim_NN: tuple,
                  act=nn.Tanh(),
                  ):
 
         super().__init__()
         self.hiddendim = hiddendim
         self.nhidden = nhidden
-        self.adim = adim_NN
         self.act = act
 
         self.U = nn.ModuleList([
@@ -381,6 +323,7 @@ class PINN(nn.Module):
             out = self.act(out) * U + (1-self.act(out)) * V
 
         out = self.outlayer(out)
+        out *= torch.sin(space[:,0])
 
         return out
 
@@ -499,42 +442,6 @@ class Calculate:
         else:
             return loss.pow(2).mean() 
 
-
-    def gtdistance(self):
-        x, y, t = self.points['all_points']
-        points = torch.cat([x, y, t], dim=1)
-        down, up, _, _, _ = self.points['boundary_points']
-        bound_points = torch.cat([down, up], dim=0)
-
-        x = points[:,:-1]
-        t = points[:,-1]
-
-        x_bc = bound_points[:,:-1]
-        t_bc = bound_points[:,-1]
-
-        n = x.shape[0]
-        dists = torch.zeros(n, device=self.device)
-        
-        for i in range(n):
-            dist = torch.norm(x[i,:] - x_bc, dim=1)**2 + (t[i] - t_bc)**2
-            dists[i] = torch.sqrt(torch.min(dist))
-        
-        return dists
-    
-    def distance_loss(self, nn):
-        x, y, t = self.points['all_points']
-        points = torch.cat([x, y, t], dim=1)
-
-        output = nn(points)
-        loss = (output.squeeze() - self.dists.detach()).pow(2).mean()
-
-        ddot = torch.autograd.grad(output, t, torch.ones(output.shape[0], 1, device=self.device),
-                 create_graph=True, retain_graph=True)[0]
-        idx_0 = torch.nonzero(t == 0, as_tuple=False)
-        loss += ddot[idx_0].pow(2).mean()
-        
-        return loss
-
     def initial_loss(self, nn):
         x, y, t = self.points['initial_points']
         points = torch.cat([x, y], dim=1)
@@ -542,11 +449,16 @@ class Calculate:
         output = nn(points, t)
 
         gt = initial_conditions(x, self.w0)
+
+        loss = 0
+        loss += (output - gt[:,:2]).pow(2).mean(dim=0).sum()
+
         v0gt = gt[:,2:]
         v0 = getspeed(output, t, self.device)
         loss_speed = v0gt - v0
 
-        loss = self.penalties[1] * loss_speed.pow(2).mean()
+        loss += loss_speed.pow(2).mean()
+        loss *= self.penalties[1]
 
         return loss
 
@@ -614,49 +526,6 @@ def train_model(
 
     return nn_approximator, variables
 
-
-def train_inbcs(nn: NNinbc, calc: Calculate, epochs: int, learning_rate: float):
-    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
-    pbar = tqdm(total=epochs, desc="Training", position=0)
-
-    for epoch in range(epochs):
-
-        optimizer.zero_grad()
-        loss = calc.initial_loss(nn)
-        loss.backward()
-        optimizer.step()
-
-        pbar.set_description(f"Loss: {loss.item():.3e}")
-
-        pbar.update(1)
-
-    pbar.update(1)
-    pbar.close()
-
-    return nn
-
-def train_dist(nn: NNd, calc: Calculate, epochs: int, learning_rate: float):
-    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
-    pbar = tqdm(total=epochs, desc="Training", position=0)
-
-    for epoch in range(epochs):
-
-        optimizer.zero_grad()
-        loss = calc.distance_loss(nn)
-        loss.backward()
-        optimizer.step()
-
-        pbar.set_description(f"Loss: {loss.item():.3e}")
-
-        pbar.update(1)
-
-    pbar.update(1)
-    pbar.close()
-
-    return nn
-
-
-
 def calculate_speed(pinn_trained: PINN, points: tuple, device: torch.device) -> torch.tensor:
     x, y, t = points
     space = torch.cat([x, y], dim=1)
@@ -694,9 +563,10 @@ def df_num_torch(dx: float, y: torch.tensor):
 
 def get_max_grad(pinn: PINN):
     max_grad = None
-
     for name, param in pinn.named_parameters():
-        if param.requires_grad:
+        if param.grad is None:
+                continue
+        if param.requires_grad and param is not None:
             param_max_grad = param.grad.abs().max().item()
             if max_grad is None or param_max_grad > max_grad:
                 max_grad = param_max_grad
