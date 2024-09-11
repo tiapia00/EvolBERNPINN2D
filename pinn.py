@@ -7,6 +7,7 @@ from torch import nn
 import torch.optim as optim
 
 
+
 class NN(nn.Module):
     def __init__(self, dim_hidden, n_hidden, out_dim):
 
@@ -58,8 +59,8 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(initial_points: tuple, w0: float, i: float = 1) -> torch.tensor:
-    x, y, _ = initial_points
+def initial_conditions(initial_points: torch.Tensor, w0: float, i: float = 1) -> torch.tensor:
+    x = initial_points[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
     uy0 = w0*torch.sin(torch.pi*i*x)
     dotux0 = torch.zeros_like(x)
@@ -75,7 +76,6 @@ class Grid:
         self.device = device
         self.requires_grad = True
         self.grid_init = self.generate_grid_init()
-        #self.grid_bound = self.generate_grid_bound()
 
     def generate_grid_init(self):
         x = self.x_domain
@@ -105,7 +105,7 @@ class Grid:
 
         x_linspace = self.x_domain
         y_linspace = self.y_domain
-        t_linspace = self.t_domain[1:]
+        t_linspace = self.t_domain
 
         x_grid, t_grid = torch.meshgrid(x_linspace, t_linspace, indexing="ij")
         y_grid, _ = torch.meshgrid(y_linspace, t_linspace, indexing="ij")
@@ -115,7 +115,7 @@ class Grid:
         t_grid = t_grid.reshape(-1, 1)
 
         x0 = torch.full_like(
-            t_grid, self.x_domain[0])
+            t_grid, self.x_domain[0]) 
         x1 = torch.full_like(
             t_grid, self.x_domain[1])
         y0 = torch.full_like(
@@ -123,16 +123,20 @@ class Grid:
         y1 = torch.full_like(
             t_grid, self.y_domain[1])
 
-        down = torch.cat((x0, y_grid, t_grid), dim=1).to(self.device)
+        t0 = torch.full_like(x_grid, self.t_domain[0])
+        
+        front = torch.cat((t0, x_grid, y_grid), dim=1)
 
-        up = torch.cat((x1, y_grid, t_grid), dim=1).to(self.device)
+        down = torch.cat((x0, y_grid, t_grid), dim=1)
 
-        left = torch.cat((x_grid, y0, t_grid), dim=1).to(self.device)
+        up = torch.cat((x1, y_grid, t_grid), dim=1)
 
-        right = torch.cat((x_grid, y1, t_grid), dim=1).to(self.device)
-        bound_points = torch.cat((down, up, left, right), dim=0).to(self.device)
+        left = torch.cat((x_grid, y0, t_grid), dim=1)
 
-        return (down, up, left, right, bound_points)
+        right = torch.cat((x_grid, y1, t_grid), dim=1)
+        bound_points = torch.cat((front, down, up, left, right), dim=0)
+
+        return (front, down, up, left, right, bound_points)
 
     def get_initial_points(self):
         x_grid = self.grid_init[:, 0].unsqueeze(1).to(self.device)
@@ -185,8 +189,8 @@ class PINN(nn.Module):
                  hiddendim: int,
                  nhidden: int,
                  adim_NN: tuple,
-                 nn_inbcs: NN,
-                 nn_d: NN,
+                 distances: torch.Tensor,
+                 t0idx: torch.Tensor,
                  act=nn.Tanh(),
                  ):
 
@@ -195,9 +199,8 @@ class PINN(nn.Module):
         self.nhidden = nhidden
         self.adim = adim_NN
         self.act = act
-
-        self.nninbcs = nn_inbcs
-        self.nnd = nn_d
+        self.t0idx = t0idx
+        self.register_buffer('distances', distances.detach())
 
         self.U = nn.ModuleList([
             nn.Linear(3, hiddendim),
@@ -226,7 +229,7 @@ class PINN(nn.Module):
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)
 
-    def forward(self, space, t):
+    def forward(self, space, t, outinbcs):
         input = torch.cat([space, t], dim=1)
         input0 = input
         for layer in self.U:
@@ -246,19 +249,41 @@ class PINN(nn.Module):
             out = self.act(out) * U + (1-self.act(out)) * V
 
         outres = self.outlayer(out)
-        with torch.no_grad():
-            outinbcs = self.nninbcs(space, t)
-            outd = self.nnd(space, t)
-        out = outinbcs + outd * t * outres 
 
-        #if not self.training:
-        #    out[:,:2] *= self.adim[0]
-        #    out[:,2:] *= self.adim[1]
+        out = outinbcs + self.distances * outres
+
+        if not self.training:
+            out[:,:2] *= self.adim[0]
+            out[:,2:] *= self.adim[1]
 
         return out
 
-    def device(self):
-        return next(self.parameters()).device
+
+def getout(pinn: PINN, nninbcs: NN, space: torch.Tensor, t: torch.Tensor):
+    outinbcs = nninbcs(space, t)
+    outtot = pinn(space, t, outinbcs)
+
+    return outtot
+
+
+def get_D(all_points: tuple, x1: float, y1: float):
+    a_x, b_x = 0.0, x1
+    a_y, b_y = 0.0, y1
+    a_t = 0.0
+
+    x = all_points[0].detach().cpu()
+    y = all_points[1].detach().cpu()
+    t = all_points[2].detach().cpu()
+
+    dfront = t - a_t
+    ddown = x - a_x
+    dup = b_x - x 
+    dleft = y - a_y
+    dright = b_y - y
+
+    distances = torch.min(torch.stack([dfront, ddown, dup, dleft, dright], dim=1), dim=1)[0]
+
+    return distances
 
 
 class Loss:
@@ -271,8 +296,8 @@ class Loss:
         steps_int: tuple,
         in_penalty: np.ndarray,
         adim: tuple,
+        t0idx: torch.Tensor,
         device,
-        verbose: bool = False
     ):
         self.points = points
         self.w0 = w0
@@ -282,7 +307,7 @@ class Loss:
         self.penalty = in_penalty
         self.adim = adim
         self.device = device
-        self.dists = self.gtdistance()
+        self.idx0 = t0idx
 
     def gtdistance(self):
             x, y, t = self.points['all_points']
@@ -323,10 +348,10 @@ class Loss:
         
         return loss
 
-    def res_loss(self, pinn):
-        x, y, t = self.points['res_points']
+    def res_loss(self, pinn, nninbcs):
+        x, y, t = self.points['all_points']
         space = torch.cat([x,y], dim=1)
-        output = pinn(space, t) 
+        output = getout(pinn, nninbcs, space, t) 
         loss = 0
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -361,12 +386,13 @@ class Loss:
 
 
     def initial_loss(self, nn):
-        init_points = self.points['initial_points']
-        x, y, t = init_points
-        space = torch.cat([x, y], dim=1)
+        points = self.points['all_points']
+        init = torch.cat(points, dim=1)[self.idx0]
+        space = init[:,:2]
+        t = init[:,-1].unsqueeze(1)
         output = nn(space, t)
 
-        init = initial_conditions(init_points, self.w0)
+        init = initial_conditions(init, self.w0)
         init[:,:2] *= 1/self.adim[4]
 
         loss = 0 
@@ -381,7 +407,6 @@ class Loss:
 
         loss += (v - init[:,-2:]).pow(2).mean(dim=0).sum()
         
-
         return loss
 
 
@@ -435,21 +460,19 @@ class Loss:
         self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
 
 
-    def verbose(self, pinn):
-        res_loss = self.res_loss(pinn)
+    def __call__(self, pinn, nninbcs):
+        res_loss = self.res_loss(pinn, nninbcs)
         #en_dev = self.en_loss(pinn)
-        init_loss = self.initial_loss(pinn)
+        #init_loss = self.initial_loss(pinn)
         #bound_loss = self.bound_loss(pinn)
         loss = res_loss
 
-        return loss, res_loss, (init_loss,)
-
-    def __call__(self, pinn):
-        return self.verbose(pinn)
+        return loss
 
 
 def train_model(
-    nn_approximator: PINN,
+    pinn: PINN,
+    nninbcs: NN,
     loss_fn: Callable,
     learning_rate: int,
     max_epochs: int,
@@ -458,17 +481,17 @@ def train_model(
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
+    optimizer = optim.Adam(pinn.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
         optimizer.zero_grad()
-
+        """
         if epoch != 0 and epoch % 300 == 0 :
-            _, res_loss, losses = loss_fn(nn_approximator)
+            _, res_loss, losses = loss_fn(pinn)
 
             res_loss.backward()
-            max_grad = get_max_grad(nn_approximator)
+            max_grad = get_max_grad(pinn)
             optimizer.zero_grad()
 
             means = []
@@ -477,13 +500,13 @@ def train_model(
             for loss in losses:
                 loss.backward()
                 if i != 1:
-                    means.append(get_mean_grad(nn_approximator))
+                    means.append(get_mean_grad(pinn))
                 optimizer.zero_grad()
                 i += 1
 
             loss_fn.update_penalty(max_grad, means)
-
-        loss, res_loss, losses = loss_fn(nn_approximator)
+        """
+        loss = loss_fn(pinn, nninbcs)
         loss.backward()
         optimizer.step()
 
@@ -491,17 +514,15 @@ def train_model(
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
-            'residual': res_loss.item(),
-            'init': losses[0].item()
             #'boundary': losses[1].item(),
             #'en_dev': losses[2].item()
         }, epoch)
 
-        writer.add_scalars('Penalty_terms', {
+        """writer.add_scalars('Penalty_terms', {
             'init': loss_fn.penalty[0].item(),
             'en_dev': loss_fn.penalty[1].item()
         }, epoch)
-
+        """
         pbar.update(1)
 
     pbar.update(1)
@@ -509,7 +530,7 @@ def train_model(
 
     writer.close()
 
-    return nn_approximator
+    return pinn
 
 
 def calc_den(space, t, output):

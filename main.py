@@ -7,6 +7,7 @@ from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free, obtain_max_stress
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 torch.set_default_dtype(torch.float32)
 
@@ -78,10 +79,15 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-nn_inbcs = NN(20, 2, 5).to(device)
-nn_d = NN(10, 2, 1).to(device)
+nn_inbcs = NN(30, 4, 5).to(device)
 
+x = points['all_points'][0].detach().cpu().numpy()
+y = points['all_points'][1].detach().cpu().numpy()
+t = points['all_points'][2].detach()
+
+t0idx = torch.nonzero(t.squeeze() == 0).squeeze()
 in_penalty = np.array([1, 2])
+
 loss_fn = Loss(
         points,
         n_space,
@@ -90,21 +96,31 @@ loss_fn = Loss(
         steps,
         in_penalty,
         adim,
+        t0idx,
         device
     )
 
-nn_d = train_dist(nn_d, loss_fn, 2000, 1e-3)
-nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 2000, 1e-3)
-x, y, t = points['initial_points']
+distances = get_D(points['all_points'], 1, torch.max(y_domain)).to(device)
+## Plot distances for the domain ##
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+sc = ax.scatter(x, y, t.detach().cpu().numpy(), c=distances.detach().cpu().numpy())
+cb = plt.colorbar(sc)
+ax.set_xlabel('X Axis')
+ax.set_ylabel('Y Axis')
+ax.set_zlabel('Z Axis')
+plt.show()
+
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 8000, 1e-3)
+x, y, t_in = points['initial_points']
 x = x.to(device)
 y = y.to(device)
-t_in = t.to(device)
+t_in = t_in.to(device)
 space_in = torch.cat([x, y], dim=1)
 
-output = nn_inbcs(space_in, t)
+output = nn_inbcs(space_in, t_in)
 v = calculate_speed(output[:,:2], t_in).detach().cpu().numpy()
 output = output.detach().cpu().numpy()
-
 fig, axs = plt.subplots(2, 2, figsize=(10, 8), gridspec_kw={'height_ratios': [1, 1], 'width_ratios': [2, 1]})
 ax_big = plt.subplot2grid((2, 2), (0, 0), colspan=2)
 
@@ -125,17 +141,15 @@ axs[1, 1].set_xlabel(r'$\hat{x}$')
 axs[1, 1].set_ylabel(r'$\hat{y}$')
 cbar2 = fig.colorbar(scattervx, ax=axs[1,1])
 cbar2.set_label(r'$v_y$')
-
 plt.show()
 
-
-pinn = PINN(dim_hidden, n_hidden, adim_NN,  nn_inbcs, nn_d).to(device)
+pinn = PINN(dim_hidden, n_hidden, adim_NN, distances, t0idx).to(device)
 
 if retrain_PINN:
     dir_model = pass_folder('model')
     dir_logs = pass_folder('model/logs')
 
-    pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
+    pinn_trained = train_model(pinn, nn_inbcs, loss_fn=loss_fn, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
@@ -144,7 +158,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, n_hidden, adim_NN,  nn_inbcs, nn_d).to(device)
+    pinn_trained = PINN(dim_hidden, n_hidden, adim_NN,  nn_inbcs, distances).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
@@ -157,13 +171,18 @@ print(pinn_trained)
 
 pinn_trained.eval()
 
-z = pinn_trained(space_in, t_in)[:,:2]
-v = calculate_speed(z, t_in)
-z = torch.cat([z, v], dim=1)
+allpoints = torch.cat(points['all_points'], dim=1)
+space = allpoints[:,:2]
+t = allpoints[:,-1].unsqueeze(1)
+out = getout(pinn_trained, nn_inbcs, space, t)
+outin = out[t0idx,:2]
+v = calculate_speed(out[:,:2], t)[t0idx]
+z = torch.cat([outin, v], dim=1)
 
-cond0 = initial_conditions(points['initial_points'], w0)
+cond0 = initial_conditions(space_in, w0)
 
-plot_initial_conditions(z, cond0, x, y, dir_model)
+plot_initial_conditions(z, cond0, space_in[:,0], space_in[:,1], dir_model)
+
 x, y, t = grid.get_all_points()
 nsamples = n_space + (n_time,)
 sol = obtainsolt(pinn_trained, space_in, t, nsamples, device)

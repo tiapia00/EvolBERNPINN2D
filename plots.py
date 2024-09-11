@@ -45,6 +45,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     ax[1, 0].scatter(X.reshape(-1)+z[:, 0], Y.reshape(-1)+z[:, 1])
     ax[1, 0].set_xlabel('$\\hat{x}$')
     ax[1, 0].set_ylabel('$\\hat{y}$')
+    ax[1, 0].set_xlim(0,1)
 
     vx_nn_scatter = ax[1, 1].scatter(X.reshape(-1)+z[:, 0],
             Y.reshape(-1)+z[:, 1], c=z[:, 2], cmap=cmap)
