@@ -111,7 +111,7 @@ ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 plt.show()
 
-nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 8000, 1e-3)
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 1000, 1e-3)
 x, y, t_in = points['initial_points']
 x = x.to(device)
 y = y.to(device)
@@ -185,13 +185,11 @@ plot_initial_conditions(z, cond0, space_in[:,0], space_in[:,1], dir_model)
 
 x, y, t = grid.get_all_points()
 nsamples = n_space + (n_time,)
-sol = obtainsolt(pinn_trained, space_in, t, nsamples, device)
+sol, space_in = obtainsolt_u(pinn_trained, nn_inbcs, space, t, nsamples, device)
+plt.figure()
+plt.plot(space_in[:,0].detach().cpu().numpy() + sol[:,0,0], space_in[:,1].detach().cpu().numpy() + sol[:,0,1])
+plt.show()
 plot_sol(sol, space_in, t, dir_model)
 
-plot_compliance(pinn_trained, x, y, t, w_ad, dir_model, device)
 #plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,
 #                    n_time, n_space_beam, dir_model, device)
-
-t, en, en_p, en_k = calc_energy(pinn_trained, points, n_space, n_time, steps[0], steps[1])
-plot_energy(t, en_k, en_p, en, En0, dir_model)
-

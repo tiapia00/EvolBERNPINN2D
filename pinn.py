@@ -648,20 +648,29 @@ def get_mean_grad(pinn: PINN):
     return mean
 
 
-def obtainsolt(pinn: PINN, space_in: torch.tensor, t:torch.tensor, nsamples: tuple, device):
+def obtainsolt_u(pinn: PINN, nninbcs: NN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple, device):
     nx, ny, nt = nsamples
     sol = torch.zeros(nx, ny, nt, 2)
-    ts = torch.unique(t, sorted=True)
-    ts = ts.reshape(-1,1)
+    spaceidx = torch.zeros(nx, ny, nt, 2)
+    tsv = torch.unique(t, sorted=True)
+    output = getout(pinn, nninbcs, space, t)
 
-    for i in range(ts.shape[0]):
-        t = ts[i]*torch.ones(space_in.shape[0], 1, device=device)
-        output = pinn(space_in, t)[:,:2]
-        gridoutput = output.reshape(nx, ny, 2)
-        sol[:,:,i,:] = gridoutput
+    for i in range(len(tsv)):
+        idxt = torch.nonzero(t.squeeze() == tsv[i])
+        spaceidx[:,:,i,:] = space[idxt].reshape(nx, ny, 2)
+        sol[:,:,i,:] = output[idxt,:2].reshape(nx, ny, 2)
     
-    sol = sol.reshape(nx*ny, -1, 2)
-    return sol.detach().cpu().numpy()
+    spaceexpand = spaceidx[:,:,0,:].unsqueeze(2).expand_as(spaceidx)
+    check = torch.all(spaceexpand == spaceidx).item()
+
+    if not check:
+        raise ValueError('Extracted space tensors not matching')
+    else:
+        space_in = spaceidx[:,:,0,:].reshape(nx*ny, 2)
+    
+    sol = sol.reshape(nx*ny, nt, 2)
+
+    return sol.detach().cpu().numpy(), space_in
 
 def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
     optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
