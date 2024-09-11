@@ -6,8 +6,6 @@ import torch
 from torch import nn
 import torch.optim as optim
 
-
-
 class NN(nn.Module):
     def __init__(self, dim_hidden, n_hidden, out_dim):
 
