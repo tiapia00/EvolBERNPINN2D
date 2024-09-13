@@ -66,6 +66,7 @@ y_domain = torch.linspace(0, Ly, n_space[1])/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
 adim = ((t_tild**2/(rho*w0)*sig_max/Lx).item(), (lam+2+mu)/Lx*w0, lam/Lx*w0, mu/Lx*w0, w0)
+print(adim)
 adim_NN = (w0, sig_max)
 
 steps = get_step((x_domain, y_domain, t_domain))
