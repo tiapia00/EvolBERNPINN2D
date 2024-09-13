@@ -19,11 +19,9 @@ class NN(nn.Module):
         self.layers = nn.ModuleList()
         for _ in range(n_hidden - 1):
             self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.layers.append(nn.Tanh())
+            self.layers.append(nn.Sigmoid())
         
         self.layerout = nn.Linear(dim_hidden, out_dim)
-
-        initialize_weights(self)
 
     def forward(self, space, t):
         points = torch.cat([space, t], dim=1)
@@ -701,7 +699,7 @@ def obtainsolt_u(pinn: PINN, nninbcs: NN, space: torch.Tensor, t: torch.Tensor, 
 
 
 def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
-    optimizer = optim.LBFGS(nn.parameters(), lr = learning_rate)
+    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
     pbar = tqdm(total=epochs, desc="Training", position=0)
 
     def closure():
