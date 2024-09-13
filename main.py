@@ -56,7 +56,7 @@ my_beam = Beam(Lx, E, rho, h, 1, n_space_beam)
 t_tild, w, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
 # en0 [J]
 sig_max = obtain_max_stress(my_beam, w)
-#sig_max [Pa]
+#sig_max [MPa]
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, lr, epochs = get_params(par.pinn_par)
@@ -79,7 +79,7 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-nn_inbcs = NN(10, 2, 5).to(device)
+nn_inbcs = NN(50, 4, 5).to(device)
 
 x = points['all_points'][0].detach().cpu().numpy()
 y = points['all_points'][1].detach().cpu().numpy()
@@ -112,8 +112,6 @@ ax.set_zlabel('Z Axis')
 #plt.show()
 
 nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 50000, 1e-4)
-
-nn_inbcs.eval()
 
 x, y, t_in = points['initial_points']
 x = x.to(device)

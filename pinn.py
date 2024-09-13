@@ -396,8 +396,8 @@ class Loss:
 
 
     def initial_loss(self, nn):
-        points = self.points['all_points']
-        init = torch.cat(points, dim=1)[self.idx0]
+        points = self.points['initial_points']
+        init = torch.cat(points, dim=1)
         space = init[:,:2]
         t = init[:,-1].unsqueeze(1)
         output = nn(space, t)
@@ -408,6 +408,7 @@ class Loss:
         loss = 0 
         u = output[:,:2]
         loss += (u - init[:,:2]).pow(2).mean(dim=0).sum()
+        loss *= 3
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]

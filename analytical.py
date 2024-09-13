@@ -60,7 +60,7 @@ def obtain_max_stress(my_beam: Beam, w: np.ndarray):
     w0 = w[:,0]
     x = my_beam.xi
     E = my_beam.E
-    eps_max = -my_beam.H/2 * np.max(df_num(x, df_num(x, w0)))
+    eps_max = my_beam.H/2 * np.max(np.abs(df_num(x, df_num(x, w0))))
     sigma_max = E*eps_max
 
     return sigma_max
