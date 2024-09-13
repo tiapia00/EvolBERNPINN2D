@@ -3,7 +3,7 @@ class Parameters:
         self.x_end = 500
         self.y_end = 0.5
         self.t_end = 0.8
-        self.n_space = (51, 51)
+        self.n_space = (61, 61)
         self.n_time = 41 
         self.dim_hidden = 40 
         self.n_hidden = 4
