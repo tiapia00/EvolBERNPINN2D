@@ -36,9 +36,6 @@ class NN:
         
         self.outlayer = nn.Linear(hiddendim, 5)
 
-        initialize_weights(self)
-
-
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
         input0 = input
