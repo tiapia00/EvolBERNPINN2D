@@ -307,8 +307,8 @@ def getpdeloss(output: torch.Tensor, space: torch.Tensor, t: torch.Tensor, adim:
     dysigyy = torch.autograd.grad(output[:,4].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
             create_graph=False, retain_graph=True)[0][:,1]
     
-    loss += (adim[0]*(dxsigxx + dxysigxy[:,1]) - ax.squeeze()).pow(2).mean()
-    loss += (adim[0]*(dysigyy + dxysigxy[:,0]) - ay.squeeze()).pow(2).mean()
+    loss += ((dxsigxx + dxysigxy[:,1]) - ax.squeeze()/adim[0]).pow(2).mean()
+    loss += ((dysigyy + dxysigxy[:,0]) - ay.squeeze()/adim[0]).pow(2).mean()
 
     dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
             create_graph=False, retain_graph=True)[0]
