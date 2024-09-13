@@ -110,20 +110,20 @@ class Grid:
         x_grid, t_grid = torch.meshgrid(x_linspace, t_linspace, indexing="ij")
         y_grid, _ = torch.meshgrid(y_linspace, t_linspace, indexing="ij")
 
-        x_grid = x_grid.reshape(-1, 1)
-        y_grid = y_grid.reshape(-1, 1)
-        t_grid = t_grid.reshape(-1, 1)
+        x_grid = x_grid.reshape(-1, 1).to(self.device)
+        y_grid = y_grid.reshape(-1, 1).to(self.device)
+        t_grid = t_grid.reshape(-1, 1).to(self.device)
 
         x0 = torch.full_like(
-            t_grid, self.x_domain[0]) 
+            t_grid, self.x_domain[0]).to(self.device)
         x1 = torch.full_like(
-            t_grid, self.x_domain[1])
+            t_grid, self.x_domain[1]).to(self.device)
         y0 = torch.full_like(
-            t_grid, self.y_domain[0])
+            t_grid, self.y_domain[0]).to(self.device)
         y1 = torch.full_like(
-            t_grid, self.y_domain[1])
+            t_grid, self.y_domain[1]).to(self.device)
 
-        t0 = torch.full_like(x_grid, self.t_domain[0])
+        t0 = torch.full_like(x_grid, self.t_domain[0]).to(self.device)
         
         front = torch.cat((t0, x_grid, y_grid), dim=1)
 
@@ -309,17 +309,17 @@ def getpdeloss(output: torch.Tensor, space: torch.Tensor, t: torch.Tensor, adim:
     dysigyy = torch.autograd.grad(output[:,4].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
             create_graph=False, retain_graph=True)[0][:,1]
     
-    loss += (adim[0]*(dxsigxx + dxysigxy[:,1]) - ax.squeeze()).pow(2).mean()
-    loss += (adim[0]*(dysigyy + dxysigxy[:,0]) - ay.squeeze()).pow(2).mean()
+    loss += ((dxsigxx + dxysigxy[:,1]) - ax.squeeze()*adim[0]).pow(2).mean()
+    loss += ((dysigyy + dxysigxy[:,0]) - ay.squeeze()*adim[0]).pow(2).mean()
 
     dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
             create_graph=False, retain_graph=True)[0]
     dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
             create_graph=False, retain_graph=True)[0]
 
-    loss += (output[:,2] - adim[1]*dxyux[:,0] - adim[2]*dxyuy[:,1]).pow(2).mean()
-    loss += (output[:,4] - adim[2]*dxyux[:,0] - adim[1]*dxyuy[:,1]).pow(2).mean()
-    loss += (output[:,3] - adim[3]*(dxyux[:,1] - dxyuy[:,0])).pow(2).mean()
+    loss += (adim[1]*output[:,2] - (1+2*adim[2])*dxyux[:,0] - dxyuy[:,1]).pow(2).mean()
+    loss += (adim[1]*output[:,4] - dxyux[:,0] - (1+2*adim[2])*dxyuy[:,1]).pow(2).mean()
+    loss += (adim[1]*output[:,3] - adim[2]*(dxyux[:,1] - dxyuy[:,0])).pow(2).mean()
 
     return loss
 
@@ -395,34 +395,48 @@ class Loss:
         return loss 
 
 
-    def initial_loss(self, nn: NN, train_x: torch.Tensor, train_y: torch.Tensor, criterion):
-        space = train_x[:,:2]
-        t = train_x[:,-1].unsqueeze(1)
-        t.requires_grad_(True)
+    def initial_loss(self, nn):
+        points = self.points['initial_points']
+        init = torch.cat(points, dim=1)
+        space = init[:,:2]
+        t = init[:,-1].unsqueeze(1)
         output = nn(space, t)
-        """
-        init[:,:2] *= 1/self.adim[4]
 
-        u = output[:,:2]
-        loss += (u - init[:,:2]).pow(2).mean(dim=0).sum()
-        """
+        init = initial_conditions(init, self.w0)
+
         loss = 0 
+        u = self.adim[3]*output[:,:2]
+        loss += (u - init[:,:2]).pow(2).mean(dim=0).sum()
+        loss *= 3
+
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         v = torch.cat([vx, vy], dim=1)
 
-        init = initial_conditions(space, self.w0)
         loss += (v - init[:,-2:]).pow(2).mean(dim=0).sum()
-        loss += criterion(output, train_y)
-        #loss += getpdeloss(output, space, t, self.adim, self.device)
+        loss += getpdeloss(output, space, t, self.adim, self.device)
         
         return loss
 
 
-    def bound_loss(self, pinn):
-        pass
+    def bound_loss(self, nn):
+        front, down, up, left, right, allbound = self.points['boundary_points']
+
+        dirichlet = torch.cat([down, up], dim=0)
+        neumann = torch.cat([left, right], dim=0)
+
+        loss = 0
+
+        output = self.adim[3]*nn(dirichlet[:,:2], dirichlet[:,-1].unsqueeze(1))
+        loss += output[:,:2].pow(2).mean(dim=0).sum()
+
+        output = nn(neumann[:,:2], neumann[:,-1].unsqueeze(1))
+        tractions = torch.sum(output[:,2:], dim=1)
+        loss += self.adim[4]*tractions.pow(2).mean()
+
+        return loss
 
 
     def en_loss(self, pinn):
@@ -686,14 +700,14 @@ def obtainsolt_u(pinn: PINN, nninbcs: NN, space: torch.Tensor, t: torch.Tensor, 
     return sol.detach().cpu().numpy(), space_in
 
 
-def train_inbcs(nninbcs: NN, train_x: torch.Tensor, train_y: torch.Tensor, lossfn: Loss, epochs: int, learning_rate: float):
-    optimizer = optim.Adam(nninbcs.parameters(), lr = learning_rate)
+def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
+    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
     pbar = tqdm(total=epochs, desc="Training", position=0)
-    criterion = nn.MSELoss()
 
     def closure():
         optimizer.zero_grad()
-        loss = lossfn.initial_loss(nninbcs, train_x, train_y, criterion)
+        loss = lossfn.initial_loss(nn)
+        loss += lossfn.bound_loss(nn)
         loss.backward()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
