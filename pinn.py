@@ -6,7 +6,7 @@ import torch
 from torch import nn
 import torch.optim as optim
 
-class NN:
+class NN(nn.Module):
     def __init__(self,
                  hiddendim: int,
                  nhidden: int,
@@ -35,6 +35,8 @@ class NN:
             self.layers.append(nn.Linear(hiddendim, hiddendim))
         
         self.outlayer = nn.Linear(hiddendim, 5)
+
+        initialize_weights(self)
 
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
