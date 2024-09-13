@@ -23,6 +23,8 @@ class NN(nn.Module):
         
         self.layerout = nn.Linear(dim_hidden, out_dim)
 
+        initialize_weights(self)
+
     def forward(self, space, t):
         points = torch.cat([space, t], dim=1)
         output = self.layerin(points)
@@ -182,6 +184,15 @@ class Grid:
 
         return (x_all, y_all, t_all)
 
+
+def initialize_weights(neural):
+    for layer in neural.modules():
+        if isinstance(layer, nn.Linear):
+            nn.init.xavier_uniform_(layer.weight)
+            if layer.bias is not None:
+                nn.init.zeros_(layer.bias)
+
+
 class PINN(nn.Module):
     def __init__(self,
                  hiddendim: int,
@@ -218,14 +229,8 @@ class PINN(nn.Module):
         
         self.outlayer = nn.Linear(hiddendim, 5)
 
-        self._initialize_weights()
+        initialize_weights(self)
 
-    def _initialize_weights(self):
-        for layer in self.modules():
-            if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)
-                if layer.bias is not None:
-                    nn.init.zeros_(layer.bias)
 
     def forward(self, space, t, outinbcs):
         input = torch.cat([space, t], dim=1)
