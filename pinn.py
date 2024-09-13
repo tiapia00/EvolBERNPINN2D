@@ -395,28 +395,28 @@ class Loss:
         return loss 
 
 
-    def initial_loss(self, nn):
-        points = self.points['all_points']
-        init = torch.cat(points, dim=1)[self.idx0]
-        space = init[:,:2]
-        t = init[:,-1].unsqueeze(1)
+    def initial_loss(self, nn: NN, train_x: torch.Tensor, train_y: torch.Tensor, criterion):
+        space = train_x[:,:2]
+        t = train_x[:,-1].unsqueeze(1)
+        t.requires_grad_(True)
         output = nn(space, t)
-
-        init = initial_conditions(init, self.w0)
+        """
         init[:,:2] *= 1/self.adim[4]
 
-        loss = 0 
         u = output[:,:2]
         loss += (u - init[:,:2]).pow(2).mean(dim=0).sum()
-
+        """
+        loss = 0 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         v = torch.cat([vx, vy], dim=1)
 
+        init = initial_conditions(space, self.w0)
         loss += (v - init[:,-2:]).pow(2).mean(dim=0).sum()
-        loss += getpdeloss(output, space, t, self.adim, self.device)
+        loss += criterion(output, train_y)
+        #loss += getpdeloss(output, space, t, self.adim, self.device)
         
         return loss
 
@@ -686,13 +686,14 @@ def obtainsolt_u(pinn: PINN, nninbcs: NN, space: torch.Tensor, t: torch.Tensor, 
     return sol.detach().cpu().numpy(), space_in
 
 
-def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
-    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
+def train_inbcs(nninbcs: NN, train_x: torch.Tensor, train_y: torch.Tensor, lossfn: Loss, epochs: int, learning_rate: float):
+    optimizer = optim.Adam(nninbcs.parameters(), lr = learning_rate)
     pbar = tqdm(total=epochs, desc="Training", position=0)
+    criterion = nn.MSELoss()
 
     def closure():
         optimizer.zero_grad()
-        loss = lossfn.initial_loss(nn)
+        loss = lossfn.initial_loss(nninbcs, train_x, train_y, criterion)
         loss.backward()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
@@ -700,13 +701,16 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
 
         return loss
 
-    for _ in range(epochs):
+    for epoch in range(epochs):
+        if epoch == epoch/2:
+            adjust_learning_rate(optimizer, learning_rate/10)
         optimizer.step(closure)
 
     pbar.update(1)
     pbar.close()
 
-    return nn
+    return nninbcs
+
 
 def train_dist(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
     optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
@@ -727,6 +731,11 @@ def train_dist(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
     pbar.close()
 
     return nn
+
+
+def adjust_learning_rate(optimizer, new_lr):
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = new_lr
 
 
 
