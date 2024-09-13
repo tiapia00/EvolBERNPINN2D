@@ -716,6 +716,7 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
         return loss
 
     for _ in range(epochs):
+        torch.nn.utils.clip_grad_norm_(nn.parameters(), max_norm=2.)
         optimizer.step(closure)
 
     pbar.update(1)
