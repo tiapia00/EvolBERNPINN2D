@@ -23,8 +23,6 @@ class NN(nn.Module):
         
         self.layerout = nn.Linear(dim_hidden, out_dim)
 
-        initialize_weights(self)
-
     def forward(self, space, t):
         points = torch.cat([space, t], dim=1)
         output = self.layerin(points)
