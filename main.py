@@ -54,7 +54,7 @@ E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, 1, n_space_beam)
 
 t_tild, w, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
-# en0 [J]
+#en0 [?]
 sig_max = obtain_max_stress(my_beam, w)
 #sig_max [MPa]
 lam, mu = par.to_matpar_PINN()
@@ -65,8 +65,7 @@ x_domain = torch.linspace(0, Lx, n_space[0])/Lx
 y_domain = torch.linspace(0, Ly, n_space[1])/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
-adim = ((t_tild**2/(rho*w0)*sig_max/Lx).item(), (lam+2+mu)/Lx*w0, lam/Lx*w0, mu/Lx*w0, w0)
-print(adim)
+adim = (((t_tild**2/(rho*w0)*sig_max/Lx)**(-1)).item(), (sig_max*Lx/(w0*lam)).item(), mu/lam, w0, sig_max)
 adim_NN = (w0, sig_max)
 
 steps = get_step((x_domain, y_domain, t_domain))
@@ -80,7 +79,7 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-nn_inbcs = NN(50, 4, 5).to(device)
+nn_inbcs = NN(70, 4, 5).to(device)
 
 x = points['all_points'][0].detach().cpu().numpy()
 y = points['all_points'][1].detach().cpu().numpy()
@@ -112,7 +111,7 @@ ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 #plt.show()
 
-nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 50000, 1e-7)
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 50000, 1e-5)
 
 x, y, t_in = points['initial_points']
 x = x.to(device)
@@ -184,6 +183,7 @@ z = torch.cat([outin, v], dim=1)
 cond0 = initial_conditions(space_in, w0)
 
 plot_initial_conditions(z, cond0, space_in[:,0], space_in[:,1], dir_model)
+plot_init_stresses(z, space[t0idx], t[t0idx], dir_model)
 
 x, y, t = grid.get_all_points()
 nsamples = n_space + (n_time,)

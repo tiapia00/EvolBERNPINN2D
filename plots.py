@@ -6,6 +6,36 @@ from matplotlib.animation import FuncAnimation
 from pinn import PINN
 import numpy as np
 
+def plot_init_stresses(z: torch.Tensor, space_in: torch.Tensor, t_in: torch.Tensor, path: str):
+    z = z.detach().cpu().numpy()
+    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(18, 8))
+
+    x = space_in[:,0].detach().cpu().numpy()
+    y = space_in[:,1].detach().cpu().numpy()
+
+    cmap = 'coolwarm'
+
+    sigmaxx = ax[0].scatter(x, y, c=z[:,2], cmap=cmap)
+    ax[0].set_xlabel('$\\hat{x}$')
+    ax[0].set_ylabel('$\\hat{y}$')
+    cbar1 = fig.colorbar(sigmaxx, ax=ax[0], orientation='vertical')
+    cbar1.set_label(r'$\sigma_{xx}$')
+
+    sigmaxx = ax[1].scatter(x, y, c=z[:,3], cmap=cmap)
+    ax[1].set_xlabel('$\\hat{x}$')
+    ax[1].set_ylabel('$\\hat{y}$')
+    cbar1 = fig.colorbar(sigmaxx, ax=ax[1], orientation='vertical')
+    cbar1.set_label(r'$\sigma_{xy}$')
+
+    sigmaxx = ax[2].scatter(x, y, c=z[:,4], cmap=cmap)
+    ax[2].set_xlabel('$\\hat{x}$')
+    ax[2].set_ylabel('$\\hat{y}$')
+    cbar2 = fig.colorbar(sigmaxx, ax=ax[2], orientation='vertical')
+    cbar2.set_label(r'$\sigma_{yy}$')
+
+    plt.tight_layout()
+    plt.savefig(f'{path}/stressinit.png')
+
 
 def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, path: str):
     """Plot initial conditions.
