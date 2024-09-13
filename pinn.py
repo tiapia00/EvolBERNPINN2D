@@ -701,7 +701,7 @@ def obtainsolt_u(pinn: PINN, nninbcs: NN, space: torch.Tensor, t: torch.Tensor, 
 
 
 def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
-    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
+    optimizer = optim.LBFGS(nn.parameters(), lr = learning_rate)
     pbar = tqdm(total=epochs, desc="Training", position=0)
 
     def closure():
