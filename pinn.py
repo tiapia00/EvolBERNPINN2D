@@ -6,6 +6,65 @@ import torch
 from torch import nn
 import torch.optim as optim
 
+class NN:
+    def __init__(self,
+                 hiddendim: int,
+                 nhidden: int,
+                 adim_NN: tuple,
+                 distances: torch.Tensor,
+                 act=nn.Tanh(),
+                 ):
+
+        super().__init__()
+        self.hiddendim = hiddendim
+        self.nhidden = nhidden
+        self.adim = adim_NN
+        self.act = act
+        self.register_buffer('distances', distances.detach())
+
+        self.U = nn.ModuleList([
+            nn.Linear(3, hiddendim),
+            act
+        ])
+
+        self.V = nn.ModuleList([
+            nn.Linear(3, hiddendim),
+            act
+        ])
+
+        self.initlayer = nn.Linear(3, hiddendim)
+        self.layers = nn.ModuleList([])
+        
+        for _ in range(nhidden):
+            self.layers.append(nn.Linear(hiddendim, hiddendim))
+        
+        self.outlayer = nn.Linear(hiddendim, 5)
+
+        initialize_weights(self)
+
+
+    def forward(self, space, t):
+        input = torch.cat([space, t], dim=1)
+        input0 = input
+        for layer in self.U:
+            U = layer(input)
+            input = U
+        
+        input = input0
+        for layer in self.V:
+            V = layer(input)
+            input = V
+        
+        input = input0
+        out = self.initlayer(input)
+
+        for layer in self.layers:
+            out = layer(out)
+            out = self.act(out) * U + (1-self.act(out)) * V
+
+        return out
+
+"""
 class NN(nn.Module):
     def __init__(self, dim_hidden, n_hidden, out_dim):
 
@@ -33,7 +92,7 @@ class NN(nn.Module):
         output = self.layerout(output)
 
         return output
-
+"""
 
 def simps(y, dx, dim=0):
     device = y.device
@@ -197,7 +256,6 @@ class PINN(nn.Module):
                  nhidden: int,
                  adim_NN: tuple,
                  distances: torch.Tensor,
-                 t0idx: torch.Tensor,
                  act=nn.Tanh(),
                  ):
 
@@ -206,7 +264,6 @@ class PINN(nn.Module):
         self.nhidden = nhidden
         self.adim = adim_NN
         self.act = act
-        self.t0idx = t0idx
         self.register_buffer('distances', distances.detach())
 
         self.U = nn.ModuleList([

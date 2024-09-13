@@ -144,7 +144,7 @@ cbar2 = fig.colorbar(scattervx, ax=axs[1,1])
 cbar2.set_label(r'$v_y$')
 #plt.show()
 
-pinn = PINN(dim_hidden, n_hidden, adim_NN, distances, t0idx).to(device)
+pinn = PINN(dim_hidden, n_hidden, adim_NN, distances).to(device)
 
 if retrain_PINN:
     dir_model = pass_folder('model')
