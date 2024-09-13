@@ -10,17 +10,13 @@ class NN:
     def __init__(self,
                  hiddendim: int,
                  nhidden: int,
-                 adim_NN: tuple,
-                 distances: torch.Tensor,
                  act=nn.Tanh(),
                  ):
 
         super().__init__()
         self.hiddendim = hiddendim
         self.nhidden = nhidden
-        self.adim = adim_NN
         self.act = act
-        self.register_buffer('distances', distances.detach())
 
         self.U = nn.ModuleList([
             nn.Linear(3, hiddendim),
