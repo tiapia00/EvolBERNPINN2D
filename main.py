@@ -111,7 +111,7 @@ ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 plt.show()
 
-nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 1000, 1e-3)
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 20000, 1e-3)
 x, y, t_in = points['initial_points']
 x = x.to(device)
 y = y.to(device)
@@ -186,9 +186,11 @@ plot_initial_conditions(z, cond0, space_in[:,0], space_in[:,1], dir_model)
 x, y, t = grid.get_all_points()
 nsamples = n_space + (n_time,)
 sol, space_in = obtainsolt_u(pinn_trained, nn_inbcs, space, t, nsamples, device)
+"""
 plt.figure()
 plt.plot(space_in[:,0].detach().cpu().numpy() + sol[:,0,0], space_in[:,1].detach().cpu().numpy() + sol[:,0,1])
 plt.show()
+"""
 plot_sol(sol, space_in, t, dir_model)
 
 #plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,

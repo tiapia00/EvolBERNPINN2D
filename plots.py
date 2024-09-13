@@ -67,14 +67,13 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(f'{path}/init.png')
 
-def plot_sol(sol: torch.tensor, space: torch.tensor, t: torch.tensor, path: str):
+def plot_sol(sol: torch.tensor, space_in: torch.tensor, t: torch.tensor, path: str):
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
     t = torch.unique(t, sorted=True).detach().cpu().numpy()
-    space = space.detach().cpu().numpy()
-    ax.scatter(space[:,0]+sol[:,0,0], space[:,1]+sol[:,0,1])
-
+    space_in = space_in.detach().cpu().numpy()
+    ax.scatter(space_in[:,0]+sol[:,0,0], space_in[:,1]+sol[:,0,1])
     ax.set_title(f'$\\hat{{t}} = {t[0]:.2f}$')
 
     def update(frame):
@@ -87,7 +86,7 @@ def plot_sol(sol: torch.tensor, space: torch.tensor, t: torch.tensor, path: str)
         ax.set_title(f'$t = {t[frame]:.2f}$')
 
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
-        ax.scatter(space[:,0]+sol[:,frame,0], space[:,1]+sol[:,frame,1])
+        ax.scatter(space_in[:,0]+sol[:,frame,0], space_in[:,1]+sol[:,frame,1])
 
         return ax
 

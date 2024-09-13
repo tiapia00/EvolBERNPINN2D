@@ -3,7 +3,7 @@ class Parameters:
         self.x_end = 500
         self.y_end = 0.5
         self.t_end = 0.8
-        self.n_space = (51, 51)
+        self.n_space = (31, 31)
         self.n_time = 41 
         self.dim_hidden = 40 
         self.n_hidden = 4
@@ -29,8 +29,8 @@ class Parameters:
             'w0': self.w0
         }
         self.mat_par = {
-            'E': 20,
-            'rho': 7e-6,
+            'E': 69e3,
+            'rho': 8e-9,
             'nu': 0.26
         }
 

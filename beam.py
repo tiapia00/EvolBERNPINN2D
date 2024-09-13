@@ -12,6 +12,7 @@ class Beam:
         self.length = length  # m
         self.E = E  # N/m^2
         self.J = H**3*b/12
+        print(self.J)
         self.rho = rho  # kg/m
         self.H = H
         self.b = b
