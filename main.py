@@ -109,9 +109,9 @@ cb = plt.colorbar(sc)
 ax.set_xlabel('X Axis')
 ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
-plt.show()
+#plt.show()
 
-nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 20000, 1e-3)
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 20000, 1e-4)
 x, y, t_in = points['initial_points']
 x = x.to(device)
 y = y.to(device)
@@ -141,7 +141,7 @@ axs[1, 1].set_xlabel(r'$\hat{x}$')
 axs[1, 1].set_ylabel(r'$\hat{y}$')
 cbar2 = fig.colorbar(scattervx, ax=axs[1,1])
 cbar2.set_label(r'$v_y$')
-plt.show()
+#plt.show()
 
 pinn = PINN(dim_hidden, n_hidden, adim_NN, distances, t0idx).to(device)
 

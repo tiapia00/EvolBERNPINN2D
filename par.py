@@ -18,7 +18,7 @@ class Parameters:
             'dim_hidden': self.dim_hidden,
             'n_hidden': self.n_hidden,
             'lr': 1e-3,
-            'epochs': 10 
+            'epochs': 5000 
         }
         self.beam_par = {
             'x_end': self.x_end,
