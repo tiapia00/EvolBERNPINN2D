@@ -417,9 +417,9 @@ class Loss:
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         ax = torch.autograd.grad(vx, t, torch.ones_like(t, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
         ay = torch.autograd.grad(vy, t, torch.ones_like(t, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
         
         dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -427,14 +427,14 @@ class Loss:
                 create_graph=True, retain_graph=True)[0]
         
         dxx_xy2ux = torch.autograd.grad(dxyux[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
         dyx_yy2ux = torch.autograd.grad(dxyux[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
 
         dxx_xy2uy = torch.autograd.grad(dxyuy[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
         dyx_yy2uy = torch.autograd.grad(dxyuy[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
         
         loss = (self.adim[0] * (dxx_xy2ux[:,0] + dyx_yy2ux[:,1]) + self.adim[1] * 
                 (dxx_xy2ux[:,0] + dxx_xy2uy[:,1]) - self.adim[2] * ax.squeeze()).pow(2).mean()
@@ -535,25 +535,6 @@ def train_model(
 
     for epoch in range(max_epochs):
         optimizer.zero_grad()
-
-        if epoch != 0 and epoch % 300 == 0 :
-            _, res_loss, losses = loss_fn(nn_approximator)
-
-            res_loss.backward()
-            max_grad = get_max_grad(nn_approximator)
-            optimizer.zero_grad()
-
-            means = []
-
-            i = 0
-            for loss in losses:
-                loss.backward()
-                if i != 1:
-                    means.append(get_mean_grad(nn_approximator))
-                optimizer.zero_grad()
-                i += 1
-
-            loss_fn.update_penalty(max_grad, means)
 
         loss, res_loss, losses = loss_fn(nn_approximator)
         loss.backward()
