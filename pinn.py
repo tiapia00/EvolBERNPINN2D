@@ -757,7 +757,7 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
     def closure():
         optimizer.zero_grad()
         loss = lossfn.initial_loss(nn)
-        loss += lossfn.bound_loss(nn)
+        #loss += lossfn.bound_loss(nn)
         loss.backward()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
