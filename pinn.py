@@ -570,8 +570,6 @@ class Loss:
             V[i] = simps(simps(dV, self.steps[1]), self.steps[0])
             T[i] = simps(simps(dT, self.steps[1]), self.steps[0])
         
-        print(V.shape)
-        print(self.n_time)
         return (V, T)
         
 
