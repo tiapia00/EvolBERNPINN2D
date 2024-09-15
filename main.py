@@ -127,7 +127,7 @@ ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 #plt.show()
 
-nn_inbcs = train_inbcs(nn_inbcs, train_x, train_y, loss_fn, 10000, 1e-4)
+nn_inbcs = train_inbcs(nn_inbcs, train_x, train_y, loss_fn, 100000, 1e-4)
 
 nn_inbcs.eval()
 
