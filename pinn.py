@@ -503,7 +503,7 @@ class Loss:
 
         output = nn(neumann[:,:2], neumann[:,-1].unsqueeze(1))
         tractions = torch.sum(output[:,2:], dim=1)
-        loss += self.adim[4]*tractions.pow(2).mean()
+        #loss += self.adim[4]*tractions.pow(2).mean()
 
         return loss
 
@@ -776,7 +776,7 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
     def closure():
         optimizer.zero_grad()
         loss = lossfn.initial_loss(nn)
-        #loss += lossfn.bound_loss(nn)
+        loss += lossfn.bound_loss(nn)
         loss.backward()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
