@@ -395,6 +395,7 @@ class Loss:
         steps_int: tuple,
         in_penalty: np.ndarray,
         adim: tuple,
+        par: dict,
         device: torch.device,
         verbose: bool = False
     ):
@@ -406,9 +407,10 @@ class Loss:
         self.penalty = in_penalty
         self.device = device
         self.adim = adim
+        self.par = par
 
     def res_loss(self, pinn):
-        x, y, t = self.points['res_points']
+        x, y, t = self.points['all_points']
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
@@ -442,7 +444,26 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         
-        return loss
+        eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
+        dV = self.par['w0']**2/self.par['Lx']**2 * (self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2
+
+        v = torch.cat([vx, vy], dim=1)
+        vnorm = torch.norm(v, dim=1)
+        dT = 1/2*self.par['rho']*self.par['w0']/self.par['t_ast']*vnorm
+
+        tgrid = torch.unique(t, sorted=True)
+
+        V = torch.zeros(tgrid.shape[0])
+        T = torch.zeros_like(V)
+        for i, ts in enumerate(tgrid):
+            tidx = torch.nonzero(t.squeeze() == ts).squeeze()
+            dVt = dV[tidx].reshape(self.n_space, self.n_space)
+            dTt = dT[tidx].reshape(self.n_space, self.n_space)
+
+            V[i] = simps(simps(dVt, self.steps[1]), self.steps[0])
+            T[i] = simps(simps(dTt, self.steps[1]), self.steps[0])
+
+        return loss, V, T
 
 
     def initial_loss(self, pinn):
@@ -459,46 +480,6 @@ class Loss:
         return loss
 
 
-    def en_loss(self, pinn):
-        x, y, t = self.points['all_points']
-        space = torch.cat([x,y], dim=1)
-
-        output = pinn(space, t)
-
-        n_space = self.n_space
-        n_time = self.n_time
-
-        d_en, d_en_p, d_en_k = calc_den(x, y, t, output)
-
-        d_en = d_en.reshape(n_space, n_space, n_time)
-        d_en_p = d_en_p.reshape(n_space, n_space, n_time)
-        d_en_k = d_en_k.reshape(n_space, n_space, n_time)
-
-        x = x.reshape(n_space, n_space, n_time)
-        y = y.reshape(n_space, n_space, n_time)
-        t = t.reshape(n_space, n_space, n_time)
-
-        dx = self.steps[0]
-        dy = self.steps[1]
-        dt = self.steps[2]
-
-        d_en_y = simps(y=d_en, dx=dy, dim=1)
-        d_en_p_y = simps(y=d_en_p, dx=dy, dim=1)
-        d_en_k_y = simps(y=d_en_k, dx=dy, dim=1)
-
-        En = simps(y=d_en_y, dx=dx, dim=0)
-        En_p = simps(y=d_en_p_y, dx=dx, dim=0)
-        En_k = simps(y=d_en_k_y, dx=dx, dim=0)
-
-        dEn_p = df_num_torch(dt, En_p)
-        dEn_k = df_num_torch(dt, En_k)
-
-        m = self.penalty[-1]
-        loss = 1 * (self.E0 * torch.ones_like(En) - En).pow(2).mean()
-
-        return loss
-
-
     def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
         lambda_o = np.array(self.penalty)
         mean = np.array(mean)
@@ -509,12 +490,12 @@ class Loss:
 
 
     def verbose(self, pinn):
-        res_loss = self.res_loss(pinn)
+        res_loss, V, T = self.res_loss(pinn)
         #en_dev = self.en_loss(pinn)
         init_loss = self.initial_loss(pinn)
         loss = res_loss + init_loss
 
-        return loss, res_loss, (init_loss,)
+        return loss, res_loss, (init_loss, V, T, (V+T).mean())
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -546,11 +527,7 @@ def train_model(
             'global': loss.item(),
             'residual': res_loss.item(),
             'init': losses[0].item(),
-        }, epoch)
-
-        writer.add_scalars('Penalty_terms', {
-            'init': loss_fn.penalty[0].item(),
-            'en_dev': loss_fn.penalty[1].item()
+            'V+T': losses[3].item()
         }, epoch)
 
         pbar.update(1)
@@ -561,78 +538,6 @@ def train_model(
     writer.close()
 
     return nn_approximator
-
-def calc_den(x, y, t, output):
-    vx = df(output, [t], 0).reshape(-1)
-    vy = df(output, [t], 1).reshape(-1)
-
-    dux_x = df(output, [x], 0).reshape(-1)
-    dux_y = df(output, [y], 0).reshape(-1)
-    duy_x = df(output, [x], 1).reshape(-1)
-    duy_y = df(output, [y], 1).reshape(-1)
-
-    d_en_k = (1/2*(vx+vy))**2
-    d_en_p = 1/2*(dux_x + duy_y)**2 + \
-        (dux_x**2 + duy_y**2 + (1/2*(dux_y+duy_x)) ** 2 +
-           (1/2*(duy_x + dux_y)**2))
-
-    d_en = d_en_k + d_en_p
-
-    return (d_en, d_en_p, d_en_k)
-
-def calc_initial_energy(pinn_trained: PINN, n_space: int, points: dict, device):
-    x, y, t = points['initial_points']
-
-    output = f(pinn_trained, x, y, t)
-
-    d_en, d_en_k, d_en_p = calc_den(x, y, t, output)
-    d_en = d_en.reshape(n_space, n_space)
-
-    x = x.reshape(n_space, n_space)
-    y = y.reshape(n_space, n_space)
-
-    en_x = torch.trapezoid(d_en, y[0,:], dim=1)
-    En = torch.trapezoid(en_x, x[:,0], dim=0)
-    En = En.detach()
-
-    return En
-
-def calc_energy(pinn_trained: PINN, points: dict, n_space: int, n_time: int, dx: float, dy: float) -> tuple:
-    x, y, t = points['all_points']
-
-    output = f(pinn_trained, x, y, t)
-
-    d_en, d_en_p, d_en_k = calc_den(x, y, t, output)
-
-    x = x.reshape(n_space, n_space, n_time)
-    y = y.reshape(n_space, n_space, n_time)
-    t = t.reshape(n_space, n_space, n_time)
-
-    d_en_k = d_en_k.reshape(n_space, n_space, n_time)
-    d_en_p = d_en_p.reshape(n_space, n_space, n_time)
-    d_en = d_en.reshape(n_space, n_space, n_time)
-
-    d_en_k_y = simps(d_en_k, dy, dim=1)
-    d_en_p_y = simps(d_en_p, dy, dim=1)
-    d_en_y = simps(d_en, dy, dim=1)
-
-    En_k_t = simps(d_en_k_y, dx, dim=0)
-    En_p_t = simps(d_en_p_y, dx, dim=0)
-    En_t = simps(d_en_y, dx, dim=0)
-
-    t = torch.unique(t)
-
-    return (t, En_t, En_p_t, En_k_t)
-
-def calculate_speed(pinn_trained: PINN, points: tuple) -> torch.tensor:
-    x, y, t = points
-
-    output = f(pinn_trained, x, y, t)
-
-    vx = df(output, [t], 0)
-    vy = df(output, [t], 1)
-
-    return torch.cat([vx, vy], dim=1)
 
 def df_num_torch(dx: float, y: torch.tensor):
     dy = torch.diff(y)
@@ -677,8 +582,3 @@ def get_mean_grad(pinn: PINN):
     mean = all_grads.mean().cpu().numpy()
 
     return mean
-
-
-
-
-

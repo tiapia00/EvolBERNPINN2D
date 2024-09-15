@@ -71,6 +71,12 @@ points = {
 }
 
 adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
+par = {"Lx": Lx,
+        "w0": w0,
+        "lam": lam,
+        "mu":mu,
+        "rho": rho,
+        "t_ast": t_tild}
 pinn = PINN(dim_hidden, w0, n_hidden).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
@@ -84,6 +90,7 @@ loss_fn = Loss(
         steps,
         in_penalty,
         adim,
+        par,
         device
     )
 
