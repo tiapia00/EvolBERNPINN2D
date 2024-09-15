@@ -261,17 +261,13 @@ class PINN(nn.Module):
     def __init__(self,
                  hiddendim: int,
                  nhidden: int,
-                 adim_NN: tuple,
-                 distances: torch.Tensor,
                  act=nn.Tanh(),
                  ):
 
         super().__init__()
         self.hiddendim = hiddendim
         self.nhidden = nhidden
-        self.adim = adim_NN
         self.act = act
-        self.register_buffer('distances', distances.detach())
 
         self.U = nn.ModuleList([
             nn.Linear(3, hiddendim),
@@ -316,10 +312,6 @@ class PINN(nn.Module):
         outres = self.outlayer(out)
 
         out = outinbcs + obtain_dist(space, t) * outres
-
-        if not self.training:
-            out[:,:2] *= self.adim[0]
-            out[:,2:] *= self.adim[1]
 
         return out
 
@@ -389,6 +381,7 @@ class Loss:
         self.adim = adim
         self.device = device
         self.idx0 = t0idx
+        self.par = par
 
     def gtdistance(self):
             x, y, t = self.points['all_points']

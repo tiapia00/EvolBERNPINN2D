@@ -66,8 +66,12 @@ y_domain = torch.linspace(0, Ly, n_space[1])/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
 adim = (((t_tild**2/(rho*w0)*sig_max/Lx)**(-1)).item(), (sig_max*Lx/(w0*lam)).item(), mu/lam, w0, sig_max, rho)
-adim_NN = (w0, sig_max)
-
+par = {"Lx": Lx,
+        "w0": w0,
+        "lam": lam,
+        "mu":mu,
+        "rho": rho,
+        "t_ast": t_tild}
 steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, y_domain, t_domain, device)
@@ -96,6 +100,7 @@ loss_fn = Loss(
         steps,
         in_penalty,
         adim,
+        par,
         t0idx,
         device
     )
@@ -144,7 +149,7 @@ cbar2 = fig.colorbar(scattervx, ax=axs[1,1])
 cbar2.set_label(r'$v_y$')
 #plt.show()
 
-pinn = PINN(dim_hidden, n_hidden, adim_NN, distances).to(device)
+pinn = PINN(dim_hidden, n_hidden).to(device)
 
 if retrain_PINN:
     dir_model = pass_folder('model')
@@ -159,7 +164,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, n_hidden, adim_NN,  nn_inbcs, distances).to(device)
+    pinn_trained = PINN(dim_hidden, n_hidden).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
