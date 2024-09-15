@@ -29,8 +29,8 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(initial_points: tuple, w0: float, i: float = 1) -> torch.tensor:
-    x, y, _ = initial_points
+def initial_conditions(space: torch.Tensor, w0: float, i: float = 1) -> torch.tensor:
+    x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
     uy0 = w0*torch.sin(torch.pi*i*x)
     dotux0 = torch.zeros_like(x)
@@ -206,6 +206,72 @@ def parabolic(a, x):
 
 class PINN(nn.Module):
     def __init__(self,
+                 hiddendim: int,
+                 w0: float, 
+                 nhidden: int,
+                 act=nn.Tanh(),
+                 ):
+
+        super().__init__()
+        self.hiddendim = hiddendim
+        self.nhidden = nhidden
+        self.act = act
+        self.w0 = w0
+
+        self.U = nn.ModuleList([
+            nn.Linear(3, hiddendim),
+            act
+        ])
+
+        self.V = nn.ModuleList([
+            nn.Linear(3, hiddendim),
+            act
+        ])
+
+        self.initlayer = nn.Linear(3, hiddendim)
+        self.layers = nn.ModuleList([])
+        
+        for _ in range(nhidden):
+            self.layers.append(nn.Linear(hiddendim, hiddendim))
+        
+        self.outlayer = nn.Linear(hiddendim, 2)
+
+
+    def forward(self, space, t):
+        input = torch.cat([space, t], dim=1)
+        input0 = input
+        for layer in self.U:
+            U = layer(input)
+            input = U
+        
+        input = input0
+        for layer in self.V:
+            V = layer(input)
+            input = V
+        
+        input = input0
+        out = self.initlayer(input)
+
+        for layer in self.layers:
+            out = layer(out)
+            out = self.act(out) * U + (1-self.act(out)) * V
+
+        outNN = self.outlayer(out)
+
+        outNN = torch.sin(space[:,0].reshape(-1,1) * np.pi) * outNN
+
+        act_global = torch.tanh(t.repeat(1, 2)) * outNN
+
+        init = 1/self.w0*initial_conditions(space, self.w0)[:,:2]
+        act_init = torch.tanh(1 - t.repeat(1, 2)) * init
+
+        out = act_global + act_init
+
+        return out
+
+"""
+class PINN(nn.Module):
+    def __init__(self,
                  dim_hidden: tuple,
                  w0: float,
                  gammas: np.ndarray,
@@ -277,8 +343,7 @@ class PINN(nn.Module):
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
-    def forward(self, x, y, t):
-        space = torch.cat([x,y], dim=1)
+    def forward(self, space, t):
         time = t
 
         fourier_space_x = self.fourier_features_ux(space)
@@ -311,111 +376,82 @@ class PINN(nn.Module):
 
         act_global = self.apply_filter(time.repeat(1, 2)) * merged
 
-        init = 1/self.w0*initial_conditions((x,y,t), self.w0)[:,:2]
+        init = 1/self.w0*initial_conditions(space, self.w0)[:,:2]
         act_init = self.apply_compl_filter(time.repeat(1, 2)) * init
 
         out = act_global + act_init
 
         return out
-
-    def device(self):
-        return next(self.parameters()).device
-
-
-def f(pinn: PINN, x: torch.Tensor, y: torch.Tensor, t: torch.Tensor) -> torch.tensor:
-    return pinn(x, y, t)
-
-
-def df(output: torch.Tensor, inputs: list, var: int = 0) -> torch.Tensor:
-    """Compute neural network derivative with respect to input features using PyTorch autograd engine
-    var = 0 : dux
-    var = 1 : duy
-    var = 2 : dux_t
-    var = 3 : duy_t
-    """
-    df_value = output[:, var].unsqueeze(1)
-    for _ in np.arange(len(inputs)):
-        df_value = torch.autograd.grad(
-            df_value,
-            inputs[_],
-            grad_outputs=torch.ones_like(inputs[_]),
-            create_graph=True,
-            retain_graph=True,
-        )[0]
-
-    return df_value
+        """
 
 
 class Loss:
-    """Loss:
-       z = T^2/(L*rho)
-       z[0] = mu*z
-       z[1] = lambda*z"""
-
     def __init__(
         self,
-        z: torch.Tensor,
-        initial_condition: Callable,
         points: dict,
         n_space: int,
         n_time: int,
         w0: float,
-        E0: float,
         steps_int: tuple,
         in_penalty: np.ndarray,
+        adim: tuple,
+        device: torch.device,
         verbose: bool = False
     ):
-        self.z = z
-        self.initial_condition = initial_condition
         self.points = points
         self.w0 = w0
-        self.E0: float = E0
         self.n_space = n_space
         self.n_time = n_time
         self.steps = steps_int
         self.penalty = in_penalty
+        self.device = device
+        self.adim = adim
 
     def res_loss(self, pinn):
         x, y, t = self.points['res_points']
-        output = f(pinn, x, y, t)
+        space = torch.cat([x, y], dim=1)
+        output = pinn(space, t)
 
-        dvx_t = df(output, [t,t], 0).reshape(-1)
-        dvy_t = df(output, [t,t], 1).reshape(-1)
+        vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        ax = torch.autograd.grad(vx, t, torch.ones_like(t, device=self.device),
+                create_graph=False, retain_graph=True)[0]
+        ay = torch.autograd.grad(vy, t, torch.ones_like(t, device=self.device),
+                create_graph=False, retain_graph=True)[0]
+        
+        dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        
+        dxx_xy2ux = torch.autograd.grad(dxyux[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=False, retain_graph=True)[0]
+        dyx_yy2ux = torch.autograd.grad(dxyux[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=False, retain_graph=True)[0]
 
-        dux_x = df(output, [x], 0)
-        dux_y = df(output, [y], 0)
-        duy_x = df(output, [x], 1)
-        duy_y = df(output, [y], 1)
+        dxx_xy2uy = torch.autograd.grad(dxyuy[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=False, retain_graph=True)[0]
+        dyx_yy2uy = torch.autograd.grad(dxyuy[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=False, retain_graph=True)[0]
+        
+        loss = (self.adim[0] * (dxx_xy2ux[:,0] + dyx_yy2ux[:,1]) + self.adim[1] * 
+                (dxx_xy2ux[:,0] + dxx_xy2uy[:,1]) - self.adim[2] * ax.squeeze()).pow(2).mean()
 
-        dux_xx = df(dux_x, [x]).reshape(-1)
-        duy_yy = df(duy_y, [y]).reshape(-1)
-        duy_xx = df(duy_x, [x]).reshape(-1)
-
-        dux_yy = df(dux_y, [y]).reshape(-1)
-        dux_xy = df(dux_x, [y]).reshape(-1)
-        duy_xy = df(duy_x, [y]).reshape(-1)
-
-        loss_v = []
-
-        loss_v.append(dvx_t - 2*self.z[0]*(dux_xx + 1/2 *
-                                      (dux_yy + duy_xy)) - self.z[1]*(dux_xx + duy_xy))
-        loss_v.append(dvy_t - 2 * self.z[0]*(1/2*(duy_xx +
-                                             dux_xy) + duy_yy) - self.z[1]*(dux_xy + duy_yy))
-
-        loss = 0
-
-        for loss_res in loss_v:
-            loss += loss_res.pow(2).mean()
-
+        loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
+                (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
+        
         return loss
 
 
     def initial_loss(self, pinn):
         init_points = self.points['initial_points']
         x, y, t = init_points
-        output = f(pinn, x, y, t)
+        space = torch.cat([x, y], dim=1)
+        output = pinn(space, t)
 
-        initial_speed = initial_conditions(init_points, pinn.w0)[:,2:]
+        initial_speed = initial_conditions(space, pinn.w0)[:,2:]
 
         m = self.penalty[0]
         loss = m * (output - initial_speed).pow(2).mean()
@@ -423,52 +459,11 @@ class Loss:
         return loss
 
 
-    def bound_loss(self, pinn):
-        down, up, left, right = self.points['boundary_points']
-        x_down, y_down, t_down = down
-        x_up, y_up, t_up = up
-        x_left, y_left, t_left = left
-        x_right, y_right, t_right = right
-
-        ux_down = f(pinn, x_down, y_down, t_down)[:, 0]
-        uy_down = f(pinn, x_down, y_down, t_down)[:, 1]
-
-        ux_left = f(pinn, x_left, y_left, t_left)[:, 0]
-        uy_left = f(pinn, x_left, y_left, t_left)[:, 1]
-        left = torch.cat([ux_left[..., None], uy_left[..., None]], -1)
-        duy_y_left = df(left, [y_left], 1)
-        dux_y_left = df(left, [y_left], 0)
-        duy_x_left = df(left, [x_left], 1)
-        tr_left = df(left, [x_left], 0) + duy_y_left
-
-        ux_right = f(pinn, x_right, y_right, t_right)[:, 0]
-        uy_right = f(pinn, x_right, y_right, t_right)[:, 1]
-        right = torch.cat([ux_right[..., None], uy_right[..., None]], -1)
-        duy_y_right = df(right, [y_right], 1)
-        dux_y_right = df(right, [y_right], 0)
-        duy_x_right = df(right, [x_right], 1)
-        tr_right = df(right, [x_right], 0) + duy_y_right
-
-        loss_v = []
-
-        loss_v.append(2*self.z[0]*(1/2*(dux_y_left + duy_x_left)))
-        loss_v.append(2*self.z[0]*duy_y_left + self.z[1]*tr_left)
-
-        loss_v.append(2*self.z[0]*(1/2*(dux_y_right + duy_x_right)))
-        loss_v.append(2*self.z[0]*duy_y_right + self.z[1]*tr_right)
-
-        loss = 0
-
-        for loss_bound in loss_v:
-            loss += loss_bound.pow(2).mean()
-
-        return loss
-
-
     def en_loss(self, pinn):
         x, y, t = self.points['all_points']
+        space = torch.cat([x,y], dim=1)
 
-        output = f(pinn, x, y, t)
+        output = pinn(space, t)
 
         n_space = self.n_space
         n_time = self.n_time
@@ -515,12 +510,11 @@ class Loss:
 
     def verbose(self, pinn):
         res_loss = self.res_loss(pinn)
-        en_dev = self.en_loss(pinn)
+        #en_dev = self.en_loss(pinn)
         init_loss = self.initial_loss(pinn)
-        bound_loss = self.bound_loss(pinn)
-        loss = res_loss + bound_loss + init_loss + en_dev
+        loss = res_loss + init_loss
 
-        return loss, res_loss, (bound_loss, init_loss, en_dev)
+        return loss, res_loss, (init_loss,)
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -570,9 +564,7 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
-            'bound': losses[0].item(),
-            'init': losses[1].item(),
-            'en_dev': losses[2].item()
+            'init': losses[0].item(),
         }, epoch)
 
         writer.add_scalars('Penalty_terms', {
@@ -588,14 +580,6 @@ def train_model(
     writer.close()
 
     return nn_approximator
-
-
-def return_adim(L_tild, t_tild, rho: float, mu: float, lam: float):
-    z_1 = t_tild**2/(L_tild*rho)*mu
-    z_2 = z_1/mu*lam
-    z = np.array([z_1, z_2])
-    z = torch.tensor(z)
-    return z
 
 def calc_den(x, y, t, output):
     vx = df(output, [t], 0).reshape(-1)
