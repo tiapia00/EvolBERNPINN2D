@@ -351,37 +351,6 @@ def get_D(all_points: tuple, x1: float, y1: float):
     return distances
 
 
-def getpdeloss(output: torch.Tensor, space: torch.Tensor, t: torch.Tensor, adim: tuple, device: torch.device):
-
-    loss = 0
-
-    vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=device),
-            create_graph=True, retain_graph=True)[0]
-    vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=device),
-            create_graph=True, retain_graph=True)[0]
-    ax = torch.autograd.grad(vx, t, torch.ones_like(t, device=device),
-            create_graph=True, retain_graph=True)[0]        
-    ay = torch.autograd.grad(vy, t, torch.ones_like(t, device=device),
-            create_graph=True, retain_graph=True)[0]        
-
-    dxsigxx = torch.autograd.grad(output[:,2].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-            create_graph=True, retain_graph=True)[0][:,0]
-    dxysigxy = torch.autograd.grad(output[:,3].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-            create_graph=True, retain_graph=True)[0]
-    dysigyy = torch.autograd.grad(output[:,4].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-            create_graph=True, retain_graph=True)[0][:,1]
-    
-    loss += ((dxsigxx + dxysigxy[:,1]) - ax.squeeze()*adim[0]).pow(2).mean()
-    loss += ((dysigyy + dxysigxy[:,0]) - ay.squeeze()*adim[0]).pow(2).mean()
-
-    dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-            create_graph=True, retain_graph=True)[0]
-    dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-            create_graph=True, retain_graph=True)[0]
-
-    loss += (adim[1]*output[:,2] - (1+2*adim[2])*dxyux[:,0] - dxyuy[:,1]).pow(2).mean()
-    loss += (adim[1]*output[:,4] - dxyux[:,0] - (1+2*adim[2])*dxyuy[:,1]).pow(2).mean()
-    loss += (adim[1]*output[:,3] - adim[2]*(dxyux[:,1] - dxyuy[:,0])).pow(2).mean()
 
     return loss
 
@@ -407,6 +376,7 @@ class Loss:
         steps_int: tuple,
         in_penalty: np.ndarray,
         adim: tuple,
+        par: dict,
         t0idx: torch.Tensor,
         device,
     ):
@@ -459,6 +429,59 @@ class Loss:
         
         return loss
 
+
+    def getpdeloss(self, output: torch.Tensor, space: torch.Tensor, t: torch.Tensor):
+        device = self.device
+        vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=device),
+                create_graph=True, retain_graph=True)[0]
+        vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=device),
+                create_graph=True, retain_graph=True)[0]
+        ax = torch.autograd.grad(vx, t, torch.ones_like(t, device=device),
+                create_graph=True, retain_graph=True)[0]        
+        ay = torch.autograd.grad(vy, t, torch.ones_like(t, device=device),
+                create_graph=True, retain_graph=True)[0]        
+
+        dxsigxx = torch.autograd.grad(output[:,2].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
+                create_graph=True, retain_graph=True)[0][:,0]
+        dxysigxy = torch.autograd.grad(output[:,3].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
+                create_graph=True, retain_graph=True)[0]
+        dysigyy = torch.autograd.grad(output[:,4].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
+                create_graph=True, retain_graph=True)[0][:,1]
+        
+        loss = ((dxsigxx + dxysigxy[:,1]) - ax.squeeze()*self.adim[0]).pow(2).mean()
+        loss += ((dysigyy + dxysigxy[:,0]) - ay.squeeze()*self.adim[0]).pow(2).mean()
+
+        dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
+                create_graph=True, retain_graph=True)[0]
+        dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
+                create_graph=True, retain_graph=True)[0]
+
+        loss += (self.adim[1]*output[:,2] - (1+2*self.adim[2])*dxyux[:,0] - dxyuy[:,1]).pow(2).mean()
+        loss += (self.adim[1]*output[:,4] - dxyux[:,0] - (1+2*self.adim[2])*dxyuy[:,1]).pow(2).mean()
+        loss += (self.adim[1]*output[:,3] - self.adim[2]*(dxyux[:,1] - dxyuy[:,0])).pow(2).mean()
+
+        eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
+        dV = self.par['w0']**2/self.par['Lx']**2 * (self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2
+
+        v = torch.cat([vx, vy], dim=1)
+        vnorm = torch.norm(v, dim=1)
+        dT = 1/2*self.par['rho']*self.par['w0']/self.par['t_ast']*vnorm
+
+        tgrid = torch.unique(t, sorted=True)
+
+        V = torch.zeros(tgrid.shape[0])
+        T = torch.zeros_like(V)
+        for i, ts in enumerate(tgrid):
+            tidx = torch.nonzero(t.squeeze() == ts).squeeze()
+            dVt = dV[tidx].reshape(self.n_space, self.n_space)
+            dTt = dT[tidx].reshape(self.n_space, self.n_space)
+
+            V[i] = simps(simps(dVt, self.steps[1]), self.steps[0])
+            T[i] = simps(simps(dTt, self.steps[1]), self.steps[0])
+
+        return loss, V, T
+
+
     def res_loss(self, pinn, nninbcs):
         """
         domain = (torch.max(x), torch.max(y), torch.max(t))
@@ -469,9 +492,9 @@ class Loss:
         t = points[:,-1].unsqueeze(1)
         output = getout(pinn, nninbcs, space, t) 
 
-        loss = getpdeloss(output, space, t, self.adim, self.device)
+        loss, V, T = self.getpdeloss(output, space, t)
 
-        return loss 
+        return loss, V, T 
 
 
     def initial_loss(self, nn):
@@ -495,7 +518,7 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
 
         loss += (v - init[:,-2:]).pow(2).mean(dim=0).sum()
-        loss += getpdeloss(output, space, t, self.adim, self.device)
+        loss += self.getpdeloss(output, space, t)[0]
         
         return loss
 
@@ -522,56 +545,6 @@ class Loss:
 
         return loss
     
-    def calc_den(self, output, space, t, idxt):
-        vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
-                        create_graph=True, retain_graph=True)[0][idxt,:]
-        vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
-                create_graph=True, retain_graph=True)[0][idxt,:]
-        v = torch.cat([vx, vy], dim=1)
-        vnorm = torch.norm(v, dim=1)
-
-        dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.size()[0], device=self.device).unsqueeze(1),
-                    create_graph=True, retain_graph=True)[0][idxt,:]
-        dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.size()[0], device=self.device).unsqueeze(1),
-                    create_graph=True, retain_graph=True)[0][idxt,:]
-
-        dxux = self.adim[3] * dxyux[:,0]
-        dyux = self.adim[3] * dxyux[:,1]
-        dxuy = self.adim[3] * dxyuy[:,0]
-        dyuy = self.adim[3] * dxyuy[:,1]
-
-        eps = torch.stack([dxux, 1/2*(dyux + dxuy), dyuy], dim=1)
-        sigmas = self.adim[4]*output[idxt,2:]
-
-        dV = 1/2 * torch.sum(sigmas * eps, dim=1)
-        dT = 1/2 * self.adim[3] * vnorm * self.adim[5]
-
-        dV = dV.reshape(self.n_space, self.n_space)
-        dT = dT.reshape(self.n_space, self.n_space)
-
-        return (dV, dT)
-    
-
-    def calc_en(self, pinn, nninbcs):
-        points = torch.cat(self.points['all_points'], dim=1)
-
-        space = points[:,:2]
-        t = points[:,-1].unsqueeze(1)
-
-        tuniq = torch.unique(t, sorted=True)
-
-        output = getout(pinn, nninbcs, space, t)
-        V = torch.zeros(self.n_time)
-        T = torch.zeros_like(V)
-
-        for i, ts in enumerate(tuniq):
-            tsidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dV, dT = self.calc_den(output, space, t, tsidx)
-            V[i] = simps(simps(dV, self.steps[1]), self.steps[0])
-            T[i] = simps(simps(dT, self.steps[1]), self.steps[0])
-        
-        return (V, T)
-        
 
     def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
         lambda_o = np.array(self.penalty)
@@ -583,13 +556,12 @@ class Loss:
 
 
     def __call__(self, pinn, nninbcs):
-        res_loss = self.res_loss(pinn, nninbcs)
+        res_loss, V, T = self.res_loss(pinn, nninbcs)
         #en_dev = self.en_loss(pinn)
         bound_loss = self.bound_N(pinn, nninbcs)
-        en = self.calc_en(pinn, nninbcs)
         loss = res_loss + bound_loss
 
-        return loss
+        return loss, (V,T,(V+T).mean())
 
 
 def train_model(
@@ -628,7 +600,7 @@ def train_model(
 
             loss_fn.update_penalty(max_grad, means)
         """
-        loss = loss_fn(pinn, nninbcs)
+        loss, losses = loss_fn(pinn, nninbcs)
         loss.backward()
         optimizer.step()
 
@@ -636,6 +608,7 @@ def train_model(
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
+            'encons': losses[2].item()
             #'boundary': losses[1].item(),
             #'en_dev': losses[2].item()
         }, epoch)
@@ -653,53 +626,6 @@ def train_model(
     writer.close()
 
     return pinn
-
-
-
-def calc_initial_energy(pinn: PINN, n_space: int, points: dict, device):
-    x, y, t = points['initial_points']
-    space = torch.cat([x,y], dim=1)
-
-    output = pinn(space, t)
-
-    d_en, d_en_k, d_en_p = calc_den(space, t, output)
-    d_en = d_en.reshape(n_space, n_space)
-
-    x = space[:,0].reshape(n_space, n_space)
-    y = space[:,1].reshape(n_space, n_space)
-
-    en_x = torch.trapezoid(d_en, y[0,:], dim=1)
-    En = torch.trapezoid(en_x, x[:,0], dim=0)
-    En = En.detach()
-
-    return En
-
-def calc_energy(pinn_trained: PINN, points: dict, n_space: int, n_time: int, dx: float, dy: float) -> tuple:
-    x, y, t = points['all_points']
-
-    output = f(pinn_trained, x, y, t)
-
-    d_en, d_en_p, d_en_k = calc_den(x, y, t, output)
-
-    x = x.reshape(n_space, n_space, n_time)
-    y = y.reshape(n_space, n_space, n_time)
-    t = t.reshape(n_space, n_space, n_time)
-
-    d_en_k = d_en_k.reshape(n_space, n_space, n_time)
-    d_en_p = d_en_p.reshape(n_space, n_space, n_time)
-    d_en = d_en.reshape(n_space, n_space, n_time)
-
-    d_en_k_y = simps(d_en_k, dy, dim=1)
-    d_en_p_y = simps(d_en_p, dy, dim=1)
-    d_en_y = simps(d_en, dy, dim=1)
-
-    En_k_t = simps(d_en_k_y, dx, dim=0)
-    En_p_t = simps(d_en_p_y, dx, dim=0)
-    En_t = simps(d_en_y, dx, dim=0)
-
-    t = torch.unique(t)
-
-    return (t, En_t, En_p_t, En_k_t)
 
 
 def df_num_torch(dx: float, y: torch.tensor):
