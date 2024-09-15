@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
-
+"""
 class NN(nn.Module):
     def __init__(self,
                  hiddendim: int,
@@ -75,7 +75,7 @@ class NN(nn.Module):
         self.layers = nn.ModuleList()
         for _ in range(n_hidden - 1):
             self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.layers.append(nn.Tanh())
+            self.layers.append(nn.GELU())
         
         self.layerout = nn.Linear(dim_hidden, out_dim)
 
@@ -91,7 +91,6 @@ class NN(nn.Module):
         output = self.layerout(output)
 
         return output
-"""
 
 def simps(y, dx, dim=0):
     device = y.device
@@ -464,19 +463,17 @@ class Loss:
         return loss 
 
 
-    def initial_loss(self, nn):
-        points = self.points['initial_points']
-        init = torch.cat(points, dim=1)
-        space = init[:,:2]
-        t = init[:,-1].unsqueeze(1)
+    def initial_loss(self, nn, train_x, train_y):
+        space = train_x[:,:2]
+        t = train_x[:,-1].unsqueeze(1)
+        t.requires_grad_(True)
         output = nn(space, t)
 
-        init = initial_conditions(init, self.w0)
+        init = initial_conditions(space, self.w0)
 
         loss = 0 
         u = self.adim[3]*output[:,:2]
-        loss += (u - init[:,:2]).pow(2).mean(dim=0).sum()
-        loss *= 3
+        loss += (u - train_y[:,:2]).pow(2).mean(dim=0).sum()
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -485,7 +482,7 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
 
         loss += (v - init[:,-2:]).pow(2).mean(dim=0).sum()
-        loss += getpdeloss(output, space, t, self.adim, self.device)
+        loss += (self.adim[4]*output[:,2:] - train_y[:,2:]).pow(2).mean(dim=0).sum()
         
         return loss
 
@@ -769,13 +766,13 @@ def obtainsolt_u(pinn: PINN, nninbcs: NN, space: torch.Tensor, t: torch.Tensor, 
     return sol.detach().cpu().numpy(), space_in
 
 
-def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
+def train_inbcs(nn: NN, train_x: torch.Tensor, train_y: torch.Tensor, lossfn: Loss, epochs: int, learning_rate: float):
     optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
     pbar = tqdm(total=epochs, desc="Training", position=0)
 
     def closure():
         optimizer.zero_grad()
-        loss = lossfn.initial_loss(nn)
+        loss = lossfn.initial_loss(nn, train_x, train_y)
         loss += lossfn.bound_loss(nn)
         loss.backward()
 

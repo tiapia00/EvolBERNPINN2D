@@ -73,6 +73,14 @@ x_domain = torch.linspace(0, Lx, n_space[0])/Lx
 y_domain = torch.linspace(0, Ly, n_space[1])/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
+train_x = torch.tensor(stressesmesh0[['X', 'Y']].to_numpy()/Lx, dtype=torch.float32).to(device)
+train_x = torch.cat([train_x, torch.zeros(train_x.shape[0], 1, device=device)], dim=1)
+
+train_y = torch.tensor(stressesmesh0[['S-S11', 'S-S22', 'S-S12']].to_numpy(), dtype=torch.float32).to(device)
+sig_max = torch.max(train_y)
+initu = initial_conditions(train_x, w0)
+train_y = torch.cat([initu[:,:2]/w0, train_y], dim=1)
+
 adim = (((t_tild**2/(rho*w0)*sig_max/Lx)**(-1)).item(), (sig_max*Lx/(w0*lam)).item(), mu/lam, w0, sig_max)
 adim_NN = (w0, sig_max)
 
@@ -87,7 +95,7 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-nn_inbcs = NN(120, 4).to(device)
+nn_inbcs = NN(40, 2, 5).to(device)
 
 x = points['all_points'][0].detach().cpu().numpy()
 y = points['all_points'][1].detach().cpu().numpy()
@@ -119,7 +127,7 @@ ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 #plt.show()
 
-nn_inbcs = train_inbcs(nn_inbcs, train_x, train_y, loss_fn, 10000, 1e-3)
+nn_inbcs = train_inbcs(nn_inbcs, train_x, train_y, loss_fn, 10000, 1e-4)
 
 nn_inbcs.eval()
 
