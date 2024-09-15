@@ -247,6 +247,16 @@ def initialize_weights(neural):
                 nn.init.zeros_(layer.bias)
 
 
+def obtain_dist(space: torch.Tensor, t:torch.Tensor):
+    x = space[:,0].unsqueeze(1)
+    y = space[:,1].unsqueeze(1)
+    x_max = torch.max(x)
+    y_max = torch.max(y)
+    t_max = torch.max(t)
+    phi = x * (x_max - x) * y * (y_max- y) * t * (t_max - t)
+
+    return phi
+
 class PINN(nn.Module):
     def __init__(self,
                  hiddendim: int,
@@ -305,7 +315,7 @@ class PINN(nn.Module):
 
         outres = self.outlayer(out)
 
-        out = outinbcs + self.distances * outres
+        out = outinbcs + obtain_dist(space, t) * outres
 
         if not self.training:
             out[:,:2] *= self.adim[0]
