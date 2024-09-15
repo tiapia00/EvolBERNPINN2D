@@ -65,7 +65,7 @@ x_domain = torch.linspace(0, Lx, n_space[0])/Lx
 y_domain = torch.linspace(0, Ly, n_space[1])/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
-adim = (((t_tild**2/(rho*w0)*sig_max/Lx)**(-1)).item(), (sig_max*Lx/(w0*lam)).item(), mu/lam, w0, sig_max)
+adim = (((t_tild**2/(rho*w0)*sig_max/Lx)**(-1)).item(), (sig_max*Lx/(w0*lam)).item(), mu/lam, w0, sig_max, rho)
 adim_NN = (w0, sig_max)
 
 steps = get_step((x_domain, y_domain, t_domain))
@@ -79,7 +79,7 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-nn_inbcs = NN(80, 4).to(device)
+nn_inbcs = NN(30, 2).to(device)
 
 x = points['all_points'][0].detach().cpu().numpy()
 y = points['all_points'][1].detach().cpu().numpy()
@@ -111,7 +111,7 @@ ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 #plt.show()
 
-nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 8000, 1e-4)
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 80, 1e-4)
 
 x, y, t_in = points['initial_points']
 x = x.to(device)

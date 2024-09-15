@@ -511,54 +511,69 @@ class Loss:
         return loss
 
 
-    def bound_N(self, nn):
+    def bound_N(self, pinn, nninbcs):
         _, _, _, left, right, _ = self.points['boundary_points']
         
         neumann = torch.cat([left, right], dim=0)
 
-        output = nn(neumann[:,:2], neumann[:,-1].unsqueeze(1))
+        output = self.adim[4]*getout(pinn, nninbcs, neumann[:,:2], neumann[:,-1].unsqueeze(1))
         tractions = torch.sum(output[:,2:], dim=1)
         loss = self.adim[4]*tractions.pow(2).mean()
 
         return loss
+    
+    def calc_den(self, output, space, t, idxt):
+        vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+                        create_graph=True, retain_graph=True)[0][idxt,:]
+        vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+                create_graph=True, retain_graph=True)[0][idxt,:]
+        v = torch.cat([vx, vy], dim=1)
+        vnorm = torch.norm(v, dim=1)
 
+        dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.size()[0], device=self.device).unsqueeze(1),
+                    create_graph=True, retain_graph=True)[0][idxt,:]
+        dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.size()[0], device=self.device).unsqueeze(1),
+                    create_graph=True, retain_graph=True)[0][idxt,:]
 
-    def en_loss(self, pinn):
-        x, y, t = self.points['all_points']
-        space = torch.cat([x,y], dim=1)
+        dxux = self.adim[3] * dxyux[:,0]
+        dyux = self.adim[3] * dxyux[:,1]
+        dxuy = self.adim[3] * dxyuy[:,0]
+        dyuy = self.adim[3] * dxyuy[:,1]
 
-        output = pinn(space, t)
+        eps = torch.stack([dxux, 1/2*(dyux + dxuy), dyuy], dim=1)
+        sigmas = self.adim[4]*output[idxt,2:]
 
-        n_space = self.n_space
-        n_time = self.n_time
+        dV = 1/2 * torch.sum(sigmas * eps, dim=1)
+        dT = 1/2 * self.adim[3] * vnorm * self.adim[5]
 
-        d_en, d_en_p, d_en_k = calc_den(space, t, output)
+        dV = dV.reshape(self.n_space, self.n_space)
+        dT = dT.reshape(self.n_space, self.n_space)
 
-        d_en = d_en.reshape(n_space, n_space, n_time)
-        d_en_p = d_en_p.reshape(n_space, n_space, n_time)
-        d_en_k = d_en_k.reshape(n_space, n_space, n_time)
+        return (dV, dT)
+    
 
-        x = space[:,0].reshape(n_space, n_space, n_time)
-        y = space[:,1].reshape(n_space, n_space, n_time)
-        t = t.reshape(n_space, n_space, n_time)
+    def calc_en(self, pinn, nninbcs):
+        points = torch.cat(self.points['all_points'], dim=1)
 
-        dx = self.steps[0]
-        dy = self.steps[1]
-        dt = self.steps[2]
+        space = points[:,:2]
+        t = points[:,-1].unsqueeze(1)
 
-        d_en_y = simps(y=d_en, dx=dy, dim=1)
-        d_en_p_y = simps(y=d_en_p, dx=dy, dim=1)
-        d_en_k_y = simps(y=d_en_k, dx=dy, dim=1)
+        tuniq = torch.unique(t, sorted=True)
 
-        En = simps(y=d_en_y, dx=dx, dim=0)
-        En_p = simps(y=d_en_p_y, dx=dx, dim=0)
-        En_k = simps(y=d_en_k_y, dx=dx, dim=0)
+        output = getout(pinn, nninbcs, space, t)
+        V = torch.zeros(self.n_time)
+        T = torch.zeros_like(V)
 
-        m = self.penalty[-1]
-        loss = m * (self.E0 * torch.ones_like(En) - En).pow(2).mean()
-
-        return loss
-
+        for i, ts in enumerate(tuniq):
+            tsidx = torch.nonzero(t.squeeze() == ts).squeeze()
+            dV, dT = self.calc_den(output, space, t, tsidx)
+            V[i] = simps(simps(dV, self.steps[1]), self.steps[0])
+            T[i] = simps(simps(dT, self.steps[1]), self.steps[0])
+        
+        print(V.shape)
+        print(self.n_time)
+        return (V, T)
+        
 
     def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
         lambda_o = np.array(self.penalty)
@@ -572,7 +587,8 @@ class Loss:
     def __call__(self, pinn, nninbcs):
         res_loss = self.res_loss(pinn, nninbcs)
         #en_dev = self.en_loss(pinn)
-        bound_loss = self.bound_N(pinn)
+        bound_loss = self.bound_N(pinn, nninbcs)
+        en = self.calc_en(pinn, nninbcs)
         loss = res_loss + bound_loss
 
         return loss
@@ -641,29 +657,6 @@ def train_model(
     return pinn
 
 
-def calc_den(space, t, output):
-    device = space.device
-    vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=device),
-                    create_graph=True, retain_graph=True)[0]
-    vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=device),
-            create_graph=True, retain_graph=True)[0]
-    dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones_like(space, device=device),
-                create_graph=True, retain_graph=False)[0]
-    dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones_like(space, device=device),
-                create_graph=True, retain_graph=False)[0]
-    dxux = dxyux[:,0]
-    dyux = dxyux[:,1]
-    dxuy = dxyuy[:,0]
-    dyuy = dxyuy[:,1]
-
-    d_en_k = (1/2*(vx+vy))**2
-    d_en_p = 1/2*(dxux + dyuy)**2 + \
-        (dxux**2 + dyuy**2 + (1/2*(dyux+dxuy)) ** 2 +
-           (1/2*(dxuy + dyux)**2))
-
-    d_en = d_en_k + d_en_p
-
-    return (d_en, d_en_p, d_en_k)
 
 def calc_initial_energy(pinn: PINN, n_space: int, points: dict, device):
     x, y, t = points['initial_points']
