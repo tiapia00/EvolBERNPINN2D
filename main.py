@@ -79,7 +79,7 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-nn_inbcs = NN(90, 4).to(device)
+nn_inbcs = NN(100, 4).to(device)
 
 x = points['all_points'][0].detach().cpu().numpy()
 y = points['all_points'][1].detach().cpu().numpy()
@@ -111,7 +111,7 @@ ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 #plt.show()
 
-nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 50000, 1e-4)
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 50000, 1e-3)
 
 x, y, t_in = points['initial_points']
 x = x.to(device)

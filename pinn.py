@@ -56,6 +56,8 @@ class NN(nn.Module):
         for layer in self.layers:
             out = layer(out)
             out = self.act(out) * U + (1-self.act(out)) * V
+        
+        out = self.outlayer(out)
 
         return out
 
@@ -373,6 +375,18 @@ def getpdeloss(output: torch.Tensor, space: torch.Tensor, t: torch.Tensor, adim:
 
     return loss
 
+def sample_points(n_points, domain, device):
+    x = torch.rand(n_points, device=device) * domain[0]
+    y = torch.rand(n_points, device=device) * domain[1]
+    t = torch.rand(n_points, device=device) * domain[2]
+
+    sample_points = torch.meshgrid([x, y, t], indexing='ij')
+    sample_points = tuple(tensor.reshape(-1,1) for tensor in sample_points)
+    sample_points = torch.cat(sample_points, dim=1).to(device)
+
+    return sample_points 
+
+
 class Loss:
     def __init__(
         self,
@@ -436,8 +450,13 @@ class Loss:
         return loss
 
     def res_loss(self, pinn, nninbcs):
-        x, y, t = self.points['all_points']
-        space = torch.cat([x,y], dim=1)
+        """
+        domain = (torch.max(x), torch.max(y), torch.max(t))
+        points = sample_points(20, domain, self.device)
+        """
+        points = torch.cat(self.points['all_points'], dim=1)
+        space = points[:,:2]
+        t = points[:,-1].unsqueeze(1)
         output = getout(pinn, nninbcs, space, t) 
 
         loss = getpdeloss(output, space, t, self.adim, self.device)
