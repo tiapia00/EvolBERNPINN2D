@@ -500,20 +500,25 @@ class Loss:
         return loss
 
 
-    def bound_loss(self, nn):
-        front, down, up, left, right, allbound = self.points['boundary_points']
+    def bound_D(self, nn):
+        _, down, up, _, _, _ = self.points['boundary_points']
 
         dirichlet = torch.cat([down, up], dim=0)
-        neumann = torch.cat([left, right], dim=0)
-
-        loss = 0
 
         output = self.adim[3]*nn(dirichlet[:,:2], dirichlet[:,-1].unsqueeze(1))
-        loss += output[:,:2].pow(2).mean(dim=0).sum()
+        loss = output[:,:2].pow(2).mean(dim=0).sum()
+
+        return loss
+
+
+    def bound_N(self, nn):
+        _, _, _, left, right, _ = self.points['boundary_points']
+        
+        neumann = torch.cat([left, right], dim=0)
 
         output = nn(neumann[:,:2], neumann[:,-1].unsqueeze(1))
         tractions = torch.sum(output[:,2:], dim=1)
-        loss += self.adim[4]*tractions.pow(2).mean()
+        loss = self.adim[4]*tractions.pow(2).mean()
 
         return loss
 
@@ -567,9 +572,8 @@ class Loss:
     def __call__(self, pinn, nninbcs):
         res_loss = self.res_loss(pinn, nninbcs)
         #en_dev = self.en_loss(pinn)
-        #init_loss = self.initial_loss(pinn)
-        #bound_loss = self.bound_loss(pinn)
-        loss = res_loss
+        bound_loss = self.bound_N(pinn)
+        loss = res_loss + bound_loss
 
         return loss
 
@@ -786,7 +790,7 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
     def closure():
         optimizer.zero_grad()
         loss = lossfn.initial_loss(nn)
-        loss += lossfn.bound_loss(nn)
+        loss += lossfn.bound_D(nn)
         loss.backward()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
