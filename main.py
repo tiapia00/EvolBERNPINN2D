@@ -57,15 +57,14 @@ columnstoextr = ['X','Y','S-S11','S-S22','S-S12']
 stressesmesh0 = stressesmesh0[columnstoextr]
 par = Parameters()
 
-
 Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, 1, n_space_beam)
 
 t_tild, w, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
-# en0 [J]
+#en0 [?]
 sig_max = obtain_max_stress(my_beam, w)
-#sig_max [Pa]
+#sig_max [MPa]
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, lr, epochs = get_params(par.pinn_par)
@@ -74,16 +73,7 @@ x_domain = torch.linspace(0, Lx, n_space[0])/Lx
 y_domain = torch.linspace(0, Ly, n_space[1])/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
-train_x = torch.tensor(stressesmesh0[['X', 'Y']].to_numpy()/Lx, dtype=torch.float32).to(device)
-train_x = torch.cat([train_x, torch.zeros(train_x.shape[0], 1, device=device)], dim=1)
-
-train_y = torch.tensor(stressesmesh0[['S-S11', 'S-S22', 'S-S12']].to_numpy(), dtype=torch.float32).to(device)
-sig_max = torch.max(train_y)
-train_y *= 1/sig_max
-initu = initial_conditions(train_x, w0)
-train_y = torch.cat([initu[:,:2]/w0, train_y], dim=1)
-
-adim = ((t_tild**2/(rho*w0)*sig_max/Lx).item(), (lam+2+mu)/Lx*w0, lam/Lx*w0, mu/Lx*w0, w0)
+adim = (((t_tild**2/(rho*w0)*sig_max/Lx)**(-1)).item(), (sig_max*Lx/(w0*lam)).item(), mu/lam, w0, sig_max)
 adim_NN = (w0, sig_max)
 
 steps = get_step((x_domain, y_domain, t_domain))
@@ -97,7 +87,7 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-nn_inbcs = NN(40, 4, 5).to(device)
+nn_inbcs = NN(120, 4).to(device)
 
 x = points['all_points'][0].detach().cpu().numpy()
 y = points['all_points'][1].detach().cpu().numpy()
@@ -164,7 +154,7 @@ cbar2 = fig.colorbar(scattervx, ax=axs[1,1])
 cbar2.set_label(r'$v_y$')
 #plt.show()
 
-pinn = PINN(dim_hidden, n_hidden, adim_NN, distances, t0idx).to(device)
+pinn = PINN(dim_hidden, n_hidden, adim_NN, distances).to(device)
 
 if retrain_PINN:
     dir_model = pass_folder('model')
@@ -203,6 +193,7 @@ z = torch.cat([outin, v], dim=1)
 cond0 = initial_conditions(space_in, w0)
 
 plot_initial_conditions(z, cond0, space_in[:,0], space_in[:,1], dir_model)
+plot_init_stresses(z, space[t0idx], t[t0idx], dir_model)
 
 x, y, t = grid.get_all_points()
 nsamples = n_space + (n_time,)

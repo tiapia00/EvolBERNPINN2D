@@ -7,6 +7,62 @@ from torch import nn
 import torch.optim as optim
 
 class NN(nn.Module):
+    def __init__(self,
+                 hiddendim: int,
+                 nhidden: int,
+                 act=nn.Tanh(),
+                 ):
+
+        super().__init__()
+        self.hiddendim = hiddendim
+        self.nhidden = nhidden
+        self.act = act
+
+        self.U = nn.ModuleList([
+            nn.Linear(3, hiddendim),
+            act
+        ])
+
+        self.V = nn.ModuleList([
+            nn.Linear(3, hiddendim),
+            act
+        ])
+
+        self.initlayer = nn.Linear(3, hiddendim)
+        self.layers = nn.ModuleList([])
+        
+        for _ in range(nhidden):
+            self.layers.append(nn.Linear(hiddendim, hiddendim))
+        
+        self.outlayer = nn.Linear(hiddendim, 5)
+
+        initialize_weights(self)
+
+    def forward(self, space, t):
+        input = torch.cat([space, t], dim=1)
+        input0 = input
+        for layer in self.U:
+            U = layer(input)
+            input = U
+        
+        input = input0
+        for layer in self.V:
+            V = layer(input)
+            input = V
+        
+        input = input0
+        out = self.initlayer(input)
+
+        for layer in self.layers:
+            out = layer(out)
+            out = self.act(out) * U + (1-self.act(out)) * V
+        
+        out = self.outlayer(out)
+
+        return out
+
+"""
+class NN(nn.Module):
     def __init__(self, dim_hidden, n_hidden, out_dim):
 
         super().__init__()
@@ -35,7 +91,7 @@ class NN(nn.Module):
         output = self.layerout(output)
 
         return output
-
+"""
 
 def simps(y, dx, dim=0):
     device = y.device
@@ -193,13 +249,22 @@ def initialize_weights(neural):
                 nn.init.zeros_(layer.bias)
 
 
+def obtain_dist(space: torch.Tensor, t:torch.Tensor):
+    x = space[:,0].unsqueeze(1)
+    y = space[:,1].unsqueeze(1)
+    x_max = torch.max(x)
+    y_max = torch.max(y)
+    t_max = torch.max(t)
+    phi = x * (x_max - x) * y * (y_max- y) * t * (t_max - t)
+
+    return phi
+
 class PINN(nn.Module):
     def __init__(self,
                  hiddendim: int,
                  nhidden: int,
                  adim_NN: tuple,
                  distances: torch.Tensor,
-                 t0idx: torch.Tensor,
                  act=nn.Tanh(),
                  ):
 
@@ -208,7 +273,6 @@ class PINN(nn.Module):
         self.nhidden = nhidden
         self.adim = adim_NN
         self.act = act
-        self.t0idx = t0idx
         self.register_buffer('distances', distances.detach())
 
         self.U = nn.ModuleList([
@@ -253,7 +317,7 @@ class PINN(nn.Module):
 
         outres = self.outlayer(out)
 
-        out = outinbcs + self.distances * outres
+        out = outinbcs + obtain_dist(space, t) * outres
 
         if not self.training:
             out[:,:2] *= self.adim[0]
@@ -386,8 +450,13 @@ class Loss:
         return loss
 
     def res_loss(self, pinn, nninbcs):
-        x, y, t = self.points['all_points']
-        space = torch.cat([x,y], dim=1)
+        """
+        domain = (torch.max(x), torch.max(y), torch.max(t))
+        points = sample_points(20, domain, self.device)
+        """
+        points = torch.cat(self.points['all_points'], dim=1)
+        space = points[:,:2]
+        t = points[:,-1].unsqueeze(1)
         output = getout(pinn, nninbcs, space, t) 
 
         loss = getpdeloss(output, space, t, self.adim, self.device)
@@ -434,7 +503,7 @@ class Loss:
 
         output = nn(neumann[:,:2], neumann[:,-1].unsqueeze(1))
         tractions = torch.sum(output[:,2:], dim=1)
-        loss += self.adim[4]*tractions.pow(2).mean()
+        #loss += self.adim[4]*tractions.pow(2).mean()
 
         return loss
 
@@ -715,16 +784,14 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
 
         return loss
 
-    for epoch in range(epochs):
-        if epoch == epoch/2:
-            adjust_learning_rate(optimizer, learning_rate/10)
+    for _ in range(epochs):
+        torch.nn.utils.clip_grad_norm_(nn.parameters(), max_norm=2.)
         optimizer.step(closure)
 
     pbar.update(1)
     pbar.close()
 
-    return nninbcs
-
+    return nn
 
 def train_dist(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
     optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
