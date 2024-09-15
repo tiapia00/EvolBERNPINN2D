@@ -360,24 +360,24 @@ def getpdeloss(output: torch.Tensor, space: torch.Tensor, t: torch.Tensor, adim:
     vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=device),
             create_graph=True, retain_graph=True)[0]
     ax = torch.autograd.grad(vx, t, torch.ones_like(t, device=device),
-            create_graph=False, retain_graph=True)[0]        
+            create_graph=True, retain_graph=True)[0]        
     ay = torch.autograd.grad(vy, t, torch.ones_like(t, device=device),
-            create_graph=False, retain_graph=True)[0]        
+            create_graph=True, retain_graph=True)[0]        
 
     dxsigxx = torch.autograd.grad(output[:,2].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-            create_graph=False, retain_graph=True)[0][:,0]
+            create_graph=True, retain_graph=True)[0][:,0]
     dxysigxy = torch.autograd.grad(output[:,3].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-            create_graph=False, retain_graph=True)[0]
+            create_graph=True, retain_graph=True)[0]
     dysigyy = torch.autograd.grad(output[:,4].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-            create_graph=False, retain_graph=True)[0][:,1]
+            create_graph=True, retain_graph=True)[0][:,1]
     
     loss += ((dxsigxx + dxysigxy[:,1]) - ax.squeeze()*adim[0]).pow(2).mean()
     loss += ((dysigyy + dxysigxy[:,0]) - ay.squeeze()*adim[0]).pow(2).mean()
 
     dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-            create_graph=False, retain_graph=True)[0]
+            create_graph=True, retain_graph=True)[0]
     dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-            create_graph=False, retain_graph=True)[0]
+            create_graph=True, retain_graph=True)[0]
 
     loss += (adim[1]*output[:,2] - (1+2*adim[2])*dxyux[:,0] - dxyuy[:,1]).pow(2).mean()
     loss += (adim[1]*output[:,4] - dxyux[:,0] - (1+2*adim[2])*dxyuy[:,1]).pow(2).mean()
@@ -513,7 +513,7 @@ class Loss:
 
         output = nn(neumann[:,:2], neumann[:,-1].unsqueeze(1))
         tractions = torch.sum(output[:,2:], dim=1)
-        #loss += self.adim[4]*tractions.pow(2).mean()
+        loss += self.adim[4]*tractions.pow(2).mean()
 
         return loss
 
