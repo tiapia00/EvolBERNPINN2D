@@ -111,7 +111,7 @@ ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 #plt.show()
 
-nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 8000, 1e-3)
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 8000, 1e-4)
 
 x, y, t_in = points['initial_points']
 x = x.to(device)
