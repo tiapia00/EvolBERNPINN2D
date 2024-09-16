@@ -230,10 +230,10 @@ class PINN(nn.Module):
         init.normal_(self.V.bias, mean=0.0, std=1.0)
 
         for param in self.U.parameters():
-            param.requires_grad(False)
+            param.requires_grad = False
 
         for param in self.V.parameters():
-            param.requires_grad(False)
+            param.requires_grad = False
 
         self.initlayer = nn.Linear(3, 2*hiddendim)
         self.layers = nn.ModuleList([])
@@ -247,16 +247,12 @@ class PINN(nn.Module):
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
         input0 = input
-        for layer in self.U:
-            U = layer(input)
-            input = U
-        U = torch.cat([torch.cos(input), torch.sin(input)], dim=1)
+        U = self.U(input)
+        U = torch.cat([torch.cos(U), torch.sin(U)], dim=1)
         
         input = input0
-        for layer in self.V:
-            V = layer(input)
-            input = V
-        V = torch.cat([torch.cos(input), torch.sin(input)], dim=1)
+        V = self.V(input)
+        V = torch.cat([torch.cos(V), torch.sin(V)], dim=1)
         
         input = input0
         out = self.initlayer(input)
@@ -548,8 +544,8 @@ def train_model(
 
         writer.add_scalars('Energy', {
             'V+T': losses[3].detach().item(),
-            'V': losses[1].detach().item(),
-            'T': losses[2].detach().item()
+            'V': losses[1].mean().detach().item(),
+            'T': losses[2].mean().detach().item()
         }, epoch)
 
         if epoch % 500 == 0:
