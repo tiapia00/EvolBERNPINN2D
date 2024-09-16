@@ -529,7 +529,7 @@ def train_model(
     optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
-    for epoch in range(max_epochs):
+    for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
         loss, res_loss, losses = loss_fn(nn_approximator)
