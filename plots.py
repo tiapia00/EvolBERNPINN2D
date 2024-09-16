@@ -97,7 +97,7 @@ def plot_sol(sol: torch.Tensor, space_in: torch.Tensor, t: torch.Tensor, path: s
     ax.set_title(f'$\\hat{{t}} = {t[0]:.2f}$')
 
     def update(frame):
-        y_limts = np.array([torch.min(sol).item(), torch.max(sol).item()])
+        y_limts = np.array([np.min(sol), np.max(sol)])
 
         ax.clear()
 
