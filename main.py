@@ -5,7 +5,7 @@ import torch
 from read_write import get_last_modified_file, pass_folder, delete_old_files
 from pinn import *
 from par import Parameters, get_params
-from analytical import obtain_analytical_free, obtain_analytical_forced
+from analytical import obtain_analytical_free
 
 torch.set_default_dtype(torch.float32)
 
@@ -41,11 +41,9 @@ Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
-t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
+t_tild, w_ad, V0 = obtain_analytical_free(my_beam, w0, t, n_time)
 print(t_tild)
-
-load_dist = (np.sin, np.sin)
-#t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
+print(V0)
 
 lam, mu = par.to_matpar_PINN()
 
