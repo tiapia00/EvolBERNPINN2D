@@ -220,21 +220,19 @@ class PINN(nn.Module):
 
         self.U = nn.ModuleList([
             nn.Linear(3, hiddendim),
-            act
         ])
 
         self.V = nn.ModuleList([
             nn.Linear(3, hiddendim),
-            act
         ])
 
-        self.initlayer = nn.Linear(3, hiddendim)
+        self.initlayer = nn.Linear(3, 2*hiddendim)
         self.layers = nn.ModuleList([])
         
         for _ in range(nhidden):
-            self.layers.append(nn.Linear(hiddendim, hiddendim))
+            self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim))
         
-        self.outlayer = nn.Linear(hiddendim, 2)
+        self.outlayer = nn.Linear(2*hiddendim, 2)
 
 
     def forward(self, space, t):
@@ -243,11 +241,13 @@ class PINN(nn.Module):
         for layer in self.U:
             U = layer(input)
             input = U
+        U = torch.cat([torch.cos(input), torch.sin(input)], dim=1)
         
         input = input0
         for layer in self.V:
             V = layer(input)
             input = V
+        V = torch.cat([torch.cos(input), torch.sin(input)], dim=1)
         
         input = input0
         out = self.initlayer(input)
