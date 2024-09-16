@@ -139,7 +139,7 @@ t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
 sol = obtainsolt_u(pinn_trained, space, t, nsamples)
 plot_sol(par['w0']*sol, spacein, t, dir_model)
-plot_average_displ(sol, t, dir_model)
+plot_average_displ(par['w0']*sol, t, dir_model)
 
 #plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,
 #                    n_time, n_space_beam, dir_model, device)
