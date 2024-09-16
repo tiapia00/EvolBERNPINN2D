@@ -601,11 +601,11 @@ def train_model(
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
-            'encons': losses[2].item()
             #'boundary': losses[1].item(),
             #'en_dev': losses[2].item()
         }, epoch)
 
+        writer.add_scalar('Energy/V+T', losses[2].item(), epoch)
         """writer.add_scalars('Penalty_terms', {
             'init': loss_fn.penalty[0].item(),
             'en_dev': loss_fn.penalty[1].item()
