@@ -618,8 +618,13 @@ def get_mean_grad(pinn: PINN):
 
     return mean
 
-def calculate_speed(output: torch.Tensor, t: torch.Tensor, w0: float, par: dict):
-    vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+def calculate_speed(output: torch.Tensor, t: torch.Tensor, par: dict):
+    device = output.device
+    vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=device),
             create_graph=True, retain_graph=True)[0]
-    vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+    vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=device),
             create_graph=True, retain_graph=True)[0]
+    
+    v = par['w0']/par['t_tild']*torch.cat([vx, vy], dim=1)
+
+    return v

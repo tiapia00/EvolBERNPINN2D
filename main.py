@@ -125,7 +125,7 @@ inpoints = torch.cat(points["initial_points"], dim=1)
 spacein = inpoints[:,:2]
 tin = inpoints[:,-1].unsqueeze(1)
 z = pinn_trained(spacein, tin)
-v = calculate_speed(z, tin)
+v = calculate_speed(z, tin, par)
 z = torch.cat([z, v], dim=1)
 
 cond0 = initial_conditions(points['initial_points'], w0)
