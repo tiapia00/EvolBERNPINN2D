@@ -100,7 +100,7 @@ if retrain_PINN:
     dir_logs = pass_folder('model/logs')
 
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
-                               max_epochs=epochs, path_logs=dir_logs)
+                               max_epochs=epochs, path_logs=dir_logs, modeldir=dir_model)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
@@ -121,25 +121,18 @@ print(pinn_trained)
 
 pinn_trained.eval()
 
-x, y, t = points['initial_points']
-x = x.to(device)
-y = y.to(device)
-t = t.to(device)
-z = f(pinn_trained, x, y, t)
-v = calculate_speed(pinn_trained, (x, y, t))
+inpoints = torch.cat(points["initial_points"], dim=1)
+spacein = inpoints[:,:2]
+tin = inpoints[:,-1].unsqueeze(1)
+z = pinn_trained(spacein, tin)
+v = calculate_speed(z, tin)
 z = torch.cat([z, v], dim=1)
 
 cond0 = initial_conditions(points['initial_points'], w0)
 
-plot_initial_conditions(z, cond0, x, y, n_space, dir_model)
-
-x, y, t = grid.get_all_points()
+plot_initial_conditions(z, cond0, spacein, dir_model)
 
 plot_sol(pinn_trained, x, y, t, n_space, n_time, dir_model, device)
 
-plot_compliance(pinn_trained, x, y, t, w_ad, dir_model, device)
 #plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,
 #                    n_time, n_space_beam, dir_model, device)
-
-t, en, en_p, en_k = calc_energy(pinn_trained, points, n_space, n_time, steps[0], steps[1])
-plot_energy(t, en_k, en_p, en, En0, dir_model)

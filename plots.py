@@ -7,11 +7,13 @@ from pinn import PINN
 import numpy as np
 
 
-def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, y: torch.tensor, n_space: int, path: str):
+def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tensor, path: str):
     """Plot initial conditions.
     z0: tensor describing analytical initial conditions
     z: tensor describing predicted initial conditions"""
     fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(18, 8))
+    x = space[:,0]
+    y = space[:,1]
 
     x_raw = x.detach().cpu().numpy()
     y_raw = y.detach().cpu().numpy()
@@ -24,9 +26,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
 
     cmap = 'coolwarm'
 
-    norm_z0 = np.linalg.norm(z0, axis=1).reshape(-1)
-
-    u_a_scatter = ax[0, 0].scatter(X.reshape(-1)+z0[:, 0],
+    ax[0, 0].scatter(X.reshape(-1)+z0[:, 0],
                                  Y.reshape(-1)+z0[:, 1])
     ax[0, 0].set_xlabel('$\\hat{x}$')
     ax[0, 0].set_ylabel('$\\hat{y}$')
@@ -45,7 +45,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     cbar2 = fig.colorbar(vy_a_scatter, ax=ax[0, 2], orientation='vertical')
     cbar2.set_label('$v_y$')
     
-    nn_scatter = ax[1, 0].scatter(X.reshape(-1)+z[:, 0],
+    ax[1, 0].scatter(X.reshape(-1)+z[:, 0],
                                  Y.reshape(-1)+z[:, 1])
     ax[1, 0].set_xlabel('$\\hat{x}$')
     ax[1, 0].set_ylabel('$\\hat{y}$')
@@ -276,31 +276,10 @@ def plot_compliance(pinn: PINN, x: torch.tensor, y: torch.tensor,
     plt.savefig(file)
 
 
-def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: torch.tensor, e0: float, path):
-    fig = plt.figure(figsize=(10, 8))
-    plt.xlabel('$\\hat{t}$')
-
-    t = t.detach().cpu().numpy()
-    en = en.detach().cpu().numpy()
-    en_k = en_k.detach().cpu().numpy()
-    en_p = en_p.detach().cpu().numpy()
-    e0 = e0.detach().cpu().numpy()
-
-    plt.plot(t, en, label='Total energy')
-    plt.plot(t, en_k, label='Kinetic energy')
-    plt.plot(t, en_p, label='Potential energy')
-
-    plt.legend()
-
-    file = f'{path}/energy.png'
-    plt.savefig(file)
-
-    fig = plt.figure(figsize=(10, 8))
-
-    plt.plot(t, e0 - en)
-
-    plt.xlabel('$\\hat{t}$')
-    plt.ylabel('$E_0 - E(t)$')
-
-    file = f'{path}/diff_energy.png'
+def plot_energy(t: np.ndarray, V: np.ndarray, T: np.ndarray, epoch: int, path: str):
+    plt.figure()
+    plt.plot(t, V, label='Potential energy')
+    plt.plot(t, T, label='Kinetic energy')
+    
+    file = f'{path}/energy_{epoch}'
     plt.savefig(file)

@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
+from plots import plot_energy
 
 
 def simps(y, dx, dim=0):
@@ -473,9 +474,14 @@ class Loss:
         output = pinn(space, t)
 
         initial_speed = initial_conditions(space, pinn.w0)[:,2:]
+        vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        
+        v = torch.cat([vx, vy], dim=1)
 
-        m = self.penalty[0]
-        loss = m * (output - initial_speed).pow(2).mean()
+        loss = (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
 
         return loss
 
@@ -507,6 +513,7 @@ def train_model(
     learning_rate: int,
     max_epochs: int,
     path_logs: str,
+    modeldir: str
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
@@ -530,6 +537,11 @@ def train_model(
         }, epoch)
 
         writer.add_scalars('Energy/V+T', losses[3].item(), epoch)
+
+        if epoch % 500:
+            t = loss_fn.points['all_points'][:,-1].unsqueeze(1)
+            t = torch.unique(t, sorted=True)
+            plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(), epoch, modeldir) 
 
         pbar.update(1)
 
@@ -583,3 +595,9 @@ def get_mean_grad(pinn: PINN):
     mean = all_grads.mean().cpu().numpy()
 
     return mean
+
+def calculate_speed(output: torch.Tensor, t: torch.Tensor, w0: float, par: dict):
+    vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+            create_graph=True, retain_graph=True)[0]
+    vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+            create_graph=True, retain_graph=True)[0]
