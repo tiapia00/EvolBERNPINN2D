@@ -5,7 +5,7 @@ class Parameters:
         self.t_end = 0.8
         self.n_space = 21 
         self.n_time = 41 
-        self.dim_hidden = 90
+        self.dim_hidden = 50
         self.n_hidden : int = 3 
         self.w0 = 0.3
         self.pinn_par = {
