@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
+import torch.nn.init as init
 
 
 def simps(y, dx, dim=0):
@@ -218,13 +219,21 @@ class PINN(nn.Module):
         self.act = act
         self.w0 = w0
 
-        self.U = nn.ModuleList([
-            nn.Linear(3, hiddendim),
-        ])
+        self.U =  nn.Linear(3, hiddendim)
 
-        self.V = nn.ModuleList([
-            nn.Linear(3, hiddendim),
-        ])
+        self.V = nn.Linear(3, hiddendim)
+
+        init.normal_(self.U.weight, mean=0.0, std=1.0)
+        init.normal_(self.U.bias, mean=0.0, std=1.0)
+
+        init.normal_(self.V.weight, mean=0.0, std=1.0)
+        init.normal_(self.V.bias, mean=0.0, std=1.0)
+
+        for param in self.U.parameters():
+            param.requires_grad(False)
+
+        for param in self.V.parameters():
+            param.requires_grad(False)
 
         self.initlayer = nn.Linear(3, 2*hiddendim)
         self.layers = nn.ModuleList([])
