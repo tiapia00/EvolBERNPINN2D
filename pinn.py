@@ -526,9 +526,10 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
-            'init': losses[0].item(),
-            'V+T': losses[3].item()
+            'init': losses[0].item()
         }, epoch)
+
+        writer.add_scalars('Energy/V+T', losses[3].item(), epoch)
 
         pbar.update(1)
 
