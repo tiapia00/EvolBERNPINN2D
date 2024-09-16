@@ -537,7 +537,7 @@ def train_model(
             'init': losses[0].item()
         }, epoch)
 
-        writer.add_scalars('Energy/V+T', losses[3].item(), epoch)
+        writer.add_scalars('Energy/V+T', losses[3], epoch)
 
         if epoch % 500:
             t = loss_fn.points['all_points'][:,-1].unsqueeze(1)
