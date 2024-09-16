@@ -635,6 +635,6 @@ def calculate_speed(output: torch.Tensor, t: torch.Tensor, par: dict):
     vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=device),
             create_graph=True, retain_graph=True)[0]
     
-    v = par['w0']/par['t_tild']*torch.cat([vx, vy], dim=1)
+    v = par['w0']/par['t_ast']*torch.cat([vx, vy], dim=1)
 
     return v
