@@ -503,9 +503,9 @@ class Loss:
 
     def verbose(self, pinn):
         res_loss, V, T = self.res_loss(pinn)
-        enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
+        #enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
         init_loss = self.initial_loss(pinn)
-        loss = res_loss + init_loss + enloss
+        loss = res_loss + init_loss
 
         return loss, res_loss, (init_loss, V, T, (V+T).mean())
 

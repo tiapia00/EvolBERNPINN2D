@@ -136,7 +136,7 @@ plot_initial_conditions(z, cond0, spacein, dir_model)
 allpoints = torch.cat(points["all_points"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
-nsamples = n_space + (n_time,)
+nsamples = (n_space, n_space) + (n_time,)
 sol = obtainsolt_u(pinn_trained, space, t, nsamples)
 plot_sol(sol, spacein, t, dir_model)
 
