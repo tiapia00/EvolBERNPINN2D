@@ -132,7 +132,12 @@ cond0 = initial_conditions(points['initial_points'], w0)
 
 plot_initial_conditions(z, cond0, spacein, dir_model)
 
-plot_sol(pinn_trained, x, y, t, n_space, n_time, dir_model, device)
+allpoints = torch.cat(points["all_points"], dim=1)
+space = allpoints[:,:2]
+t = allpoints[:,-1].unsqueeze(1)
+nsamples = n_space + (n_time,)
+sol = obtainsolt_u(pinn_trained, space, t, nsamples)
+plot_sol(sol, spacein, t, dir_model)
 
 #plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,
 #                    n_time, n_space_beam, dir_model, device)

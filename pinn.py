@@ -5,7 +5,6 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
-from plots import plot_energy
 
 
 def simps(y, dx, dim=0):
@@ -518,6 +517,8 @@ def train_model(
 
     writer = SummaryWriter(log_dir=path_logs)
 
+    from plots import plot_energy
+
     optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
@@ -551,6 +552,28 @@ def train_model(
     writer.close()
 
     return nn_approximator
+
+def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
+    nx, ny, nt = nsamples
+    sol = torch.zeros(nx, ny, nt, 2)
+    spaceidx = torch.zeros(nx, ny, nt, 2)
+    tsv = torch.unique(t, sorted=True)
+    output = pinn(space, t)
+
+    for i in range(len(tsv)):
+        idxt = torch.nonzero(t.squeeze() == tsv[i])
+        spaceidx[:,:,i,:] = space[idxt].reshape(nx, ny, 2)
+        sol[:,:,i,:] = output[idxt,:2].reshape(nx, ny, 2)
+    
+    spaceexpand = spaceidx[:,:,0,:].unsqueeze(2).expand_as(spaceidx)
+    check = torch.all(spaceexpand == spaceidx).item()
+
+    if not check:
+        raise ValueError('Extracted space tensors not matching')
+    
+    sol = sol.reshape(nx*ny, nt, 2)
+
+    return sol.detach().cpu().numpy()
 
 def df_num_torch(dx: float, y: torch.tensor):
     dy = torch.diff(y)
