@@ -536,11 +536,10 @@ def train_model(
             'residual': res_loss.item(),
             'init': losses[0].item()
         }, epoch)
+        writer.add_scalar('Energy/V+T', losses[3].detach().item(), epoch)
 
-        writer.add_scalars('Energy/V+T', losses[3], epoch)
-
-        if epoch % 500:
-            t = loss_fn.points['all_points'][:,-1].unsqueeze(1)
+        if epoch % 500 == 0:
+            t = loss_fn.points['all_points'][-1].unsqueeze(1)
             t = torch.unique(t, sorted=True)
             plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(), epoch, modeldir) 
 
