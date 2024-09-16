@@ -454,7 +454,7 @@ class Loss:
 
         v = torch.cat([vx, vy], dim=1)
         vnorm = torch.norm(v, dim=1)
-        dT = 1/2*self.par['rho']*self.par['w0']/self.par['t_ast']*vnorm
+        dT = 1/2*self.par['w0']/self.par['t_ast']*vnorm
 
         tgrid = torch.unique(t, sorted=True)
 
