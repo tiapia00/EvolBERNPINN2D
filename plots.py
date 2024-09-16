@@ -70,7 +70,19 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tens
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(f'{path}/init.png')
 
-def plot_sol(sol: torch.tensor, space_in: torch.tensor, t: torch.tensor, path: str):
+def plot_average_displ(sol: torch.Tensor, t: torch.Tensor, path: str):
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 8))
+    t = torch.unique(t, sorted=True)
+    meanux = sol[:,:,0].mean(dim=0)
+    meanuy = sol[:,:,1].mean(dim=0)
+    ax[0].plot(t.detach().cpu().numpy(), meanux.detach().cpu().numpy())
+    ax[1].plot(t.detach().cpu().numpy(), meanuy.detach().cpu().numpy())
+
+    file = f'{path}/displ_comp.png'
+    plt.savefig(file)
+
+
+def plot_sol(sol: torch.Tensor, space_in: torch.Tensor, t: torch.Tensor, path: str):
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
