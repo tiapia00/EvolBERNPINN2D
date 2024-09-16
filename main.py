@@ -39,7 +39,7 @@ par = Parameters()
 
 Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
-my_beam = Beam(Lx, E, rho, h, 4e-3, n_space_beam)
+my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
 t_tild, w_ad, en0 = obtain_analytical_free(par, my_beam, w0, t, n_time)
 print(t_tild)

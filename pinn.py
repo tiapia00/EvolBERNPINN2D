@@ -402,6 +402,7 @@ class Loss:
         adim: tuple,
         par: dict,
         device: torch.device,
+        b: float,
         verbose: bool = False
     ):
         self.points = points
@@ -413,6 +414,7 @@ class Loss:
         self.device = device
         self.adim = adim
         self.par = par
+        self.b = b
 
     def res_loss(self, pinn):
         x, y, t = self.points['all_points']
@@ -454,7 +456,7 @@ class Loss:
 
         v = torch.cat([vx, vy], dim=1)
         vnorm = torch.norm(v, dim=1)
-        dT = 1/2*self.par['rho']*self.par['w0']/self.par['t_ast']*vnorm**2
+        dT = 1/2*self.par['rho']*self.par['w0']**2/self.par['t_ast']**2*vnorm**2
 
         tgrid = torch.unique(t, sorted=True)
 
@@ -465,8 +467,8 @@ class Loss:
             dVt = dV[tidx].reshape(self.n_space, self.n_space)
             dTt = dT[tidx].reshape(self.n_space, self.n_space)
 
-            V[i] = simps(simps(dVt, self.steps[1]), self.steps[0])
-            T[i] = simps(simps(dTt, self.steps[1]), self.steps[0])
+            V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
+            T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
 
         return loss, V, T
 
