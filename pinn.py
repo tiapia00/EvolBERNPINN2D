@@ -35,7 +35,7 @@ def initial_conditions(space: torch.Tensor, w0: float, i: float = 1) -> torch.te
     ux0 = torch.zeros_like(x)
     uy0 = w0*torch.sin(torch.pi*i*x)
     dotux0 = torch.zeros_like(x)
-    dotuy0 = torch.ones_like(x)
+    dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
 
 
