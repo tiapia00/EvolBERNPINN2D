@@ -77,7 +77,7 @@ par = {"Lx": Lx,
         "mu":mu,
         "rho": rho,
         "t_ast": t_tild}
-pinn = PINN(dim_hidden, w0, n_hidden).to(device)
+pinn = PINN(dim_hidden, w0, n_hidden, device).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
@@ -109,7 +109,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, w0, gammas, omegas, device).to(device)
+    pinn_trained = PINN(dim_hidden, w0, n_hidden, device).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)

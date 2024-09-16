@@ -205,6 +205,7 @@ class TrigAct(nn.Module):
 def parabolic(a, x):
     return (a * x ** 2 - a * x)
 
+"""
 class PINN(nn.Module):
     def __init__(self,
                  hiddendim: int,
@@ -274,24 +275,21 @@ class PINN(nn.Module):
         out = act_global + act_init
 
         return out
-
 """
+
+
 class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: tuple,
                  w0: float,
-                 gammas: np.ndarray,
-                 omegas: np.ndarray,
+                 n_hidden: int,
                  device,
-                 a: float = 1,
                  act=nn.Tanh(),
-                 n_hidden: int = 1,
                  ):
 
         super().__init__()
 
         self.w0 = w0
-        self.a = a
         self.n_mode_spacex = dim_hidden[0]
         self.n_mode_spacey = dim_hidden[1]
 
@@ -388,7 +386,6 @@ class PINN(nn.Module):
         out = act_global + act_init
 
         return out
-        """
 
 
 class Loss:
