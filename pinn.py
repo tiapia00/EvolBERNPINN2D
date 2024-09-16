@@ -536,7 +536,12 @@ def train_model(
             'residual': res_loss.item(),
             'init': losses[0].item()
         }, epoch)
-        writer.add_scalar('Energy/V+T', losses[3].detach().item(), epoch)
+
+        writer.add_scalars('Energy', {
+            'V+T': losses[3].detach().item(),
+            'V': losses[1].detach().item(),
+            'T': losses[2].detach().item()
+        }, epoch)
 
         if epoch % 500 == 0:
             t = loss_fn.points['all_points'][-1].unsqueeze(1)
