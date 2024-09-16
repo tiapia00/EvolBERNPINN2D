@@ -2,11 +2,11 @@ class Parameters:
     def __init__(self):
         self.x_end = 500 
         self.y_end = 0.5
-        self.t_end = 0.5
+        self.t_end = 0.8
         self.n_space = 31 
         self.n_time = 43 
         self.dim_hidden = 1 
-        self.n_hidden : int = 2 
+        self.n_hidden : int = 3 
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
