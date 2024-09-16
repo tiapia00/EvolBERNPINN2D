@@ -86,6 +86,7 @@ loss_fn = Loss(
         points,
         n_space,
         n_time,
+        h/3,
         w0,
         steps,
         in_penalty,

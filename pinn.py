@@ -396,13 +396,13 @@ class Loss:
         points: dict,
         n_space: int,
         n_time: int,
+        b: float,
         w0: float,
         steps_int: tuple,
         in_penalty: np.ndarray,
         adim: tuple,
         par: dict,
         device: torch.device,
-        b: float,
         verbose: bool = False
     ):
         self.points = points
