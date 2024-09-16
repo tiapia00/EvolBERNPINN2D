@@ -450,11 +450,11 @@ class Loss:
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
-        dV = (self.par['mu']/self.par['lam']*torch.sum(eps**2, dim=1)) + 1/2 * torch.sum(eps, dim=1)**2
+        dV = (self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2
 
         v = torch.cat([vx, vy], dim=1)
         vnorm = torch.norm(v, dim=1)
-        dT = 1/2*vnorm**2
+        dT = 1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2
 
         tgrid = torch.unique(t, sorted=True)
 
@@ -503,7 +503,7 @@ class Loss:
         res_loss, V, T = self.res_loss(pinn)
         enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
         init_loss = self.initial_loss(pinn)
-        loss = res_loss + init_loss + enloss
+        loss = res_loss + init_loss
 
         return loss, res_loss, (init_loss, V, T, (V+T).mean())
 
