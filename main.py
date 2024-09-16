@@ -128,7 +128,7 @@ z = pinn_trained(spacein, tin)
 v = calculate_speed(z, tin, par)
 z = torch.cat([z, v], dim=1)
 
-cond0 = initial_conditions(points['initial_points'], w0)
+cond0 = initial_conditions(spacein, w0)
 
 plot_initial_conditions(z, cond0, spacein, dir_model)
 
