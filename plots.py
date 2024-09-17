@@ -105,6 +105,7 @@ def plot_sol(sol: torch.Tensor, space_in: torch.Tensor, t: torch.Tensor, path: s
         ax.set_ylabel('$y$')
         ax.set_title(f'$t = {t[frame]:.2f}$')
 
+        ax.set_xlim(0, 1)
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
         ax.scatter(space_in[:,0]+sol[:,frame,0], space_in[:,1]+sol[:,frame,1])
 
