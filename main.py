@@ -147,5 +147,5 @@ def create_zip(file_paths, zip_name):
 
 timenow = get_current_time(fmt='%m-%d %H:%M')
 
-create_zip(dir_model, f'model-{timenow}')
-create_zip(dir_logs, f'logs-{timenow}')
+create_zip(dir_model, f'model_FF-{timenow}')
+create_zip(dir_logs, f'logs_FF-{timenow}')
