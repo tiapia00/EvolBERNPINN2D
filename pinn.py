@@ -595,7 +595,7 @@ def train_model(
             loss_fn.update_penalty(max_grad, means)
         """
         loss, losses = loss_fn(pinn, nninbcs)
-        loss.backward()
+        loss.backward(retain_graph=False)
         optimizer.step()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
@@ -702,7 +702,7 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
         optimizer.zero_grad()
         loss = lossfn.initial_loss(nn)
         loss += lossfn.bound_D(nn)
-        loss.backward()
+        loss.backward(retain_graph=False)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
         pbar.update(1)
@@ -710,34 +710,9 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
         return loss
 
     for _ in range(epochs):
-        torch.nn.utils.clip_grad_norm_(nn.parameters(), max_norm=2.)
         optimizer.step(closure)
 
     pbar.update(1)
     pbar.close()
 
     return nn
-
-def train_dist(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
-    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
-    pbar = tqdm(total=epochs, desc="Training", position=0)
-
-    for epoch in range(epochs):
-
-        optimizer.zero_grad()
-        loss = lossfn.distance_loss(nn)
-        loss.backward()
-        optimizer.step()
-
-        pbar.set_description(f"Loss: {loss.item():.3e}")
-
-        pbar.update(1)
-
-    pbar.update(1)
-    pbar.close()
-
-    return nn
-
-
-
-
