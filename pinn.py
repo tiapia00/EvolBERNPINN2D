@@ -307,11 +307,13 @@ class PINN(nn.Module):
         for i in range(n_hidden - 1):
             self.hid_space_layers_x.append(nn.Linear(2 * n_mode_spacex, 2 * n_mode_spacex))
             self.hid_space_layers_x.append(act)
+        self.hid_space_layers_x.append(nn.Softmax(dim=1))
 
         self.hid_space_layers_y = nn.ModuleList()
         for i in range(n_hidden - 1):
             self.hid_space_layers_y.append(nn.Linear(4 * n_mode_spacey, 4 * n_mode_spacey))
             self.hid_space_layers_y.append(act)
+        self.hid_space_layers_y.append(nn.Softmax(dim=1))
 
         self.outlayer = nn.Linear(2*hidall, 2)
 
