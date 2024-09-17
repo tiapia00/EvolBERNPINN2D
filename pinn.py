@@ -599,6 +599,7 @@ def train_model(
         loss, losses = loss_fn(pinn, nninbcs)
         loss.backward(retain_graph=False)
         optimizer.step()
+        torch.cuda.empty_cache()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
@@ -719,6 +720,7 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
 
     for _ in range(epochs):
         optimizer.step(closure)
+        torch.cuda.empty_cache()
 
     pbar.update(1)
     pbar.close()
