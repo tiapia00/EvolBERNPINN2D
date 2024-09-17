@@ -245,8 +245,10 @@ class PINN(nn.Module):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
             self.hid_space_layers_y.append(act)
 
-        self.outlayerx = nn.Linear(hiddimx, 1)
-        self.outlayery = nn.Linear(hiddimy, 1)
+        self.layerxmodes = nn.Linear(hiddimx, n_mode_spacex)
+        self.layerymodes = nn.Linear(hiddimy, n_mode_spacey)
+        self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
+        self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
 
         #self._initialize_weights()
 
@@ -292,8 +294,11 @@ class PINN(nn.Module):
         
         y_in = y_in * ty
 
-        xout = self.outlayerx(x_in)
-        yout = self.outlayery(y_in)
+        xout = self.layerxmodes(x_in)
+        yout = self.layerymodes(y_in)
+
+        xout = self.outlayerx(xout)
+        yout = self.outlayery(yout)
 
         out = torch.cat([xout, yout], dim=1)
 
