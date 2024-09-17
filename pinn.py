@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
+from plots import plot_energy
 
 class NN(nn.Module):
     def __init__(self,
@@ -555,7 +556,7 @@ class Loss:
         bound_loss = self.bound_N(pinn, nninbcs)
         loss = res_loss + bound_loss
 
-        return loss, (V,T,(V+T).mean())
+        return loss, (V.detach().cpu(),T.detach().cpu(),(V+T).mean().detach().cpu())
 
 
 def train_model(
@@ -565,6 +566,7 @@ def train_model(
     learning_rate: int,
     max_epochs: int,
     path_logs: str,
+    path_model: str
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
@@ -612,6 +614,12 @@ def train_model(
             'en_dev': loss_fn.penalty[1].item()
         }, epoch)
         """
+
+        if epoch % 500 == 0:
+            t = loss_fn.points['all_points'][-1].unsqueeze(1)
+            t = torch.unique(t, sorted=True)
+            plot_energy(t.detach().cpu().numpy(), losses[1].numpy(), losses[2].numpy(), epoch, path_model) 
+
         pbar.update(1)
 
     pbar.update(1)

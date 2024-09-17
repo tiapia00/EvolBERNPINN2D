@@ -157,7 +157,7 @@ if retrain_PINN:
     dir_logs = pass_folder('model/logs')
 
     pinn_trained = train_model(pinn, nn_inbcs, loss_fn=loss_fn, learning_rate=lr,
-                               max_epochs=epochs, path_logs=dir_logs)
+                               max_epochs=epochs, path_logs=dir_logs, path_model=dir_model)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
