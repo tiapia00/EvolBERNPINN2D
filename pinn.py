@@ -242,9 +242,6 @@ class PINN(nn.Module):
 
         self._initialize_weights()
 
-    def parabolic(self, x):
-        return (self.a * x ** 2 - self.a * x)
-
     @staticmethod
     def apply_filter(alpha):
         return (torch.tanh(alpha))
@@ -272,8 +269,6 @@ class PINN(nn.Module):
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
     def forward(self, space, t):
-        time = t
-
         fourier_space_x = self.fourier_features_2(space, self.Bx)
         fourier_space_y = self.fourier_features_uy(space)
         fourier_tx = self.fourier_features_2(t, self.Btx)
@@ -287,12 +282,12 @@ class PINN(nn.Module):
         for layer in self.hid_space_layers_x:
             x_in= layer(x_in)
         
-        x_in *= tx
+        x_in = x_in * tx
 
         for layer in self.hid_space_layers_y:
             y_in= layer(y_in)
         
-        y_in *= ty
+        y_in = y_in * ty
 
         xout = self.outlayerx(x_in)
         yout = self.outlayery(y_in)
@@ -301,10 +296,10 @@ class PINN(nn.Module):
 
         outNN = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out
 
-        act_global = self.apply_filter(time.repeat(1, 2)) * outNN
+        act_global = self.apply_filter(t.repeat(1, 2)) * outNN
 
         init = 1/self.w0*initial_conditions(space, self.w0)[:,:2]
-        act_init = self.apply_compl_filter(time.repeat(1, 2)) * init
+        act_init = self.apply_compl_filter(t.repeat(1, 2)) * init
 
         out = act_global + act_init
 
