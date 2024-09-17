@@ -226,6 +226,7 @@ class PINN(nn.Module):
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
         self.By = torch.randn((2, n_mode_spacey), device=device)
         self.By[0,:] = torch.arange(1, n_mode_spacey+1, device=device) * torch.ones(n_mode_spacey, device=device)
+        self.By[1,:] *= 0.01
         
         self.Btx = torch.randn((1, multux*n_mode_spacex), device=device)
         self.Bty = torch.ones((1, multuy*n_mode_spacey), device=device) * torch.arange(1, n_mode_spacey+1, device=device)**2
