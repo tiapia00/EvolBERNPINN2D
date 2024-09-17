@@ -500,15 +500,14 @@ class Loss:
 
         init = initial_conditions(init, self.w0)
 
-        loss = 0 
         u = self.adim[3]*output[:,:2]
-        loss += (u - init[:,:2]).pow(2).mean(dim=0).sum()
+        loss = (u - init[:,:2]).pow(2).mean(dim=0).sum()
         loss *= 3
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
-                create_graph=True, retain_graph=True)[0]
+                create_graph=True, retain_graph=False)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
-                create_graph=True, retain_graph=True)[0]
+                create_graph=True, retain_graph=False)[0]
         v = torch.cat([vx, vy], dim=1)
 
         loss += (v - init[:,-2:]).pow(2).mean(dim=0).sum()
