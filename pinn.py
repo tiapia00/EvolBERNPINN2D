@@ -211,6 +211,8 @@ class PINN(nn.Module):
                  dim_hidden: tuple,
                  w0: float,
                  n_hidden: int,
+                 gammas: np.ndarray,
+                 omegas: np.ndarray,
                  device,
                  act=nn.Tanh(),
                  ):
@@ -219,13 +221,15 @@ class PINN(nn.Module):
 
         self.w0 = w0
         n_mode_spacex = dim_hidden[0]
-        n_mode_spacey = dim_hidden[1]
+        n_mode_spacey = gammas.shape[0]
 
-        self.Bx = 0.05 * torch.randn((2, n_mode_spacex), device=device)
-        self.By = 0.1 * torch.randn((2, n_mode_spacey), device=device)
+        self.Bx = torch.randn((2, n_mode_spacex), device=device)
+        self.By = torch.randn((2, n_mode_spacey), device=device)
+        self.By[0,:] = torch.tensor(gammas, dtype=torch.float32)
         
-        self.Btx = 0.05 * torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = 0.1 * torch.randn((1, 2*n_mode_spacey), device=device)
+        self.Btx = torch.randn((1, n_mode_spacex), device=device)
+        self.Bty = torch.randn((1, n_mode_spacey), device=device)
+        self.Bty[0,:] = torch.tensor(omegas, dtype=torch.float32) 
 
         self.hid_space_layers_x = nn.ModuleList()
         for _ in range(n_hidden - 1):
@@ -234,11 +238,11 @@ class PINN(nn.Module):
 
         self.hid_space_layers_y = nn.ModuleList()
         for _ in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(4 * n_mode_spacey, 4 * n_mode_spacey))
+            self.hid_space_layers_y.append(nn.Linear(2 * n_mode_spacey, 2 * n_mode_spacey))
             self.hid_space_layers_y.append(act)
 
-        self.outlayerx = nn.Linear(2*n_mode_spacex, 1)
-        self.outlayery = nn.Linear(4*n_mode_spacey, 1)
+        self.outlayerx = nn.Linear(2 * n_mode_spacex, 1)
+        self.outlayery = nn.Linear(2 * n_mode_spacey, 1)
 
         self._initialize_weights()
 
@@ -257,8 +261,7 @@ class PINN(nn.Module):
 
     def fourier_features_uy(self, space):
         x_proj = space @ self.By
-        return torch.cat([torch.sin(np.pi * x_proj), torch.cos(np.pi * x_proj),
-                torch.sinh(np.pi * x_proj), torch.cosh(np.pi * x_proj)], dim=1)
+        return torch.cat([torch.sin(np.pi * x_proj), torch.cos(np.pi * x_proj)], dim=1)
 
     def _initialize_weights(self):
         # Initialize all layers with Xavier initialization

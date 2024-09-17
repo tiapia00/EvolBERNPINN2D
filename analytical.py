@@ -8,7 +8,7 @@ def obtain_analytical_free(my_beam: Beam, w0: float, tf: float,
                            n_time: int):
 
     prob = Prob_Solv_Modes(my_beam)
-    gamma_max = 10/1000 # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
+    gamma_max = 30/1000 # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
 
     prob.pass_g_max(gamma_max)
     eig_gam = prob.find_eig()

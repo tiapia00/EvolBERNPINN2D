@@ -8,7 +8,6 @@ from par import Parameters, get_params
 from analytical import obtain_analytical_free
 
 torch.set_default_dtype(torch.float32)
-torch.autograd.set_detect_anomaly(True)
 
 if torch.backends.mps.is_available():
     device = torch.device("mps")
@@ -43,8 +42,6 @@ E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
 t_tild, w_ad, V0 = obtain_analytical_free(my_beam, w0, t, n_time)
-print(t_tild)
-print(V0)
 
 lam, mu = par.to_matpar_PINN()
 
@@ -56,7 +53,9 @@ y_domain = torch.linspace(0, Ly, n_space)/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
 omegas = my_beam.omega * t_tild
+print(omegas)
 gammas = my_beam.gamma * Lx
+print(gammas)
 
 steps = get_step((x_domain, y_domain, t_domain))
 
@@ -76,7 +75,7 @@ par = {"Lx": Lx,
         "mu":mu,
         "rho": rho,
         "t_ast": t_tild}
-pinn = PINN(dim_hidden, w0, n_hidden, device).to(device)
+pinn = PINN(dim_hidden, w0, n_hidden, gammas, omegas, device).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
