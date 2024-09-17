@@ -447,18 +447,18 @@ class Loss:
         dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
                 create_graph=True, retain_graph=True)[0]
         dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-                create_graph=True, retain_graph=False)[0]
+                create_graph=True, retain_graph=True)[0]
 
         loss += (self.adim[1]*output[:,2] - (1+2*self.adim[2])*dxyux[:,0] - dxyuy[:,1]).pow(2).mean()
         loss += (self.adim[1]*output[:,4] - dxyux[:,0] - (1+2*self.adim[2])*dxyuy[:,1]).pow(2).mean()
         loss += (self.adim[1]*output[:,3] - self.adim[2]*(dxyux[:,1] - dxyuy[:,0])).pow(2).mean()
 
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
-        dV = 1/2*self.par['sigma_max']*(self.par['w0']/self.par['Lx'])**2*(output[:,2:]*eps).sum(1) 
+        dV = 1/2*self.par['sigma_max']*(self.par['w0']/self.par['Lx'])**2*(output[:,2:]*eps).sum(1).detach() 
 
         v = torch.cat([vx, vy], dim=1)
         vnorm = torch.norm(v, dim=1)
-        dT = 1/2*self.par['rho']*self.par['w0']/self.par['t_ast']*vnorm
+        dT = 1/2*self.par['rho']*self.par['w0']/self.par['t_ast']*vnorm.detach()
         dT *= torch.max(dV)/torch.max(dT)
 
         tgrid = torch.unique(t, sorted=True)
@@ -507,7 +507,7 @@ class Loss:
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
-                create_graph=True, retain_graph=False)[0]
+                create_graph=True, retain_graph=True)[0]
         v = torch.cat([vx, vy], dim=1)
 
         loss += (v - init[:,-2:]).pow(2).mean(dim=0).sum()
@@ -557,6 +557,9 @@ class Loss:
         return loss, (V.detach().cpu(),T.detach().cpu(),(V+T).mean().detach().cpu())
 
 
+def print_gpu_memory():
+    print(torch.mps.current_allocated_memory()/1e9)
+
 def train_model(
     pinn: PINN,
     nninbcs: NN,
@@ -574,6 +577,7 @@ def train_model(
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
+        print_gpu_memory()
         optimizer.zero_grad()
         """
         if epoch != 0 and epoch % 300 == 0 :
@@ -706,10 +710,11 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
     pbar = tqdm(total=epochs, desc="Training", position=0)
 
     for _ in range(epochs):
+        print_gpu_memory()
         optimizer.zero_grad()
         loss = lossfn.initial_loss(nn)
         #loss += lossfn.bound_D(nn)
-        loss.backward(retain_graph=False)
+        loss.backward()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
         pbar.update(1)

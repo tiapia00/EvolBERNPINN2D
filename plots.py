@@ -127,6 +127,23 @@ def plot_sol(sol: torch.tensor, space_in: torch.tensor, t: torch.tensor, path: s
     ani.save(file, fps=5)
 
 
+def plot_average_displ(sol: torch.Tensor, t: torch.Tensor, path: str):
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 8))
+    t = torch.unique(t, sorted=True)
+    meanux = np.mean(sol[:,:,0], axis=0)
+    meanuy = np.mean(sol[:,:,1], axis=0)
+    ax[0].plot(t.detach().cpu().numpy(), meanux)
+    ax[0].set_xlabel(r'$\hat{t}$')
+    ax[0].set_ylabel(r'$\overline{u}_x$')
+
+    ax[1].plot(t.detach().cpu().numpy(), meanuy)
+    ax[1].set_xlabel(r'$\hat{t}$')
+    ax[1].set_ylabel(r'$\overline{u}_y$')
+
+    file = f'{path}/displ_comp.png'
+    plt.savefig(file)
+
+
 def plot_energy(t: np.ndarray, V: np.ndarray, T: np.ndarray, epoch: int, path: str):
     plt.figure()
     plt.plot(t, V, label='Potential energy')
