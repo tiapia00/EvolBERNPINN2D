@@ -5,7 +5,6 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
-from plots import plot_energy
 
 class NN(nn.Module):
     def __init__(self,
@@ -569,6 +568,7 @@ def train_model(
     path_model: str
 ) -> PINN:
 
+    from plots import plot_energy
     writer = SummaryWriter(log_dir=path_logs)
 
     optimizer = optim.Adam(pinn.parameters(), lr = learning_rate)
