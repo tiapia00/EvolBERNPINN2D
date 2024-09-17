@@ -50,7 +50,7 @@ Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, lr, epochs = get_params(pa
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
 y_domain = torch.linspace(0, Ly, n_space)/Lx
-t_domain = torch.linspace(0, T, n_time)/t_tild
+t_domain = torch.linspace(0, T, n_time)
 
 omegas = my_beam.omega * t_tild
 print(omegas)
