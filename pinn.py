@@ -500,7 +500,7 @@ class Loss:
 
         init = initial_conditions(init, self.w0)
 
-        u = self.adim[3]*output[:,:2]
+        u = self.par['w0']*output[:,:2]
         loss = (u - init[:,:2]).pow(2).mean(dim=0).sum()
         loss *= 3
 
@@ -521,7 +521,7 @@ class Loss:
 
         dirichlet = torch.cat([down, up], dim=0)
 
-        output = self.adim[3]*nn(dirichlet[:,:2], dirichlet[:,-1].unsqueeze(1))
+        output = self.par['w0']*nn(dirichlet[:,:2], dirichlet[:,-1].unsqueeze(1))
         loss = output[:,:2].pow(2).mean(dim=0).sum()
 
         return loss
@@ -532,9 +532,9 @@ class Loss:
         
         neumann = torch.cat([left, right], dim=0)
 
-        output = self.adim[4]*getout(pinn, nninbcs, neumann[:,:2], neumann[:,-1].unsqueeze(1))
+        output = self.par['sigma_max']*getout(pinn, nninbcs, neumann[:,:2], neumann[:,-1].unsqueeze(1))
         tractions = torch.sum(output[:,2:], dim=1)
-        loss = self.adim[4]*tractions.pow(2).mean()
+        loss = tractions.pow(2).mean()
 
         return loss
     

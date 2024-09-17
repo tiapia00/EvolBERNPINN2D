@@ -65,7 +65,7 @@ x_domain = torch.linspace(0, Lx, n_space[0])/Lx
 y_domain = torch.linspace(0, Ly, n_space[1])/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
-adim = (((t_tild**2/(rho*w0)*sig_max/Lx)**(-1)).item(), (sig_max*Lx/(w0*lam)).item(), mu/lam, w0)
+adim = (((t_tild**2/(rho*w0)*sig_max/Lx)**(-1)).item(), (sig_max*Lx/(w0*lam)).item(), mu/lam)
 par = {"Lx": Lx,
         "w0": w0,
         "lam": lam,
@@ -73,6 +73,7 @@ par = {"Lx": Lx,
         "rho": rho,
         "t_ast": t_tild,
         "sigma_max": sig_max}
+
 steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, y_domain, t_domain, device)
