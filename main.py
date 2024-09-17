@@ -139,17 +139,12 @@ sol = obtainsolt_u(pinn_trained, space, t, nsamples)
 plot_sol(par['w0']*sol, spacein, t, dir_model)
 plot_average_displ(par['w0']*sol, t, dir_model)
 
-import zipfile
-import os
-from IPython.display import FileLink
+import shutil
 
 def create_zip(file_paths, zip_name):
-    with zipfile.ZipFile(zip_name, 'w') as zipf:
-        for file in file_paths:
-            if os.path.isfile(file):
-                zipf.write(file, os.path.basename(file))
+    shutil.make_archive(zip_name, 'zip', file_paths)
 
 timenow = get_current_time(fmt='%m-%d %H:%M')
 
-create_zip(dir_model, f'model-{timenow}.zip')
-create_zip(dir_logs, f'logs-{timenow}.zip')
+create_zip(dir_model, f'model_W-{timenow}')
+create_zip(dir_logs, f'logs_W-{timenow}')
