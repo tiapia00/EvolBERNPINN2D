@@ -190,7 +190,7 @@ z = torch.cat([outin, v], dim=1)
 cond0 = initial_conditions(space_in, w0)
 
 plot_initial_conditions(z, cond0, space_in[:,0], space_in[:,1], dir_model)
-plot_init_stresses(z, space[t0idx], t[t0idx], dir_model)
+plot_init_stresses(par['sigma_max']*z, space[t0idx], t[t0idx], dir_model)
 
 x, y, t = grid.get_all_points()
 nsamples = n_space + (n_time,)

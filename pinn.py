@@ -317,7 +317,7 @@ class PINN(nn.Module):
 
 
 def getout(pinn: PINN, nninbcs: NN, space: torch.Tensor, t: torch.Tensor):
-    outinbcs = nninbcs(space, t)
+    outinbcs = nninbcs(space, t).detach()
     outtot = pinn(space, t, outinbcs)
 
     return outtot
@@ -342,9 +342,6 @@ def get_D(all_points: tuple, x1: float, y1: float):
 
     return distances
 
-
-
-    return loss
 
 def sample_points(n_points, domain, device):
     x = torch.rand(n_points, device=device) * domain[0]
