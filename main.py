@@ -52,9 +52,8 @@ x_domain = torch.linspace(0, Lx, n_space)/Lx
 y_domain = torch.linspace(0, Ly, n_space)/Lx
 t_domain = torch.linspace(0, T, n_time)
 
-omegas = my_beam.omega * t_tild
-print(omegas)
-gammas = my_beam.gamma * Lx
+omegas = my_beam.omega[0] * t_tild
+gammas = my_beam.gamma[0] * Lx
 print(gammas)
 
 steps = get_step((x_domain, y_domain, t_domain))
