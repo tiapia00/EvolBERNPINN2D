@@ -224,9 +224,8 @@ class PINN(nn.Module):
         self.Bx = torch.randn((2, n_mode_spacex), device=device)
         self.By = torch.randn((2, n_mode_spacey), device=device)
         
-        hidall = n_mode_spacex + 2*n_mode_spacey
-
-        self.Bt = torch.randn((1, hidall), device=device)
+        self.Btx = torch.randn((1, n_mode_spacex), device=device)
+        self.Bty = torch.randn((1, 2*n_mode_spacey), device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         for _ in range(n_hidden - 1):
@@ -238,7 +237,8 @@ class PINN(nn.Module):
             self.hid_space_layers_y.append(nn.Linear(4 * n_mode_spacey, 4 * n_mode_spacey))
             self.hid_space_layers_y.append(act)
 
-        self.outlayer = nn.Linear(2*hidall, 2)
+        self.outlayerx = nn.Linear(2*n_mode_spacex, 1)
+        self.outlayery = nn.Linear(4*n_mode_spacey, 1)
 
         self._initialize_weights()
 
@@ -276,21 +276,28 @@ class PINN(nn.Module):
 
         fourier_space_x = self.fourier_features_2(space, self.Bx)
         fourier_space_y = self.fourier_features_uy(space)
-        fourier_t = self.fourier_features_2(t, self.Bt)
+        fourier_tx = self.fourier_features_2(t, self.Btx)
+        fourier_ty = self.fourier_features_2(t, self.Bty)
 
         x_in = fourier_space_x
         y_in = fourier_space_y
-        t_in = fourier_t
+        tx = fourier_tx
+        ty = fourier_ty
 
         for layer in self.hid_space_layers_x:
             x_in= layer(x_in)
+        
+        x_in *= tx
 
         for layer in self.hid_space_layers_y:
             y_in= layer(y_in)
+        
+        y_in *= ty
 
-        out_space_FC = torch.cat([x_in, y_in], dim=1)
-        out = out_space_FC * t_in
-        out = self.outlayer(out)
+        xout = self.outlayerx(x_in)
+        yout = self.outlayery(y_in)
+
+        out = torch.cat([xout, yout], dim=1)
 
         outNN = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out
 
