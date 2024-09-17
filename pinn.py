@@ -241,7 +241,7 @@ class PINN(nn.Module):
         self.outlayerx = nn.Linear(2 * n_mode_spacex, 1)
         self.outlayery = nn.Linear(2 * n_mode_spacey, 1)
 
-        self._initialize_weights()
+        #self._initialize_weights()
 
     @staticmethod
     def apply_filter(alpha):
