@@ -557,9 +557,6 @@ class Loss:
         return loss, (V.detach().cpu(),T.detach().cpu(),(V+T).mean().detach().cpu())
 
 
-def print_gpu_memory():
-    print(torch.mps.current_allocated_memory()/1e9)
-
 def train_model(
     pinn: PINN,
     nninbcs: NN,
@@ -577,7 +574,6 @@ def train_model(
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
-        print_gpu_memory()
         optimizer.zero_grad()
         """
         if epoch != 0 and epoch % 300 == 0 :
@@ -710,7 +706,6 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
     pbar = tqdm(total=epochs, desc="Training", position=0)
 
     for _ in range(epochs):
-        print_gpu_memory()
         optimizer.zero_grad()
         loss = lossfn.initial_loss(nn)
         #loss += lossfn.bound_D(nn)
