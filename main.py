@@ -2,7 +2,7 @@ from plots import *
 from beam import Beam
 import os
 import torch
-from read_write import get_last_modified_file, pass_folder, delete_old_files
+from read_write import get_last_modified_file, pass_folder, delete_old_files, get_current_time
 from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
@@ -143,34 +143,13 @@ import zipfile
 import os
 from IPython.display import FileLink
 
-def zip_dir(directory = os.curdir, file_name = 'directory.zip'):
-    """
-    zip all the files in a directory
-    
-    Parameters
-    _____
-    directory: str
-        directory needs to be zipped, defualt is current working directory
-        
-    file_name: str
-        the name of the zipped file (including .zip), default is 'directory.zip'
-        
-    Returns
-    _____
-    Creates a hyperlink, which can be used to download the zip file)
-    """
-    os.chdir(directory)
-    zip_ref = zipfile.ZipFile(file_name, mode='w')
-    for folder, _, files in os.walk(directory):
-        for file in files:
-            if file_name in file:
-                pass
-            else:
-                zip_ref.write(os.path.join(folder, file))
-
-    return FileLink(file_name)
+def create_zip(file_paths, zip_name):
+    with zipfile.ZipFile(zip_name, 'w') as zipf:
+        for file in file_paths:
+            if os.path.isfile(file):
+                zipf.write(file, os.path.basename(file))
 
 timenow = get_current_time(fmt='%m-%d %H:%M')
 
-zip_dir(dir_model, f'model-{timenow}.zip')
-zip_dir(dir_logs, f'logs-{timenow}.zip')
+create_zip(dir_model, f'model-{timenow}.zip')
+create_zip(dir_logs, f'logs-{timenow}.zip')
