@@ -52,10 +52,6 @@ x_domain = torch.linspace(0, Lx, n_space)/Lx
 y_domain = torch.linspace(0, Ly, n_space)/Lx
 t_domain = torch.linspace(0, T, n_time)
 
-omegas = my_beam.omega[:1] * Lx
-gammas = my_beam.gamma[:1] * t_tild
-print(gammas)
-
 steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, y_domain, t_domain, device)
@@ -74,7 +70,7 @@ par = {"Lx": Lx,
         "mu":mu,
         "rho": rho,
         "t_ast": t_tild}
-pinn = PINN(dim_hidden, w0, n_hidden, gammas, omegas, device).to(device)
+pinn = PINN(dim_hidden, w0, n_hidden, device).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
