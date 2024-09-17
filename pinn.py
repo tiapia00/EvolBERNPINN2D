@@ -447,7 +447,7 @@ class Loss:
         dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
                 create_graph=True, retain_graph=True)[0]
         dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.size()[0], 1, device=device),
-                create_graph=True, retain_graph=True)[0]
+                create_graph=True, retain_graph=False)[0]
 
         loss += (self.adim[1]*output[:,2] - (1+2*self.adim[2])*dxyux[:,0] - dxyuy[:,1]).pow(2).mean()
         loss += (self.adim[1]*output[:,4] - dxyux[:,0] - (1+2*self.adim[2])*dxyuy[:,1]).pow(2).mean()
@@ -505,7 +505,7 @@ class Loss:
         loss *= 3
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
-                create_graph=True, retain_graph=False)[0]
+                create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=False)[0]
         v = torch.cat([vx, vy], dim=1)
