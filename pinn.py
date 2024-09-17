@@ -221,15 +221,15 @@ class PINN(nn.Module):
 
         self.w0 = w0
         n_mode_spacex = dim_hidden[0]
-        n_mode_spacey = gammas.shape[0]
+        n_mode_spacey = dim_hidden[1]
 
         self.Bx = torch.randn((2, n_mode_spacex), device=device)
         self.By = torch.randn((2, n_mode_spacey), device=device)
-        self.By[0,:] = torch.tensor(gammas, dtype=torch.float32)
+        self.By[0, gammas.shape[0]] = torch.tensor(gammas, dtype=torch.float32)
         
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
         self.Bty = torch.randn((1, n_mode_spacey), device=device)
-        self.Bty[0,:] = torch.tensor(omegas, dtype=torch.float32) 
+        self.Bty[0, omegas.shape[0]] = torch.tensor(omegas, dtype=torch.float32) 
 
         self.hid_space_layers_x = nn.ModuleList()
         for _ in range(n_hidden - 1):
