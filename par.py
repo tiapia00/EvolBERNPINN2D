@@ -5,9 +5,9 @@ class Parameters:
         self.t_end = 0.8
         self.n_space = 41 
         self.n_time = 43 
-        self.dim_hidden = (1, 1) 
+        self.dim_hidden = (1, 5) 
         self.multux = 1
-        self.multuy = 3
+        self.multuy = 2 
         self.n_hidden : int = 2 
         self.w0 = 1 
         self.pinn_par = {

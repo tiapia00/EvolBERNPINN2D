@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
-import torch.nn.init as init
+from numpy.fft import fft
 
 
 def simps(y, dx, dim=0):
@@ -198,13 +198,10 @@ def matern52(alpha):
     phi = (torch.ones_like(alpha) + 5 ** 0.5 * alpha + (5 / 3) * alpha.pow(2)) * torch.exp(-5 ** 0.5 * alpha)
     return phi
 
-class TrigAct(nn.Module):
-    def forward(self, x):
-        return torch.sin(x)
-
-def parabolic(a, x):
-    return (a * x ** 2 - a * x)
-
+def calculate_fft(signal: np.ndarray, dx: float, x: np.ndarray):
+    yf = np.fft.fft(signal)
+    freq = np.fft.fftfreq(x.size, d=1./dx)
+    return yf, freq
 
 class PINN(nn.Module):
     def __init__(self,
@@ -228,8 +225,8 @@ class PINN(nn.Module):
         self.By[0,:] = torch.arange(1, n_mode_spacey+1, device=device) * torch.ones(n_mode_spacey, device=device)
         self.By[1,:] *= 0.01
         
-        self.Btx = torch.randn((1, multux*n_mode_spacex), device=device)
-        self.Bty = torch.ones((1, multuy*n_mode_spacey), device=device) * torch.arange(1, n_mode_spacey+1, device=device)**2
+        self.Btx = torch.randn((1, n_mode_spacex), device=device)
+        self.Bty = torch.ones((1, n_mode_spacey), device=device) * torch.arange(1, n_mode_spacey+1, device=device)**2
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -240,15 +237,16 @@ class PINN(nn.Module):
 
         self.hid_space_layers_y = nn.ModuleList()
         hiddimy = multuy * 2 * n_mode_spacey
-        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacex, hiddimy))
+        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
             self.hid_space_layers_y.append(act)
 
-        self.layerxmodes = nn.Linear(hiddimx, n_mode_spacex)
-        self.layerymodes = nn.Linear(hiddimy, n_mode_spacey)
-        self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
-        self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
+        self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex)
+        self.layerymodes = nn.Linear(hiddimy, 2*n_mode_spacey)
+        # Initialize this with FFT
+        self.outlayerx = nn.Linear(2*n_mode_spacex, 1, bias=False)
+        self.outlayery = nn.Linear(2*n_mode_spacey, 1, bias=False)
 
         #self._initialize_weights()
 
@@ -287,15 +285,14 @@ class PINN(nn.Module):
         for layer in self.hid_space_layers_x:
             x_in= layer(x_in)
         
-        x_in = x_in * tx
-
         for layer in self.hid_space_layers_y:
             y_in= layer(y_in)
         
-        y_in = y_in * ty
-
         xout = self.layerxmodes(x_in)
         yout = self.layerymodes(y_in)
+
+        xout = xout * tx
+        yout = yout * ty
 
         xout = self.outlayerx(xout)
         yout = self.outlayery(yout)

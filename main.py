@@ -70,6 +70,18 @@ par = {"Lx": Lx,
         "mu":mu,
         "rho": rho,
         "t_ast": t_tild}
+
+
+inpoints = torch.cat(points["initial_points"], dim=1)
+spacein = inpoints[:,:2]
+cond0 = initial_conditions(spacein, w0)
+condx = cond0[:,1].reshape(n_space, n_space)
+condx = condx[:,0]
+yf, freq = calculate_fft(condx.detach().cpu().numpy(), steps[0].item(), x_domain.cpu().numpy())
+plt.figure()
+plt.scatter(freq, yf)
+plt.show()
+
 pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
@@ -115,14 +127,11 @@ print(pinn_trained)
 
 pinn_trained.eval()
 
-inpoints = torch.cat(points["initial_points"], dim=1)
-spacein = inpoints[:,:2]
 tin = inpoints[:,-1].unsqueeze(1)
 z = pinn_trained(spacein, tin)
 v = calculate_speed(z, tin, par)
 z = torch.cat([z, v], dim=1)
 
-cond0 = initial_conditions(spacein, w0)
 
 plot_initial_conditions(z, cond0, spacein, dir_model)
 
