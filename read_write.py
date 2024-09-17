@@ -15,20 +15,6 @@ def pass_folder(root: str):
     return direct
 
 
-def delete_old_subfolders(root_folder):
-    threshold_date = datetime.now() - timedelta(days=7)
-
-    for root, dirs, files in os.walk(root_folder, topdown=False):
-        for dir_name in dirs:
-            dir_path = os.path.join(root, dir_name)
-            modified_time = datetime.fromtimestamp(os.path.getmtime(dir_path))
-
-            if modified_time < threshold_date:
-                print(f"Deleting {dir_path} (last modified {modified_time}).")
-                # Delete the directory and its contents
-                shutil.rmtree(dir_path)
-
-
 def create_folder_date(directory, folder_name):
     folder_path = os.path.join(directory, folder_name)
     if not os.path.exists(folder_path):
