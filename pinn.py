@@ -221,10 +221,7 @@ class PINN(nn.Module):
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
 
-        multipliers_x = torch.arange(1, n_mode_spacex + 1, device=device)
         self.Bx = torch.randn((2, n_mode_spacex), device=device)
-        self.Bx[0,:] *= multipliers_x
-
         self.By = torch.randn((2, n_mode_spacey), device=device)
         
         hidall = n_mode_spacex + 2*n_mode_spacey
@@ -232,12 +229,12 @@ class PINN(nn.Module):
         self.Bt = torch.randn((1, hidall), device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
-        for i in range(n_hidden - 1):
+        for _ in range(n_hidden - 1):
             self.hid_space_layers_x.append(nn.Linear(2 * n_mode_spacex, 2 * n_mode_spacex))
             self.hid_space_layers_x.append(act)
 
         self.hid_space_layers_y = nn.ModuleList()
-        for i in range(n_hidden - 1):
+        for _ in range(n_hidden - 1):
             self.hid_space_layers_y.append(nn.Linear(4 * n_mode_spacey, 4 * n_mode_spacey))
             self.hid_space_layers_y.append(act)
 
