@@ -599,7 +599,6 @@ def train_model(
         loss, losses = loss_fn(pinn, nninbcs)
         loss.backward(retain_graph=False)
         optimizer.step()
-        torch.cuda.empty_cache()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
@@ -707,7 +706,7 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
     optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
     pbar = tqdm(total=epochs, desc="Training", position=0)
 
-    def closure():
+    for _ in range(epochs):
         optimizer.zero_grad()
         loss = lossfn.initial_loss(nn)
         loss += lossfn.bound_D(nn)
@@ -715,12 +714,7 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
         pbar.update(1)
-
-        return loss
-
-    for _ in range(epochs):
-        optimizer.step(closure)
-        torch.cuda.empty_cache()
+        optimizer.step()
 
     pbar.update(1)
     pbar.close()
