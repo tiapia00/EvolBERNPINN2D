@@ -127,68 +127,18 @@ def plot_sol(sol: torch.tensor, space_in: torch.tensor, t: torch.tensor, path: s
     ani.save(file, fps=5)
 
 
-def plot_compliance(pinn: PINN, x: torch.tensor, y: torch.tensor,
-                    t: torch.Tensor, w_ad: np.ndarray, path: str, device):
+def plot_average_displ(sol: torch.Tensor, t: torch.Tensor, path: str):
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 8))
+    t = torch.unique(t, sorted=True)
+    meanux = np.mean(sol[:,:,0], axis=0)
+    meanuy = np.mean(sol[:,:,1], axis=0)
+    ax[0].plot(t.detach().cpu().numpy(), meanux)
+    ax[0].set_xlabel(r'$\hat{t}$')
+    ax[0].set_ylabel(r'$\overline{u}_x$')
 
-    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10, 8))
-    fig.suptitle('Compliance')
+    ax[1].plot(t.detach().cpu().numpy(), meanuy)
+    ax[1].set_xlabel(r'$\hat{t}$')
+    ax[1].set_ylabel(r'$\overline{u}_y$')
 
-    x = x.to(device)
-    y = y.to(device)
-
-    t_raw = torch.unique(t, sorted=True)
-    mean_y = []
-
-    for t in t_raw:
-        t = t*torch.ones_like(x).to(device)
-        output = f(pinn, x, y, t)
-        uy = output[:, 1].cpu().detach().numpy()
-        mean_y.append(np.mean(uy))
-
-    mean_y = np.array(mean_y)
-
-    ax[0].plot(t_raw.cpu().detach().numpy(), mean_y, color='blue')
-    ax[0].set_title('Prediction from PINN')
-    ax[0].set_xlabel('$\\hat{t}$')
-    ax[0].set_ylabel('$\\overline{u}_y$')
-
-    ax[1].plot(t_raw.cpu().detach().numpy(), mean_y - np.mean(w_ad, axis=0), color='red')
-    ax[1].set_title('Deviation from analytical')
-    ax[1].set_xlabel('$\\hat{t}$')
-    ax[1].set_ylabel('$\\overline{u}_{y,an}-\\overline{u}_{y,PINN}$')
-
-    plt.grid()
-    plt.tight_layout()
-
-    file = f'{path}/compliance.png'
-    plt.savefig(file)
-
-
-def plot_energy(t: torch.tensor, en_k: torch.tensor, en_p: torch.tensor, en: torch.tensor, e0: float, path):
-    fig = plt.figure(figsize=(10, 8))
-    plt.xlabel('$\\hat{t}$')
-
-    t = t.detach().cpu().numpy()
-    en = en.detach().cpu().numpy()
-    en_k = en_k.detach().cpu().numpy()
-    en_p = en_p.detach().cpu().numpy()
-    e0 = e0.detach().cpu().numpy()
-
-    plt.plot(t, en, label='Total energy')
-    plt.plot(t, en_k, label='Kinetic energy')
-    plt.plot(t, en_p, label='Potential energy')
-
-    plt.legend()
-
-    file = f'{path}/energy.png'
-    plt.savefig(file)
-
-    fig = plt.figure(figsize=(10, 8))
-
-    plt.plot(t, e0 - en)
-
-    plt.xlabel('$\\hat{t}$')
-    plt.ylabel('$E_0 - E(t)$')
-
-    file = f'{path}/diff_energy.png'
+    file = f'{path}/displ_comp.png'
     plt.savefig(file)

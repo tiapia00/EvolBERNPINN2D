@@ -65,13 +65,14 @@ x_domain = torch.linspace(0, Lx, n_space[0])/Lx
 y_domain = torch.linspace(0, Ly, n_space[1])/Lx
 t_domain = torch.linspace(0, T, n_time)/t_tild
 
-adim = (((t_tild**2/(rho*w0)*sig_max/Lx)**(-1)).item(), (sig_max*Lx/(w0*lam)).item(), mu/lam, w0, sig_max, rho)
+adim = (((t_tild**2/(rho*w0)*sig_max/Lx)**(-1)).item(), (sig_max*Lx/(w0*lam)).item(), mu/lam, w0)
 par = {"Lx": Lx,
         "w0": w0,
         "lam": lam,
         "mu":mu,
         "rho": rho,
-        "t_ast": t_tild}
+        "t_ast": t_tild,
+        "sigma_max": sig_max}
 steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, y_domain, t_domain, device)
@@ -116,7 +117,7 @@ ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 #plt.show()
 
-nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 80, 1e-4)
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 10000, 1e-4)
 
 x, y, t_in = points['initial_points']
 x = x.to(device)
@@ -181,7 +182,7 @@ allpoints = torch.cat(points['all_points'], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 out = getout(pinn_trained, nn_inbcs, space, t)
-outin = out[t0idx,:2]
+outin = par['w0']*out[t0idx,:2]
 v = calculate_speed(out[:,:2], t)[t0idx]
 z = torch.cat([outin, v], dim=1)
 
@@ -198,7 +199,8 @@ plt.figure()
 plt.plot(space_in[:,0].detach().cpu().numpy() + sol[:,0,0], space_in[:,1].detach().cpu().numpy() + sol[:,0,1])
 plt.show()
 """
-plot_sol(sol, space_in, t, dir_model)
+plot_sol(par['w0']*sol, space_in, t, dir_model)
+plot_average_displ(par['w0']*sol, t, dir_model)
 
 #plot_sol_comparison(pinn_trained, x, y, t, w_ad, n_space,
 #                    n_time, n_space_beam, dir_model, device)

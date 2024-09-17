@@ -454,11 +454,12 @@ class Loss:
         loss += (self.adim[1]*output[:,3] - self.adim[2]*(dxyux[:,1] - dxyuy[:,0])).pow(2).mean()
 
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
-        dV = self.par['w0']**2/self.par['Lx']**2 * (self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2
+        dV = 1/2*self.par['sigma_max']*(self.par['w0']/self.par['Lx'])**2*(output[:,2:]*eps).sum(1) 
 
         v = torch.cat([vx, vy], dim=1)
         vnorm = torch.norm(v, dim=1)
         dT = 1/2*self.par['rho']*self.par['w0']/self.par['t_ast']*vnorm
+        dT *= torch.max(dV)/torch.max(dT)
 
         tgrid = torch.unique(t, sorted=True)
 
