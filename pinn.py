@@ -211,6 +211,8 @@ class PINN(nn.Module):
                  dim_hidden: tuple,
                  w0: float,
                  n_hidden: int,
+                 multux: int,
+                 multuy: int,
                  device,
                  act=nn.Tanh(),
                  ):
@@ -225,21 +227,25 @@ class PINN(nn.Module):
         self.By = torch.randn((2, n_mode_spacey), device=device)
         self.By[0,:] = torch.arange(1, n_mode_spacey+1, device=device) * torch.ones(n_mode_spacey, device=device)
         
-        self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = torch.ones((1, n_mode_spacey), device=device) * torch.arange(1, n_mode_spacey+1, device=device)**2
+        self.Btx = torch.randn((1, multux*n_mode_spacex), device=device)
+        self.Bty = torch.ones((1, multuy*n_mode_spacey), device=device) * torch.arange(1, n_mode_spacey+1, device=device)**2
 
         self.hid_space_layers_x = nn.ModuleList()
+        hiddimx = multux * 2 * n_mode_spacex
+        self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
         for _ in range(n_hidden - 1):
-            self.hid_space_layers_x.append(nn.Linear(2 * n_mode_spacex, 2 * n_mode_spacex))
+            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
             self.hid_space_layers_x.append(act)
 
         self.hid_space_layers_y = nn.ModuleList()
+        hiddimy = multuy * 2 * n_mode_spacey
+        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacex, hiddimy))
         for _ in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(2 * n_mode_spacey, 2 * n_mode_spacey))
+            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
             self.hid_space_layers_y.append(act)
 
-        self.outlayerx = nn.Linear(2 * n_mode_spacex, 1)
-        self.outlayery = nn.Linear(2 * n_mode_spacey, 1)
+        self.outlayerx = nn.Linear(hiddimx, 1)
+        self.outlayery = nn.Linear(hiddimy, 1)
 
         #self._initialize_weights()
 

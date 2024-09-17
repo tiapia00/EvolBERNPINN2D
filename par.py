@@ -6,6 +6,8 @@ class Parameters:
         self.n_space = 41 
         self.n_time = 43 
         self.dim_hidden = (1, 1) 
+        self.multux = 1
+        self.multuy = 3
         self.n_hidden : int = 5 
         self.w0 = 1 
         self.pinn_par = {
@@ -17,6 +19,8 @@ class Parameters:
             'w0': self.w0,
             'dim_hidden': self.dim_hidden,
             'n_hidden_space': self.n_hidden,
+            'multux': self.multux,
+            'multuy': self.multuy,
             'lr': 1e-3,
             'epochs': 10000 
         }
