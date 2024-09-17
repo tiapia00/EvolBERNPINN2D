@@ -3,9 +3,9 @@ class Parameters:
         self.x_end = 500
         self.y_end = 0.5
         self.t_end = 0.8
-        self.n_space = (11, 11)
-        self.n_time = 21 
-        self.dim_hidden = 40 
+        self.n_space = (31, 31)
+        self.n_time = 41 
+        self.dim_hidden = 80 
         self.n_hidden = 4
         self.w0 = 30
         self.pinn_par = {
