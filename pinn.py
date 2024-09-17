@@ -251,14 +251,10 @@ class PINN(nn.Module):
     def apply_compl_filter(alpha):
         return (1-torch.tanh(alpha))
 
-    def fourier_features_2(self, input, B):
+    def fourier_features(self, input, B):
         x_proj = input @ B
         return torch.cat([torch.sin(np.pi * x_proj),
                 torch.cos(np.pi * x_proj)], dim=1)
-
-    def fourier_features_uy(self, space):
-        x_proj = space @ self.By
-        return torch.cat([torch.sin(np.pi * x_proj), torch.cos(np.pi * x_proj)], dim=1)
 
     def _initialize_weights(self):
         # Initialize all layers with Xavier initialization
@@ -269,10 +265,10 @@ class PINN(nn.Module):
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
     def forward(self, space, t):
-        fourier_space_x = self.fourier_features_2(space, self.Bx)
-        fourier_space_y = self.fourier_features_uy(space)
-        fourier_tx = self.fourier_features_2(t, self.Btx)
-        fourier_ty = self.fourier_features_2(t, self.Bty)
+        fourier_space_x = self.fourier_features(space, self.Bx)
+        fourier_space_y = self.fourier_features(space, self.By)
+        fourier_tx = self.fourier_features(t, self.Btx)
+        fourier_ty = self.fourier_features(t, self.Bty)
 
         x_in = fourier_space_x
         y_in = fourier_space_y
