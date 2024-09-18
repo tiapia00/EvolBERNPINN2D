@@ -108,7 +108,7 @@ def getkinetic(speed: torch.tensor, nsamples: tuple, rho: float, ds: tuple):
     speed = speed.reshape(nsamples[0], nsamples[1], nsamples[2], 2)
     magnitude = torch.norm(speed, p=2, dim=3)
     ### ASSUMPTION: t = 1 ###
-    kinetic = 1/2 * rho * torch.trapezoid(torch.trapezoid(magnitude, dx=dy, dim=1),
+    kinetic = 1e3 * 1/2 * rho * torch.trapezoid(torch.trapezoid(magnitude, dx=dy, dim=1),
             dx = dx, dim=0)
 
     return kinetic
