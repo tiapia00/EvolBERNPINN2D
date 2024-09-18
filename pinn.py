@@ -249,11 +249,12 @@ class PINN(nn.Module):
             V = layer(input)
             input = V 
         
+        input = input0
         for layer in self.layers:
-            out = layer(out)
-            out = self.act(out) * U + (1-self.act(out)) * V
+            input = layer(input)
+            input = self.act(input) * U + (1-self.act(input)) * V
 
-        outNN = self.outlayer(out)
+        outNN = self.outlayer(input)
 
         outNN = torch.sin(space[:,0].reshape(-1,1) * np.pi) * outNN
 
