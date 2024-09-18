@@ -21,7 +21,7 @@ class Parameters:
             'dimhid': self.dimhid,
             'nheads': self.nheads,
             'nblocks': self.nblocks,
-            'lr': 1e-3,
+            'lr': 1e-4,
             'epochs': int(4e3) 
         }
         self.beam_par = {
