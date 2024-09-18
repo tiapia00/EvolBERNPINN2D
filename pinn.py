@@ -110,7 +110,6 @@ def getkinetic(speed: torch.tensor, nsamples: tuple, rho: float, ds: tuple):
     ### ASSUMPTION: t = 1 ###
     kinetic = 1/2 * rho * torch.trapezoid(torch.trapezoid(magnitude, dx=dy, dim=1),
             dx = dx, dim=0)
-    print(torch.max(kinetic))
 
     return kinetic
 
@@ -119,7 +118,6 @@ def getPsi(psi: torch.tensor, ds: tuple):
     dy = ds[1]
 
     Psi = torch.trapezoid(torch.trapezoid(y = psi, dx = dy, dim=1), dx=dx, dim=0)
-    print(torch.max(Psi))
 
     return Psi
     
