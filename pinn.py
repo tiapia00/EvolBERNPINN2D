@@ -269,8 +269,7 @@ class PINN(nn.Module):
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
         self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
         weightslast = torch.from_numpy(magnFFT).float()
-        with torch.no_grad():
-            self.outlayery.weight.copy_(weightslast[:n_mode_spacey])  # Initialize the weights
+        self.outlayery.weight.copy_(weightslast[:n_mode_spacey])  # Initialize the weights
 
         #self._initialize_weights()
 
