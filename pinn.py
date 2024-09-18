@@ -48,7 +48,7 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.tensor:
+def initial_conditions(space: torch.Tensor, w0: float, i: float = 1) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
     uy0 = w0*torch.sin(torch.pi*i*x)
@@ -243,7 +243,7 @@ class PINN(nn.Module):
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
         self.By = torch.randn((2, n_mode_spacey), device=device)
-        #self.By[0,:] = torch.arange(0, n_mode_spacey, device=device) * torch.ones(n_mode_spacey, device=device)
+        self.By[0,:] = torch.arange(0, n_mode_spacey, device=device) * torch.ones(n_mode_spacey, device=device)
         
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
         self.Bty = torch.randn((1, n_mode_spacey), device=device)
@@ -269,7 +269,7 @@ class PINN(nn.Module):
         self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
         weightslast = torch.from_numpy(magnFFT).float()
         weightslast[2:] *= 0
-        #self.outlayery.weight.data = weightslast[:n_mode_spacey].unsqueeze(0)
+        self.outlayery.weight.data = weightslast[:n_mode_spacey].unsqueeze(0)
 
         #self._initialize_weights()
 
