@@ -266,68 +266,6 @@ def matern52(alpha):
     phi = (torch.ones_like(alpha) + 5 ** 0.5 * alpha + (5 / 3) * alpha.pow(2)) * torch.exp(-5 ** 0.5 * alpha)
     return phi
 
-class TrigAct(nn.Module):
-    def forward(self, x):
-        return torch.cos(x)
-
-def parabolic(a, x):
-    return (a * x ** 2 - a * x)
-
-
-class NNinbc(nn.Module):
-    def __init__(self, dim_hidden, n_hidden):
-
-        super().__init__()
-
-        self.layerin = nn.Linear(3, dim_hidden)
-
-        self.layers = nn.ModuleList()
-        for _ in range(n_hidden - 1):
-            self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.layers.append(TrigAct())
-        
-        self.layerout = nn.Linear(dim_hidden, 2)
-
-    def forward(self, points):
-        output = self.layerin(points)
-
-        for layer in self.layers:
-            output = layer(output)
-        
-        output = self.layerout(output)
-
-        return output
-
-
-class NNd(nn.Module):
-    def __init__(self, dim_hidden, n_hidden):
-
-        super().__init__()
-
-        self.dim_hidden = dim_hidden
-        self.n_hidden = n_hidden
-
-        self.layerin = nn.Linear(3, dim_hidden)
-
-        self.layers = nn.ModuleList()
-        for _ in range(n_hidden - 1):
-            self.layers.append(nn.Linear(dim_hidden, dim_hidden))
-            self.layers.append(nn.Tanh())
-        
-        self.layerout = nn.Linear(dim_hidden, 1)
-
-    def forward(self, points):
-        output = self.layerin(points)
-
-        for layer in self.layers:
-            output = layer(output)
-        
-        output = self.layerout(output)
-        output *= points[:,2].unsqueeze(1)
-
-        return output
-
-
 def omtogam_trans(omega: torch.tensor, prop: dict):
     E = prop['E']
     m = prop['m']
@@ -345,29 +283,68 @@ def omtogam_ax(omega: torch.tensor, prop: dict):
 
     return gamma
 
-
 class PINN(nn.Module):
-    def __init__(self, dim_hidden: int, w0: float, maxs: list):
+    def __init__(self,
+                 hiddendim: int,
+                 w0: float, 
+                 nhidden: int,
+                 act=nn.Tanh(),
+                 ):
 
         super().__init__()
-
-        self.network = TRBF(3, dim_hidden, maxs)
-        self.outlayer = nn.Linear(dim_hidden, 2)
+        self.hiddendim = hiddendim
+        self.nhidden = nhidden
+        self.act = act
         self.w0 = w0
 
-    def forward(self, space, t):
-        points = torch.cat([space, t], dim=1)
+        self.U =  nn.ModuleList([
+            nn.Linear(3, hiddendim),
+            act
+        ])
 
-        out = self.network(space, t)
-        out = self.outlayer(out)
+        self.V = nn.ModuleList([
+            nn.Linear(3, hiddendim),
+            act
+        ])
+
+        self.layers = nn.ModuleList([])
+        self.layers.append(nn.Linear(3, hiddendim))
         
-        out = out*t + initial_conditions(space[:,0].unsqueeze(1), self.w0)[:,:2]
-        out *= torch.sin(np.pi * points[:,0]/torch.max(points[:,0])).unsqueeze(1).expand(-1,2)
+        for _ in range(nhidden):
+            self.layers.append(nn.Linear(hiddendim, hiddendim))
+        
+        self.outlayer = nn.Linear(hiddendim, 2)
+
+
+    def forward(self, space, t):
+        input = torch.cat([space, t], dim=1)
+        input0 = input
+        for layer in self.U:
+            U = layer(input)
+            input = U
+
+        input = input0
+        for layer in self.V:
+            V = layer(input)
+            input = V 
+        
+        input = input0
+        for layer in self.layers:
+            input = layer(input)
+            input = self.act(input) * U + (1-self.act(input)) * V
+
+        outNN = self.outlayer(input)
+
+        outNN = torch.sin(space[:,0].reshape(-1,1)/torch.max(space) * np.pi) * outNN
+
+        act_global = torch.tanh(t.repeat(1, 2)) * outNN
+
+        init = 1/self.w0*initial_conditions(space, self.w0)[:,:2]
+        act_init = torch.tanh(1 - t.repeat(1, 2)) * init
+
+        out = act_global + act_init
 
         return out
-
-    def device(self):
-        return next(self.parameters()).device
 
 
 class Calculate:
@@ -380,6 +357,7 @@ class Calculate:
         nsamples: tuple,
         steps_int: tuple,
         w0: float,
+        b: float, 
         device: torch.device,
     ):
         self.initial_condition = initial_condition
@@ -390,6 +368,7 @@ class Calculate:
         self.steps = steps_int
         self.device = device
         self.dists = self.gtdistance()
+        self.b = b
 
     def gettraction(self, pinn):
         pass
@@ -462,11 +441,11 @@ class Calculate:
         # Pi should take into account also external forces applied
 
         speed = getspeed(output, t, self.device)
-        T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
+        T = self.b * getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
         action = torch.trapezoid(y = T - Pi, dx = dt)
 
-        return action
+        return action.pow(2)
 
 
     def enloss(self, pinn, verbose: bool):
@@ -560,9 +539,11 @@ def train_model(
     calc: Callable,
     learning_rate: int,
     max_epochs: int,
-    path_logs: str
+    path_logs: str,
+    path_model: str
 ) -> PINN:
 
+    from plots import plot_energy
     writer = SummaryWriter(log_dir=path_logs)
 
     optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
@@ -575,7 +556,7 @@ def train_model(
         losses.append(calc.getaction(nn_approximator))
         losses.append(calc.enloss(nn_approximator, False))
         loss = losses[0]
-        loss.backward()
+        loss.backward(retain_graph=False)
         optimizer.step()
 
         pbar.set_description(f"Loss: {loss.item()**2:.3e}")
@@ -585,11 +566,16 @@ def train_model(
             'encons': losses[1].item()
         }, epoch)
 
-        pbar.update(1)
+        losses = calc.enloss(nn_approximator, True)
+        Pi, T = losses
+        variables = {'Pi': Pi.detach().cpu().numpy(), 'T': T.detach().cpu().numpy()}
 
-    losses = calc.enloss(nn_approximator, True)
-    Pi, T = losses
-    variables = {'Pi': Pi.detach().cpu().numpy(), 'T': T.detach().cpu().numpy()}
+        if epoch % 500 == 0:
+            t = calc.points['all_points'][-1].unsqueeze(1)
+            t = torch.unique(t, sorted=True)
+            plot_energy(t.detach().cpu().numpy(), variables['Pi'], variables['T'], epoch, path_model) 
+
+        pbar.update(1)
 
     pbar.update(1)
     pbar.close()
@@ -597,47 +583,6 @@ def train_model(
     writer.close()
 
     return nn_approximator, variables
-
-def train_inbcs(nn: NNinbc, calc: Calculate, epochs: int, learning_rate: float):
-    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
-    pbar = tqdm(total=epochs, desc="Training", position=0)
-
-    for epoch in range(epochs):
-
-        optimizer.zero_grad()
-        loss = calc.initial_loss(nn)
-        loss.backward()
-        optimizer.step()
-
-        pbar.set_description(f"Loss: {loss.item():.3e}")
-
-        pbar.update(1)
-
-    pbar.update(1)
-    pbar.close()
-
-    return nn
-
-def train_dist(nn: NNd, calc: Calculate, epochs: int, learning_rate: float):
-    optimizer = optim.Adam(nn.parameters(), lr = learning_rate)
-    pbar = tqdm(total=epochs, desc="Training", position=0)
-
-    for epoch in range(epochs):
-
-        optimizer.zero_grad()
-        loss = calc.distance_loss(nn)
-        loss.backward()
-        optimizer.step()
-
-        pbar.set_description(f"Loss: {loss.item():.3e}")
-
-        pbar.update(1)
-
-    pbar.update(1)
-    pbar.close()
-
-    return nn
-
 
 
 def calculate_speed(pinn_trained: PINN, points: tuple, device: torch.device) -> torch.tensor:

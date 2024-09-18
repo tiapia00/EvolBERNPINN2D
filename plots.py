@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-from matplotlib.cm import viridis
 from mpl_toolkits.mplot3d import Axes3D
 import torch
 from matplotlib.animation import FuncAnimation
@@ -98,30 +97,15 @@ def plot_sol(sol: torch.tensor, space: torch.tensor, t: torch.tensor, path: str)
     file = f'{path}/sol_time.gif'
     ani.save(file, fps=5)
 
-
-def plot_compliance(x: torch.tensor, y: torch.tensor,
-                    t: torch.tensor, w_ad: np.ndarray, path: str, device):
-    pass
-
-def plot_energy(indicators_nn: dict, indicators_an: dict, t_nn: torch.tensor, t_beam: np.ndarray, path: str):
-    ### Correct: 2 oscillations per period ###
-    t_nn = torch.unique(t_nn, sorted=True).detach().cpu().numpy()
-
-    T_nn = indicators_nn['T']
-    Pi_nn = indicators_nn['Pi']
-
-    T_an = indicators_an['T']
-    Pi_an = indicators_an['V']
-
+def plot_energy(t: np.ndarray, V: np.ndarray, T: np.ndarray, epoch: int, path: str):
     plt.figure()
-    plt.plot(t_nn, T_nn, label='$T_{{NN}}$')
-    plt.plot(t_nn, Pi_nn, label='$\\Pi_{{NN}}$')
-    plt.plot(t_beam, T_an, label='$T_{{an}}$')
-    plt.plot(t_beam, Pi_an, label='$\\Pi_{{an}}$')
+    plt.plot(t, V, label='Potential energy')
+    plt.plot(t, T, label='Kinetic energy')
+    
     plt.legend()
-
-    file = f'{path}/energyfinal.png'
+    file = f'{path}/energy_{epoch}'
     plt.savefig(file)
+
 
 def plot_centers(coord: torch.tensor, path: str):
     fig = plt.figure()

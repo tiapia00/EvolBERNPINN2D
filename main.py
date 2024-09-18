@@ -38,17 +38,15 @@ par = Parameters()
 
 Lx, t, h, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
-my_beam = Beam(Lx, E, rho, h, 4e-3, 2000)
+my_beam = Beam(Lx, E, rho, h, h/3, 2000)
 
-t_beam = np.linspace(0, t, 2000)
-w, ens_an = obtain_analytical_free(my_beam, w0, t_beam)
-ens_an = {'V': ens_an[:,0], 'T': ens_an[:,1]}
+t_tild, w, V0 = obtain_analytical_free(my_beam, w0, t, 500)
 
 #t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, dim_hidden, nlayerst, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, w0, dim_hidden, nlayers, lr, epochs = get_params(par.pinn_par)
 
 x_domain = torch.linspace(0, Lx, n_space[0])
 y_domain = torch.linspace(0, Ly, n_space[1])
@@ -76,6 +74,7 @@ calculate = Calculate(
         nsamples,
         steps,
         w0,
+        h/3,
         device
     )
 
@@ -107,13 +106,13 @@ all_points = torch.cat(points['all_points'], dim=1)
 maxs_point = torch.max(all_points.detach(), dim=0)[0]
 maxs_point = maxs_point.tolist()
 
-pinn = PINN(dim_hidden, w0, maxs_point).to(device)
+pinn = PINN(dim_hidden, w0, nlayers).to(device)
 
 Psi_0, K_0 = calculate.gete0(pinn)
 
 if retrain_PINN:
     pinn_trained, ens_NN = train_model(pinn, calc=calculate, learning_rate=lr,
-                               max_epochs=epochs, path_logs=dir_logs)
+                               max_epochs=epochs, path_logs=dir_logs, path_model=dir_model)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
@@ -121,7 +120,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, w0).to(device)
+    pinn_trained = PINN(dim_hidden, w0, nlayers).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
@@ -157,7 +156,3 @@ t = t.to(device)
 space_in = torch.cat([x, y], dim=1)
 sol = obtainsolt(pinn_trained, space_in, t, nsamples, device)
 plot_sol(sol, space_in, t, dir_model)
-
-plot_energy(ens_NN, ens_an, t, t_beam, dir_model)
-coords = pinn_trained.network.centers
-plot_centers(coords, dir_model)
