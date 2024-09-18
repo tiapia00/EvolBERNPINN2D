@@ -2,10 +2,10 @@ class Parameters:
     def __init__(self):
         self.x_end = 500 
         self.y_end = 0.5
-        self.t_end = 1 
-        self.n_space = 20
-        self.n_time = 20
-        self.dimhid = 1 
+        self.t_end = 0.3
+        self.n_space = 10
+        self.n_time = 10
+        self.dimhid = 3 
         self.dmodel = 1 
         self.nheads = 1 
         self.nblocks = 1 
@@ -33,8 +33,8 @@ class Parameters:
             'w0': self.w0
         }
         self.mat_par = {
-            'E': 68.0e9,
-            'rho': 270.,
+            'E': 68.0e3,
+            'rho': 7e-9,
             'nu': 0.26
         }
 
