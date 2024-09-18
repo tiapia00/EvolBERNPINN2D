@@ -232,7 +232,7 @@ class PINN(nn.Module):
                  multuy: int,
                  magnFFT: np.ndarray,
                  device,
-                 act=nn.Tanh(),
+                 act=nn.ReLU(),
                  ):
 
         super().__init__()
