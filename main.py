@@ -89,7 +89,6 @@ def extractcompfft(yf: np.ndarray, freq: np.ndarray):
 
 magnpos, freqpos = extractcompfft(yf, freq)
 magnpos *= 1./np.max(magnpos)
-print(magnpos)
 
 pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, magnpos, device).to(device)
 
