@@ -108,8 +108,9 @@ def getkinetic(speed: torch.tensor, nsamples: tuple, rho: float, ds: tuple):
     speed = speed.reshape(nsamples[0], nsamples[1], nsamples[2], 2)
     magnitude = torch.norm(speed, p=2, dim=3)
     ### ASSUMPTION: t = 1 ###
-    kinetic = 1e3 * 1/2 * rho * torch.trapezoid(torch.trapezoid(magnitude, dx=dy, dim=1),
+    kinetic = 1/2 * rho * torch.trapezoid(torch.trapezoid(magnitude, dx=dy, dim=1),
             dx = dx, dim=0)
+    print(torch.max(kinetic))
 
     return kinetic
 
@@ -118,6 +119,7 @@ def getPsi(psi: torch.tensor, ds: tuple):
     dy = ds[1]
 
     Psi = torch.trapezoid(torch.trapezoid(y = psi, dx = dy, dim=1), dx=dx, dim=0)
+    print(torch.max(Psi))
 
     return Psi
     
@@ -436,14 +438,14 @@ class Calculate:
         dx, dy, dt = self.steps
 
         eps = geteps(space, output, nsamples , self.device)
-        psi, sig = material_model(eps, (lam, mu), self.device)
+        psi, _ = material_model(eps, (lam, mu), self.device)
         Pi = getPsi(psi, (dx, dy)).reshape(-1)
         # Pi should take into account also external forces applied
 
         speed = getspeed(output, t, self.device)
-        T = self.b * getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
+        T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
-        action = torch.trapezoid(y = T - Pi, dx = dt)
+        action = self.b * torch.trapezoid(y = T - Pi, dx = dt)
 
         return action.pow(2)
 
@@ -464,6 +466,7 @@ class Calculate:
 
         speed = getspeed(output, t, self.device)
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
+        T = torch.max(Pi)/torch.max(T) * T
 
         deren = torch.autograd.grad((T - Pi).unsqueeze(1), t, torch.ones(Pi.shape[0], 1, device=self.device),
                  create_graph=True, retain_graph=True)[0]
