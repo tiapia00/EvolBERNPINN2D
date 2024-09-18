@@ -220,12 +220,12 @@ class PINN(nn.Module):
         self.w0 = w0
 
         self.U =  nn.ModuleList([
-            nn.Linear(2, hiddendim),
+            nn.Linear(3, hiddendim),
             act
         ])
 
         self.V = nn.ModuleList([
-            nn.Linear(2, hiddendim),
+            nn.Linear(3, hiddendim),
             act
         ])
 
