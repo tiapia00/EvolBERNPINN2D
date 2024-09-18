@@ -322,14 +322,14 @@ class Loss:
                 create_graph=True, retain_graph=True)[0]
         
         dxx_xy2ux = torch.autograd.grad(dxyux[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
         dyx_yy2ux = torch.autograd.grad(dxyux[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
 
         dxx_xy2uy = torch.autograd.grad(dxyuy[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
         dyx_yy2uy = torch.autograd.grad(dxyuy[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
         
         loss = (self.adim[0] * (dxx_xy2ux[:,0] + dyx_yy2ux[:,1]) + self.adim[1] * 
                 (dxx_xy2ux[:,0] + dxx_xy2uy[:,1]) - self.adim[2] * ax.squeeze()).pow(2).mean()
@@ -368,9 +368,9 @@ class Loss:
 
         initial_speed = initial_conditions(space, pinn.w0)[:,2:]
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
-                create_graph=False, retain_graph=True)[0]
+                create_graph=True, retain_graph=True)[0]
         
         v = torch.cat([vx, vy], dim=1)
 
@@ -420,7 +420,7 @@ def train_model(
         optimizer.zero_grad()
 
         loss, res_loss, losses = loss_fn(nn_approximator)
-        loss.backward()
+        loss.backward(retain_graph=False)
         optimizer.step()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
