@@ -230,11 +230,12 @@ class PINN(nn.Module):
         ])
 
         self.layers = nn.ModuleList([])
+        self.layers.append(nn.Linear(3, hiddendim))
         
         for _ in range(nhidden):
-            self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim))
+            self.layers.append(nn.Linear(hiddendim, hiddendim))
         
-        self.outlayer = nn.Linear(2*hiddendim, 2)
+        self.outlayer = nn.Linear(hiddendim, 2)
 
 
     def forward(self, space, t):
@@ -330,13 +331,12 @@ class Loss:
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
-        dV = dV.detach()
-        dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
+        dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2).detach()
 
         v = torch.cat([vx, vy], dim=1)
         vnorm = torch.norm(v, dim=1)
         dT = dT.detach()
-        dT = (1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2)
+        dT = (1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2).detach()
         dT *= torch.max(dV)/torch.max(dT)
 
         tgrid = torch.unique(t, sorted=True)
