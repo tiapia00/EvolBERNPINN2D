@@ -5,32 +5,50 @@ import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
-from numpy.fft import fft
 
 
 def simps(y, dx, dim=0):
     device = y.device
     n = y.size(dim)
-    if n % 2 == 0:
-        raise ValueError(
-            "The number of samples must be odd for Simpson's rule.")
+    
+    if n < 2:
+        raise ValueError("At least two samples are required for integration.")
 
     shape = list(y.shape)
     del(shape[dim])
     shape = tuple(shape)
 
+    # Initialize integral to zeros
     integral = torch.zeros(shape, device=device)
-    odd_sum = torch.sum(y.index_select(dim, torch.arange(1, n-1, 2, device=device)), dim=dim)
-    even_sum = torch.sum(y.index_select(dim, torch.arange(2, n-1, 2, device=device)), dim=dim)
+    
+    # If n is odd, we can directly apply Simpson's rule to all points
+    if n % 2 == 1:
+        odd_sum = torch.sum(y.index_select(dim, torch.arange(1, n-1, 2, device=device)), dim=dim)
+        even_sum = torch.sum(y.index_select(dim, torch.arange(2, n-1, 2, device=device)), dim=dim)
 
-    integral += 4 * odd_sum + 2 * even_sum
+        integral += (y.index_select(dim, torch.tensor([0], device=device)) + 
+                     4 * odd_sum + 2 * even_sum + 
+                     y.index_select(dim, torch.tensor([n-1], device=device)))
+        
+        integral *= dx / 3
 
-    integral *= dx / 3
+    else:
+        odd_sum = torch.sum(y.index_select(dim, torch.arange(1, n-2, 2, device=device)), dim=dim)
+        even_sum = torch.sum(y.index_select(dim, torch.arange(2, n-2, 2, device=device)), dim=dim)
+
+        integral += (y.index_select(dim, torch.tensor([0], device=device)).squeeze(dim) + 
+                     4 * odd_sum + 2 * even_sum + 
+                     y.index_select(dim, torch.tensor([n-2], device=device)).squeeze(dim))
+        
+        integral *= dx / 3
+        
+        integral += 0.5 * dx * (y.index_select(dim, torch.tensor([n-2], device=device)).squeeze(dim) + 
+                                y.index_select(dim, torch.tensor([n-1], device=device)).squeeze(dim))
 
     return integral
 
 
-def initial_conditions(space: torch.Tensor, w0: float, i: float = 1) -> torch.tensor:
+def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
     uy0 = w0*torch.sin(torch.pi*i*x)
@@ -199,8 +217,10 @@ def matern52(alpha):
     return phi
 
 def calculate_fft(signal: np.ndarray, dx: float, x: np.ndarray):
+    window = np.hanning(signal.size)
+    signal = window * signal
     yf = np.fft.fft(signal)
-    freq = np.fft.fftfreq(x.size, d=1./dx)
+    freq = np.fft.fftfreq(x.size, d=dx)
     return yf, freq
 
 class PINN(nn.Module):
@@ -210,6 +230,7 @@ class PINN(nn.Module):
                  n_hidden: int,
                  multux: int,
                  multuy: int,
+                 magnFFT: np.ndarray,
                  device,
                  act=nn.Tanh(),
                  ):
@@ -244,9 +265,12 @@ class PINN(nn.Module):
 
         self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex)
         self.layerymodes = nn.Linear(hiddimy, 2*n_mode_spacey)
-        # Initialize this with FFT
-        self.outlayerx = nn.Linear(2*n_mode_spacex, 1, bias=False)
-        self.outlayery = nn.Linear(2*n_mode_spacey, 1, bias=False)
+
+        self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
+        self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
+        weightslast = torch.from_numpy(magnFFT).float()
+        with torch.no_grad():
+            self.outlayery.weight.copy_(weightslast[:n_mode_spacey])  # Initialize the weights
 
         #self._initialize_weights()
 
@@ -280,7 +304,9 @@ class PINN(nn.Module):
         x_in = fourier_space_x
         y_in = fourier_space_y
         tx = fourier_tx
+        tx = tx.view(tx.shape[0], tx.shape[1] // 2, 2).sum(dim=2)
         ty = fourier_ty
+        ty = ty.view(ty.shape[0], ty.shape[1] // 2, 2).sum(dim=2)
 
         for layer in self.hid_space_layers_x:
             x_in= layer(x_in)
@@ -289,7 +315,9 @@ class PINN(nn.Module):
             y_in= layer(y_in)
         
         xout = self.layerxmodes(x_in)
+        xout = xout.view(xout.shape[0], xout.shape[1] // 2, 2).sum(dim=2)
         yout = self.layerymodes(y_in)
+        yout = yout.view(yout.shape[0], yout.shape[1] // 2, 2).sum(dim=2)
 
         xout = xout * tx
         yout = yout * ty

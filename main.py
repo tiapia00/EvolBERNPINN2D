@@ -78,11 +78,20 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 yf, freq = calculate_fft(condx.detach().cpu().numpy(), steps[0].item(), x_domain.cpu().numpy())
-plt.figure()
-plt.scatter(freq, yf)
-plt.show()
 
-pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
+def extractcompfft(yf: np.ndarray, freq: np.ndarray):
+    lastpos = np.where(freq > 0)[0][-1]
+    freqpos = freq[:lastpos]
+    magnpos = np.abs(yf[:lastpos])
+    magnpos[1:-1] *= 2
+
+    return magnpos, freqpos
+
+magnpos, freqpos = extractcompfft(yf, freq)
+magnpos *= 1./np.max(magnpos)
+print(magnpos)
+
+pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, magnpos, device).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
@@ -114,7 +123,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
+    pinn_trained = PINN(dim_hidden, w0, n_hidden, multux, multuy, magnpos, device).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
