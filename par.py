@@ -1,14 +1,14 @@
 class Parameters:
     def __init__(self):
-        self.x_end = 2 
-        self.y_end = 1e-1
+        self.x_end = 500 
+        self.y_end = 0.5
         self.t_end = 1 
-        self.n_space = (9, 5)
-        self.n_time = 50
-        self.dimhid = 2 
-        self.dmodel = 4 
-        self.nheads = 2 
-        self.nblocks = 3 
+        self.n_space = 20
+        self.n_time = 20
+        self.dimhid = 1 
+        self.dmodel = 1 
+        self.nheads = 1 
+        self.nblocks = 1 
         self.w0 = 0.3
         self.pinn_par = {
             'x_end': self.x_end,
@@ -21,13 +21,15 @@ class Parameters:
             'dimhid': self.dimhid,
             'nheads': self.nheads,
             'nblocks': self.nblocks,
-            'lr': 8e-4,
+            'lr': 1e-3,
             'epochs': int(4e3) 
         }
         self.beam_par = {
             'x_end': self.x_end,
             't_end': self.t_end,
             'h': self.y_end,
+            'n_beam': 2000,
+            'ntime': 1000,
             'w0': self.w0
         }
         self.mat_par = {

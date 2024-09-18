@@ -2,18 +2,22 @@ import numpy as np
 from beam import Beam, Prob_Solv_Modes, In_Cond
 from par import Parameters, get_params
 from scipy import integrate
-import matplotlib.pyplot as plt
 
 
-def obtain_analytical_free(my_beam: Beam, w0: float, t: np.ndarray):
+def obtain_analytical_free(my_beam: Beam, w0: float, tf: float,
+                           n_time: int):
+
     prob = Prob_Solv_Modes(my_beam)
-    gamma_max = 5 # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
+    gamma_max = 30/1000 # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
 
     prob.pass_g_max(gamma_max)
     eig_gam = prob.find_eig()
 
     my_beam.gamma = np.array(eig_gam)
     my_beam.update_freq()
+
+    omega_1 = my_beam.omega[0]
+    t_ad = 2*np.pi/omega_1
 
     # Just one parameter independent for gamma (order of the system reduced)
     F = prob.find_all_F(my_beam)
@@ -28,34 +32,27 @@ def obtain_analytical_free(my_beam: Beam, w0: float, t: np.ndarray):
     my_In_Cond.pass_init_cond(w0, wdot_0)
     A, B = my_In_Cond.compute_coeff()
 
-    my_beam.calculate_solution_free(A, B, t)
+    t_lin = np.linspace(0, tf, n_time)
+
+    my_beam.calculate_solution_free(A, B, t_lin)
     w = my_beam.w
 
-    ens = getesnum(my_beam, t, w)
+    V0 = calculateen0(my_beam)
 
-    return w, ens 
+    return t_ad, w, V0
 
 
-def getesnum(my_beam: Beam, ts: np.ndarray, w: np.ndarray) -> np.ndarray:
+def calculateen0(my_beam: Beam) -> float:
     x = my_beam.xi
+
     EJ = my_beam.E*my_beam.J
-    m = my_beam.rho * my_beam.A
+    w = my_beam.w[:, 0]
 
-    V = np.zeros_like(ts)
-    T = np.zeros_like(ts)
-    dw_dt = np.zeros_like(w)
+    dw_dxx = df_num(x, df_num(x, w))
 
-    for i in range(dw_dt.shape[0]):
-        dw_dt[i,:] = df_num(ts, w[i,:])
+    V = 1/2*EJ*integrate.simpson(y=dw_dxx**2, x=x)
 
-    for i in range(len(ts)):
-        dw_dxx = df_num(x, df_num(x, w[:,i]))
-        V[i] = 1/2*EJ*integrate.simpson(y=dw_dxx**2, x=x)
-        T[i] = 1/2*m*integrate.simpson(y=dw_dt[:,i]**2, x=x)
-    
-    ens = np.stack([V, T], axis=1)
-
-    return ens
+    return V
 
 
 def df_num(x: np.ndarray, y: np.ndarray):

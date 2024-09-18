@@ -2,11 +2,10 @@ from plots import *
 from beam import Beam
 import os
 import torch
-from read_write import get_last_modified_file, pass_folder
+from read_write import get_last_modified_file, pass_folder, delete_old_files, get_current_time
 from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
-from eigenNN import MLNet, denormalizematr
 
 torch.set_default_dtype(torch.float32)
 
@@ -20,7 +19,12 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-restartraining = True 
+retrain_PINN =  True
+delete_old = False
+
+if delete_old:
+    delete_old_files("model")
+    delete_old_files("in_model")
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -33,22 +37,19 @@ def get_step(tensors: tuple):
 
 par = Parameters()
 
-Lx, t, h, w0 = get_params(par.beam_par)
+Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
-my_beam = Beam(Lx, E, rho, h, 4e-3, 2000)
+my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
-t_beam = np.linspace(0, t, 2000)
-w, ens_an = obtain_analytical_free(my_beam, w0, t_beam)
-ens_an = {'V': ens_an[:,0], 'T': ens_an[:,1]}
-
-#t_points, sol = obtain_analytical_forced(par, my_beam, load_dist, t_tild, n)
+t_tild, w_ad, V0 = obtain_analytical_free(my_beam, w0, t, n_time)
 
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, dmodel, dimhid, nheads, nblocks, lr, epochs = get_params(par.pinn_par)
 
-x_domain = torch.linspace(0, Lx, n_space[0])
-y_domain = torch.linspace(0, Ly, n_space[1])
+L_tild = Lx
+x_domain = torch.linspace(0, Lx, n_space)/Lx
+y_domain = torch.linspace(0, Ly, n_space)/Lx
 t_domain = torch.linspace(0, T, n_time)
 
 steps = get_step((x_domain, y_domain, t_domain))
@@ -58,106 +59,99 @@ grid = Grid(x_domain, y_domain, t_domain, device)
 points = {
     'res_points': grid.get_interior_points(),
     'initial_points': grid.get_initial_points(),
+    'boundary_points': grid.get_boundary_points(),
     'all_points': grid.get_all_points()
 }
 
-prop = {'E': E, 'J': my_beam.J, 'm': rho * my_beam.A, 'A': my_beam.A}
-m_par = (lam, mu, rho)
-nsamples = n_space + (n_time,)
+adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
+par = {"Lx": Lx,
+        "w0": w0,
+        "lam": lam,
+        "mu":mu,
+        "rho": rho,
+        "t_ast": t_tild}
 
-calculate = Calculate(
-        initial_conditions,
-        m_par,
+
+inpoints = torch.cat(points["initial_points"], dim=1)
+spacein = inpoints[:,:2]
+cond0 = initial_conditions(spacein, w0)
+
+def extractcompfft(yf: np.ndarray, freq: np.ndarray):
+    lastpos = np.where(freq > 0)[0][-1]
+    freqpos = freq[:lastpos]
+    magnpos = np.abs(yf[:lastpos])
+    magnpos[1:-1] *= 2
+
+    return magnpos, freqpos
+
+pinn = PINN(dmodel, dimhid, nblocks, nheads, w0).to(device)
+
+#En0 = calc_initial_energy(pinn, n_space, points, device)
+
+in_penalty = np.array([1, 2])
+loss_fn = Loss(
         points,
-        nsamples,
-        steps,
+        n_space,
+        n_time,
+        h/3,
         w0,
+        steps,
+        in_penalty,
+        adim,
+        par,
         device
     )
 
-"""
-eigenNN = MLNet(4, 60, 9)
-eigenNN.load_state_dict(torch.load('data//eigenestmodel.pth'))
-input_eigen = torch.tensor([E, rho, Lx, Ly]).reshape(1,-1)
-eigen = eigenNN(input_eigen)
-ef_range = torch.load('data//ef_range.pt')
-eigen = denormalizematr(eigen, ef_range)
 
-omega_trans = eigen.squeeze(0)[:1]
-omega_ax = eigen.squeeze(0)[:1]
+if retrain_PINN:
+    dir_model = pass_folder('model')
+    dir_logs = pass_folder('model/logs')
 
-nninbcs = NNinbc(20, 1).to(device)
-nndist = NNd(40, 2).to(device)
+    pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
+                               max_epochs=epochs, path_logs=dir_logs, modeldir=dir_model)
 
-if retrainaux:
-    nninbcs = train_inbcs(nninbcs, calculate, 1000, 1e-3)
-    torch.save(nninbcs.state_dict(), 'data//nnInbcs.pth')
-    nndist = train_dist(nndist, calculate, 5000, 1e-3)
-    torch.save(nndist.state_dict(), 'data//nnDist.pth')
-else:
-    nninbcs.load_state_dict(torch.load('data//nnInbcs.pth'))
-    nndist.load_state_dict(torch.load('data//nnDist.pth'))
-"""
+    model_name = f'{lr}_{epochs}_{dimhid}.pth'
+    model_path = os.path.join(dir_model, model_name)
 
-x, y, t = points['initial_points']
-x_in = x.to(device)
-y_in = y.to(device)
-t_in = t.to(device)
-in_points = torch.cat([x_in, y_in, t_in], dim=1)
-all_points = torch.cat(points['all_points'], dim=1)
-
-pinn = PINN(2, dmodel, dimhid, nblocks, nheads, w0).to(device)
-
-Psi_0, K_0 = calculate.gete0(pinn)
-
-dir_model = pass_folder('model')
-dir_logs = pass_folder('model/logs')
-
-model_name = 'model.pth'
-model_path = os.path.join(dir_model, model_name)
-
-if restartraining:
-    pinn_trained, ens_NN = train_model(pinn, calc=calculate, lr=lr,
-            max_epochs=epochs, path_logs=dir_logs)
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(2, dmodel, dimhid, nblocks, nheads, w0).to(device)
-    ### Specify here filename ###
-    filename = 'model//08-04//1714//0.001_2000_1.pth' 
+    pinn_trained = PINN(dmodel, dimhid, nblocks, nheads, w0).to(device)
+    filename = get_last_modified_file('model', '.pth')
+
+    dir_model = os.path.dirname(filename)
+    print(f'Target for outputs: {dir_model}\n')
+
     pinn_trained.load_state_dict(torch.load(filename, map_location=device))
     print(f'{filename} loaded.\n')
-
-    pinn_trained, ens_NN = train_model(pinn_trained, calc=calculate, lr=lr,
-            max_epochs=epochs, path_logs=dir_logs)
-    torch.save(pinn_trained.state_dict(), model_path)
 
 print(pinn_trained)
 
 pinn_trained.eval()
 
-space = torch.cat([x, y], dim=1)
-z = pinn_trained(space, t)
-v = calculate_speed(pinn_trained, (x, y, t), device)
+tin = inpoints[:,-1].unsqueeze(1)
+z = pinn_trained(spacein, tin)
+v = calculate_speed(z, tin, par)
 z = torch.cat([z, v], dim=1)
 
-cond0 = initial_conditions(x_in, w0)
 
-plot_initial_conditions(z, cond0, x_in, y_in, n_space, dir_model)
+plot_initial_conditions(z, cond0, spacein, dir_model)
 
-x, y, _ = grid.get_initial_points()
-_, _, t = grid.get_all_points()
-x = x.to(device)
-y = y.to(device)
-t = t.to(device)
-space_in = torch.cat([x, y], dim=1)
-sol = obtainsolt(pinn_trained, space_in, t, nsamples, device)
-plot_sol(sol, space_in, t, dir_model)
+allpoints = torch.cat(points["all_points"], dim=1)
+space = allpoints[:,:2]
+t = allpoints[:,-1].unsqueeze(1)
+nsamples = (n_space, n_space) + (n_time,)
+sol = obtainsolt_u(pinn_trained, space, t, nsamples)
+plot_sol(par['w0']*sol, spacein, t, dir_model)
+plot_average_displ(par['w0']*sol, t, dir_model)
 
-plot_energy(ens_NN, ens_an, t, t_beam, dir_model)
-dPi, dT = obtain_deren(ens_NN, steps[2])
-plot_deren(dPi, dT, t, dir_model)
+import os
+import shutil
 
-f, modPI, angPI = calculate_fft(ens_NN['Pi'], steps[2], torch.unique(t, sorted=True))
-f, modT, angT = calculate_fft(ens_NN['T'], steps[2], torch.unique(t, sorted=True))
-plot_fft(f, modPI, angPI, modT, angT, dir_model)
+def create_zip(file_paths, zip_name):
+    shutil.make_archive(zip_name, 'zip', file_paths)
+
+timenow = get_current_time(fmt='%m-%d %H:%M')
+
+create_zip(dir_model, f'model_FF-{timenow}')
+create_zip(dir_logs, f'logs_FF-{timenow}')
