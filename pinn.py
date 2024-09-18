@@ -440,7 +440,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        loss = (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
+        loss = 3*(v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
 
         return loss
 
