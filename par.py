@@ -3,8 +3,8 @@ class Parameters:
         self.x_end = 500 
         self.y_end = 0.5
         self.t_end = 0.3
-        self.n_space = 10
-        self.n_time = 10
+        self.n_space = 30
+        self.n_time = 20
         self.dimhid = 3 
         self.dmodel = 1 
         self.nheads = 1 
