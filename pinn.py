@@ -48,7 +48,7 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(space: torch.Tensor, w0: float, i: float = 1) -> torch.tensor:
+def initial_conditions(space: torch.Tensor, w0: float, i: float = 0) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
     uy0 = w0*torch.sin(torch.pi*i*x)
@@ -446,7 +446,7 @@ class Loss:
 
         sig = sig.reshape(self.n_space**2*self.n_time, 4)
         tractionleft = sig[:,-1][neumannidx]
-        prescribed = 1e2*torch.ones_like(tractionleft)
+        prescribed = torch.ones_like(tractionleft)
         # MPa
 
         loss += (tractionleft - prescribed).pow(2).mean(dim=0).sum()
@@ -461,10 +461,10 @@ class Loss:
                 tidxN = torch.nonzero(left[:,-1] == ts).squeeze()
                 uyneut = self.par['w0']*output[tidxN, -1].reshape(self.n_space)
                 dWext = tractionleft[:, i-1] * uyneut
-                #dWext *= torch.max(dV)/torch.max(dWext)
+                dWext *= torch.max(dV)/torch.max(dWext)
                 W_ext_eff[i] = self.b * simps(dWext, self.steps[0])
                 dWext = prescribed[:, i-1] * uyneut
-                #dWext *= torch.max(dV)/torch.max(dWext)
+                dWext *= torch.max(dV)/torch.max(dWext)
                 W_ext_an[i] = self.b * simps(dWext, self.steps[0])
             else:
                 W_ext_eff[i] = 0
