@@ -442,7 +442,7 @@ class Loss:
 
         sig = sig.reshape(self.n_space**2*self.n_time, 4)
         tractionleft = sig[:,-1][neumannidx]
-        prescribed = 1e3*torch.ones_like(tractionleft)
+        prescribed = torch.ones_like(tractionleft)
         # MPa
 
         loss += (tractionleft - prescribed).pow(2).mean(dim=0).sum()
@@ -503,7 +503,7 @@ class Loss:
         res_loss, V, T, Wext_eff, Wext_an = self.res_loss(pinn)
         enloss = ((V[0] + T[0] + Wext_eff[0]) - (Wext_eff + V + T)).pow(2).mean()
         init_loss = self.initial_loss(pinn)
-        loss = res_loss + init_loss
+        loss = res_loss + init_loss + enloss
 
         return loss, res_loss, (init_loss, V, T, (V+T).detach().mean(), Wext_eff.detach(), Wext_an.detach())
 
