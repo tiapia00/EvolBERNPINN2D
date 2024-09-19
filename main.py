@@ -65,7 +65,7 @@ points = {
 
 adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
 par = {"Lx": Lx,
-        "w0": w0,
+        "w0": 10,
         "lam": lam,
         "mu":mu,
         "rho": rho,
