@@ -227,7 +227,6 @@ class PINN(nn.Module):
                  n_hidden: int,
                  multux: int,
                  multuy: int,
-                 magnFFT: np.ndarray,
                  device,
                  act=nn.ReLU(),
                  ):
@@ -264,11 +263,8 @@ class PINN(nn.Module):
 
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
         self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
-        weightslast = torch.from_numpy(magnFFT).float()
-        weightslast[2:] *= 0
-        self.outlayery.weight.data = weightslast[:n_mode_spacey].unsqueeze(0)
 
-        #self._initialize_weights()
+        self._initialize_weights()
 
     @staticmethod
     def apply_filter(alpha):
@@ -461,11 +457,12 @@ class Loss:
                 tidxN = torch.nonzero(left[:,-1] == ts).squeeze()
                 uyneut = self.par['w0']*output[tidxN, -1].reshape(self.n_space)
                 dWext = tractionleft[:, i-1] * uyneut
-                dWext *= torch.max(dV)/torch.max(dWext)
+                #dWext = torch.max(dV)/torch.max(dWext) * dWext
                 W_ext_eff[i] = self.b * simps(dWext, self.steps[0])
-                dWext = prescribed[:, i-1] * uyneut
-                dWext *= torch.max(dV)/torch.max(dWext)
-                W_ext_an[i] = self.b * simps(dWext, self.steps[0])
+                dWextan = prescribed[:, i-1] * uyneut
+                dWextan *= torch.max(dV)/torch.max(dWext)
+                dWextan = dWextan.detach()
+                W_ext_an[i] = self.b * simps(dWextan, self.steps[0])
             else:
                 W_ext_eff[i] = 0
                 W_ext_an[i] = 0

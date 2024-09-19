@@ -90,7 +90,7 @@ magnpos, freqpos = extractcompfft(yf, freq)
 if np.max(magnpos) != 0:
     magnpos *= 1./np.max(magnpos)
 
-pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, magnpos, device).to(device)
+pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
@@ -122,7 +122,7 @@ if retrain_PINN:
     torch.save(pinn_trained.state_dict(), model_path)
 
 else:
-    pinn_trained = PINN(dim_hidden, w0, n_hidden, multux, multuy, magnpos, device).to(device)
+    pinn_trained = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
     filename = get_last_modified_file('model', '.pth')
 
     dir_model = os.path.dirname(filename)
