@@ -442,7 +442,7 @@ class Calculate:
         speed = getspeed(output, t, self.device)
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
-        action = self.b * torch.trapezoid(y = torch.max(Pi)/torch.max(T) * T - Pi, dx = dt)
+        action = self.b * torch.trapezoid(y = Pi[0]/T[0] * T - Pi, dx = dt)
 
         return action.pow(2)
 
@@ -463,7 +463,7 @@ class Calculate:
 
         speed = getspeed(output, t, self.device)
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
-        T = torch.max(Pi)/torch.max(T) * T
+        T = Pi[0]/T[0] * T
 
         deren = torch.autograd.grad((T - Pi).unsqueeze(1), t, torch.ones(Pi.shape[0], 1, device=self.device),
                  create_graph=True, retain_graph=True)[0]
