@@ -391,7 +391,6 @@ class Loss:
             if i != 0:
                 tidxN = torch.nonzero(left[:,-1] == ts).squeeze()
                 uyneut = output[tidxN, -1].reshape(self.n_space)
-                print(torch.max(torch.abs(uyneut)))
                 dWext = tractionleft[:, i-1] * uyneut
                 W_ext_eff[i] = self.b * simps(dWext, self.steps[0])
                 dWextan = prescribed[:, i-1] * uyneut
