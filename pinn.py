@@ -318,7 +318,6 @@ class PINN(nn.Module):
 
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
-        xmax = torch.max(input[:,0])
         input0 = input
         U = self.U(input)
         U = torch.cat([torch.cos(np.pi * U), torch.sin(np.pi * U)], dim=1)
@@ -443,7 +442,7 @@ class Calculate:
         speed = getspeed(output, t, self.device)
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
-        action = self.b * torch.trapezoid(y = Pi[0]/T[0] * T - Pi, dx = dt)
+        action = self.b * torch.trapezoid(y = torch.max(Pi)/torch.max(T) * T - Pi, dx = dt)
 
         return action.pow(2)
 
@@ -464,7 +463,7 @@ class Calculate:
 
         speed = getspeed(output, t, self.device)
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
-        T = Pi[0]/T[0] * T
+        T = torch.max(Pi)/torch.max(T) * T
 
         deren = torch.autograd.grad((T - Pi).unsqueeze(1), t, torch.ones(Pi.shape[0], 1, device=self.device),
                  create_graph=True, retain_graph=True)[0]

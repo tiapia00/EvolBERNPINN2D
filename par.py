@@ -8,7 +8,7 @@ class Parameters:
         self.dim_hidden = 40 
         self.dim_mult = (1,1)
         self.n_hidden : int = 3 
-        self.w0 = 0.3
+        self.w0 = 1 
         self.pinn_par = {
             'x_end': self.x_end,
             'y_end': self.y_end,
