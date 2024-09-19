@@ -3,6 +3,7 @@ from tqdm import tqdm
 from typing import Callable
 import numpy as np
 import torch
+import torch.nn.init as init
 from torch import device, nn
 import torch.optim as optim
 
@@ -297,45 +298,53 @@ class PINN(nn.Module):
         self.act = act
         self.w0 = w0
 
-        self.U =  nn.ModuleList([
-            nn.Linear(3, hiddendim),
-            act
-        ])
+        self.U =  nn.Linear(2, hiddendim, bias=False)
 
-        self.V = nn.ModuleList([
-            nn.Linear(3, hiddendim),
-            act
-        ])
+        self.V= nn.Linear(2, hiddendim, bias=False)
 
+        init.normal_(self.U.weight, mean=0.0, std=1.0)
+        init.normal_(self.U.bias, mean=0.0, std=1.0)
+
+        init.normal_(self.V.weight, mean=0.0, std=1.0)
+        init.normal_(self.V.bias, mean=0.0, std=1.0)
+
+        for param in self.U.parameters():
+            param.requires_grad = False
+
+        for param in self.V.parameters():
+            param.requires_grad = False
+
+
+        self.initlayer = nn.Linear(3, 2*hiddendim)
         self.layers = nn.ModuleList([])
-        self.layers.append(nn.Linear(3, hiddendim))
-        
+
         for _ in range(nhidden):
-            self.layers.append(nn.Linear(hiddendim, hiddendim))
+            self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim))
         
-        self.outlayer = nn.Linear(hiddendim, 2)
+        self.outlayer = nn.Linear(2*hiddendim, 2)
 
 
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
+        spacex_t = torch.stack([space[:,0], t.squeeze()], dim=1)
         input0 = input
-        for layer in self.U:
-            U = layer(input)
-            input = U
-
-        input = input0
-        for layer in self.V:
-            V = layer(input)
-            input = V 
+        U = self.U(spacex_t)
+        U = torch.cat([torch.cos(U), torch.sin(U)], dim=1)
         
         input = input0
+        V = self.V(spacex_t)
+        V = torch.cat([torch.cos(V), torch.sin(V)], dim=1)
+        
+        input = input0
+        out = self.initlayer(input)
+
         for layer in self.layers:
-            input = layer(input)
-            input = self.act(input) * U + (1-self.act(input)) * V
+            out = layer(out)
+            out = self.act(out) * U + (1-self.act(out)) * V
 
-        outNN = self.outlayer(input)
+        outNN = self.outlayer(out)
 
-        outNN = torch.sin(space[:,0].reshape(-1,1)/torch.max(space) * np.pi) * outNN
+        outNN = torch.sin(space[:,0].reshape(-1,1) * np.pi) * outNN
 
         act_global = torch.tanh(t.repeat(1, 2)) * outNN
 
