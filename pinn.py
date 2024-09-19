@@ -338,11 +338,13 @@ class PINN(nn.Module):
 
         return out
 
-def material_model(eps: torch.Tensor, par: tuple,  device):
+def material_model(eps: torch.Tensor, par: dict,  device):
     tr_eps = eps.diagonal(offset=0, dim1=-1, dim2=-2).sum(-1) 
     lam = par['lam']
     mu = par['mu']
-    sig = 2 * mu * eps + lam * torch.einsum('ijk,lm->ijklm', tr_eps, torch.eye(eps.size()[-1], device=device)) 
+    Lx = par['Lx']
+    w0 = par['w0']
+    sig = 2 * mu/(Lx*lam) * eps + w0/Lx*torch.einsum('ijk,lm->ijklm', tr_eps, torch.eye(eps.size()[-1], device=device)) 
     psi = torch.einsum('ijklm,ijklm->ijk', eps, sig)
 
     return sig, psi
