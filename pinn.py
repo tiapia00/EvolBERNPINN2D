@@ -349,6 +349,7 @@ def material_model(eps: torch.Tensor, par: dict,  device):
 
     return sig, psi
 
+
 class Loss:
     def __init__(
         self,
@@ -427,19 +428,13 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
         vnorm = torch.norm(v, dim=1)
         dT = (1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2)
-        #dT = dT * torch.max(dV)/torch.max(dT)
+        dT = dT * torch.max(dV)/torch.max(dT)
 
         tgrid = torch.unique(t, sorted=True)
 
         V = torch.zeros(tgrid.shape[0])
         T = torch.zeros_like(V)
-        for i, ts in enumerate(tgrid):
-            tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx].reshape(self.n_space, self.n_space)
-            dTt = dT[tidx].reshape(self.n_space, self.n_space)
-
-            V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
-            T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
+        W_ext = torch.zeros_like(V)
 
         # Boundterm
         _, _, left, right, _ = self.points['boundary_points']
@@ -456,10 +451,24 @@ class Loss:
         sig = sig.reshape(self.n_space**2*self.n_time, 4)
         tractionleft = sig[:,[2,-1]][neumannidx]
         prescribed = 0.01*torch.ones_like(tractionleft)
+        # MPa
 
+        uyneu = output[neumannidx,0]
         loss += (tractionleft - prescribed).pow(2).mean(dim=0).sum()
+        prescribed = prescribed.reshape(self.nspace, self.n_time - 1)
 
-        return loss, V, T
+        for i, ts in enumerate(tgrid):
+            tidx = torch.nonzero(t.squeeze() == ts).squeeze()
+            dVt = dV[tidx].reshape(self.n_space, self.n_space)
+            dTt = dT[tidx].reshape(self.n_space, self.n_space)
+            uyneut = uyneu[tidx].reshape(self.n_space, self.n_time - 1)
+            dWext = prescribed * uyneut
+
+            V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
+            T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
+            W_ext[i] = self.b * simps(dWext, self.steps[0])
+
+        return loss, V, T, W_ext
 
 
     def initial_loss(self, pinn):
