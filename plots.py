@@ -18,7 +18,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     z0 = z0.cpu().detach().numpy()
 
     X = x_raw
-    Y = y_raw
+    Y = 1/10*y_raw
 
     cmap = 'coolwarm'
 
@@ -87,7 +87,7 @@ def plot_sol(sol: torch.tensor, space: torch.tensor, t: torch.tensor, path: str)
         ax.set_title(f'$t = {t[frame]:.2f}$')
 
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
-        ax.scatter(space[:,0]+sol[:,frame,0], space[:,1]+sol[:,frame,1])
+        ax.scatter(space[:,0]+sol[:,frame,0], 1/10*space[:,1]+sol[:,frame,1])
 
         return ax
 
