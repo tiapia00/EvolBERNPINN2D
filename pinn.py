@@ -95,14 +95,11 @@ class Grid:
         y1 = torch.full_like(
             t_grid, self.y_domain[1])
 
-        down = torch.cat((x0, y_grid, t_grid), dim=1)
-
-        up = torch.cat((x1, y_grid, t_grid), dim=1)
-
-        left = torch.cat((x_grid, y0, t_grid), dim=1)
-
-        right = torch.cat((x_grid, y1, t_grid), dim=1)
-        bound_points = torch.cat((down, up, left, right), dim=0)
+        down = torch.cat((x0, y_grid, t_grid), dim=1).to(self.device)
+        up = torch.cat((x1, y_grid, t_grid), dim=1).to(self.device)
+        left = torch.cat((x_grid, y0, t_grid), dim=1).to(self.device)
+        right = torch.cat((x_grid, y1, t_grid), dim=1).to(self.device)
+        bound_points = torch.cat((down, up, left, right), dim=0).to(self.device)
 
         return (down, up, left, right, bound_points)
 
