@@ -451,7 +451,6 @@ class Loss:
             neumannidx.append(idx)
 
         neumannidx = torch.stack(neumannidx)
-        print(neumannidx.shape)
         sig = sig.reshape(self.n_space**2*self.n_time, 4)
         tractionleft = sig[:,[2,-1]][neumannidx]
         prescribed = 0.01*torch.ones_like(tractionleft)
