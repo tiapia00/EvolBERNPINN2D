@@ -268,6 +268,16 @@ class PINN(nn.Module):
 
         return out
 
+def material_model(eps: torch.Tensor, par: dict,  device):
+    tr_eps = eps.diagonal(offset=0, dim1=-1, dim2=-2).sum(-1) 
+    lam = par['lam']
+    mu = par['mu']
+    Lx = par['Lx']
+    w0 = par['w0']
+    sig = 2 * mu/(Lx*lam) * eps + w0/Lx*torch.einsum('ijk,lm->ijklm', tr_eps, torch.eye(eps.size()[-1], device=device)) 
+    psi = torch.einsum('ijklm,ijklm->ijk', eps, sig)
+
+    return sig, psi
 
 class Loss:
     def __init__(
@@ -295,6 +305,7 @@ class Loss:
         self.par = par
         self.b = b
 
+    
     def res_loss(self, pinn):
         x, y, t = self.points['all_points']
         space = torch.cat([x, y], dim=1)
@@ -330,28 +341,70 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         
-        eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
-        dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2).detach()
-
+        H = torch.zeros(self.n_space, self.n_space, self.n_time, 2, 2, device=self.device)
+        dxyux = dxyux.reshape(self.n_space, self.n_space, self.n_time, 2)
+        dxyuy = dxyuy.reshape(self.n_space, self.n_space, self.n_time, 2)
+        # last 2 is related to the the components of the derivative
+        # nx, ny, nt, 2, 2
+        H[:, :, :, 0, :] = dxyux
+        H[:, :, :, 1, :] = dxyuy
+        eps = H
+        eps[:, :, :, [0, 1], [1, 0]] = 0.5 * (eps[:, :, :, 0, 1] + 
+                eps[:, :, :, 1, 0]).unsqueeze(3).expand(-1,-1,-1,2)
+        
+        sig, dV = material_model(eps, self.par, self.device)
+        dV = dV.reshape(self.n_space**2*self.n_time)
+        
         v = torch.cat([vx, vy], dim=1)
         vnorm = torch.norm(v, dim=1)
-        dT = (1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2).detach()
-        dT *= torch.max(dV)/torch.max(dT)
+        dT = (1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2)
+        dT = dT * torch.max(dV)/torch.max(dT)
 
         tgrid = torch.unique(t, sorted=True)
 
         V = torch.zeros(tgrid.shape[0])
         T = torch.zeros_like(V)
+        W_ext_eff = torch.zeros_like(V)
+        W_ext_an = torch.zeros_like(V)
+
+        # Boundterm
+        _, _, left, _, _ = self.points['boundary_points']
+        points = torch.cat([space, t], dim=1)
+
+        matches = (points.unsqueeze(1) == left.unsqueeze(0)).all(dim=-1)
+        neumannidx = torch.nonzero(matches)[:, 0]
+
+        sig = sig.reshape(self.n_space**2*self.n_time, 4)
+        tractionleft = sig[:,-1][neumannidx]
+        prescribed = torch.ones_like(tractionleft)
+        # MPa
+
+        loss += (tractionleft - prescribed).pow(2).mean()
+        prescribed = prescribed.reshape(self.n_space, self.n_time - 1)
+        tractionleft = tractionleft.reshape(self.n_space, self.n_time - 1)
+
+
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
             dVt = dV[tidx].reshape(self.n_space, self.n_space)
             dTt = dT[tidx].reshape(self.n_space, self.n_space)
+            if i != 0:
+                tidxN = torch.nonzero(left[:,-1] == ts).squeeze()
+                uyneut = output[tidxN, -1].reshape(self.n_space)
+                dWext = tractionleft[:, i-1] * uyneut
+                W_ext_eff[i] = self.b * simps(dWext, self.steps[0])
+                dWextan = prescribed[:, i-1] * uyneut
+                dWextan = dWextan.detach()
+                W_ext_an[i] = self.b * simps(dWextan, self.steps[0])
+            else:
+                W_ext_eff[i] = 0
+                W_ext_an[i] = 0
 
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
 
-        return loss, V, T
-
+        print(torch.max(W_ext_eff))
+        return loss, V, T, W_ext_eff, W_ext_an
 
     def initial_loss(self, pinn):
         init_points = self.points['initial_points']
@@ -382,12 +435,13 @@ class Loss:
 
 
     def verbose(self, pinn):
-        res_loss, V, T = self.res_loss(pinn)
-        enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
+        res_loss, V, T, Wext_eff, Wext_an = self.res_loss(pinn)
+        enloss = ((V[0] + T[0] + Wext_eff[0]) - (Wext_eff + V + T)).pow(2).mean()
         init_loss = self.initial_loss(pinn)
         loss = res_loss + init_loss
 
-        return loss, res_loss, (init_loss, V, T, (V+T).mean())
+        return loss, res_loss, (init_loss, V, T, (V+T).detach().mean(), Wext_eff.detach(), Wext_an.detach())
+
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -413,7 +467,7 @@ def train_model(
         optimizer.zero_grad()
 
         loss, res_loss, losses = loss_fn(nn_approximator)
-        loss.backward()
+        loss.backward(retain_graph=False)
         optimizer.step()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
@@ -425,15 +479,18 @@ def train_model(
         }, epoch)
 
         writer.add_scalars('Energy', {
-            'V+T': losses[3].detach().item(),
+            'V+T': losses[3].item(),
             'V': losses[1].mean().detach().item(),
-            'T': losses[2].mean().detach().item()
+            'T': losses[2].mean().detach().item(),
+            'Wext_eff': losses[4].mean().item(),
+            'Wext_an': losses[5].mean().item(),
         }, epoch)
 
         if epoch % 500 == 0:
             t = loss_fn.points['all_points'][-1].unsqueeze(1)
             t = torch.unique(t, sorted=True)
-            plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(), epoch, modeldir) 
+            plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(),
+                    losses[4].cpu().numpy(), epoch, modeldir) 
 
         pbar.update(1)
 
@@ -443,6 +500,7 @@ def train_model(
     writer.close()
 
     return nn_approximator
+
 
 def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
     nx, ny, nt = nsamples
