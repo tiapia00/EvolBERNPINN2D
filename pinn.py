@@ -113,14 +113,11 @@ class Grid:
         y1 = torch.full_like(
             t_grid, self.y_domain[1])
 
-        down = torch.cat((x0, y_grid, t_grid), dim=1)
-
-        up = torch.cat((x1, y_grid, t_grid), dim=1)
-
-        left = torch.cat((x_grid, y0, t_grid), dim=1)
-
-        right = torch.cat((x_grid, y1, t_grid), dim=1)
-        bound_points = torch.cat((down, up, left, right), dim=0)
+        down = torch.cat((x0, y_grid, t_grid), dim=1).to(self.device)
+        up = torch.cat((x1, y_grid, t_grid), dim=1).to(self.device)
+        left = torch.cat((x_grid, y0, t_grid), dim=1).to(self.device)
+        right = torch.cat((x_grid, y1, t_grid), dim=1).to(self.device)
+        bound_points = torch.cat((down, up, left, right), dim=0).to(self.device)
 
         return (down, up, left, right, bound_points)
 
@@ -341,6 +338,14 @@ class PINN(nn.Module):
 
         return out
 
+def material_model(eps: torch.Tensor, par: tuple,  device):
+    tr_eps = eps.diagonal(offset=0, dim1=-1, dim2=-2).sum(-1) 
+    lam = par['lam']
+    mu = par['mu']
+    sig = 2 * mu * eps + lam * torch.einsum('ijk,lm->ijklm', tr_eps, torch.eye(eps.size()[-1], device=device)) 
+    psi = torch.einsum('ijklm,ijklm->ijk', eps, sig)
+
+    return sig, psi
 
 class Loss:
     def __init__(
@@ -403,9 +408,20 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         
-        eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
-        dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
-
+        H = torch.zeros(self.n_space, self.n_space, self.n_time, 2, 2, device=self.device)
+        dxyux = dxyux.reshape(self.n_space, self.n_space, self.n_time, 2)
+        dxyuy = dxyuy.reshape(self.n_space, self.n_space, self.n_time, 2)
+        # last 2 is related to the the components of the derivative
+        # nx, ny, nt, 2, 2
+        H[:, :, :, 0, :] = dxyux
+        H[:, :, :, 1, :] = dxyuy
+        eps = H
+        eps[:, :, :, [0, 1], [1, 0]] = 0.5 * (eps[:, :, :, 0, 1] + 
+                eps[:, :, :, 1, 0]).unsqueeze(3).expand(-1,-1,-1,2)
+        
+        sig, dV = material_model(eps, self.par, self.device)
+        dV = dV.reshape(self.n_space**2*self.n_time)
+        
         v = torch.cat([vx, vy], dim=1)
         vnorm = torch.norm(v, dim=1)
         dT = (1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2)
@@ -422,6 +438,25 @@ class Loss:
 
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
+
+        # Boundterm
+        _, _, left, right, _ = self.points['boundary_points']
+        neumann = torch.cat([left, right], dim=0)
+        points = torch.cat([space, t], dim=1)
+        neumannidx = []
+
+        for i, neumann_row in enumerate(neumann):
+            match = (points == neumann_row).all(dim=1)
+            idx = torch.nonzero(match).squeeze()
+            neumannidx.append(idx)
+
+        neumannidx = torch.stack(neumannidx)
+        print(neumannidx.shape)
+        sig = sig.reshape(self.n_space**2*self.n_time, 4)
+        tractionleft = sig[:,[2,-1]][neumannidx]
+        prescribed = 0.01*torch.ones_like(tractionleft)
+
+        loss += (tractionleft - prescribed).pow(2).mean(dim=0).sum()
 
         return loss, V, T
 
@@ -443,21 +478,6 @@ class Loss:
         loss = 3*(v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
 
         return loss
-
-    def bound_N(self, pinn):
-            _, _, _, left, right, _ = self.points['boundary_points']
-            
-            neumann = torch.cat([left, right], dim=0)
-
-            output = pinn(neumann[:,:2], neumann[:,-1].unsqueeze(1))
-            outputleft = pinn(left[:,:2], left[:,-1].unsqueeze(1))
-            tractions = torch.sum(output[:,2:], dim=1)
-            extforce = torch.ones(tractions)
-            loss = tractions.pow(2).mean()
-            #TODO: I should obtain stresses at first
-
-            return loss
-
 
     def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
         lambda_o = np.array(self.penalty)
