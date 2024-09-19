@@ -376,11 +376,12 @@ class Loss:
         prescribed = torch.ones_like(tractionleft)
         # MPa
 
-        loss += (tractionleft - prescribed).pow(2).mean()
-        loss += 5*(outputD).pow(2).mean(dim=0).sum()
+        loss_N = (tractionleft - prescribed).pow(2).mean()
+        loss += loss_N
+        loss_D = (outputD).pow(2).mean(dim=0).sum()
+        loss += 5*loss_D
         prescribed = prescribed.reshape(self.n_space, self.n_time - 1)
         tractionleft = tractionleft.reshape(self.n_space, self.n_time - 1)
-
 
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
@@ -401,7 +402,7 @@ class Loss:
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
 
-        return loss, V, T, W_ext_eff, W_ext_an
+        return loss, V, T, W_ext_eff, W_ext_an, loss_N.detach(), loss_D.detach()
 
     def initial_loss(self, pinn):
         init_points = self.points['initial_points']
@@ -432,12 +433,12 @@ class Loss:
 
 
     def verbose(self, pinn):
-        res_loss, V, T, Wext_eff, Wext_an = self.res_loss(pinn)
+        res_loss, V, T, Wext_eff, Wext_an, lossN, lossD = self.res_loss(pinn)
         enloss = ((V[0] + T[0] + Wext_eff[0]) - (Wext_eff + V + T)).pow(2).mean()
         init_loss = self.initial_loss(pinn)
         loss = res_loss + init_loss + enloss
 
-        return loss, res_loss, (init_loss, V, T, (V+T).detach().mean(), Wext_eff.detach(), Wext_an.detach())
+        return loss, res_loss, (init_loss, V, T, (V+T).detach().mean(), Wext_eff.detach(), Wext_an.detach(), lossN, lossD)
 
 
     def __call__(self, pinn):
@@ -472,7 +473,9 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
-            'init': losses[0].item()
+            'init': losses[0].item(),
+            'Neu': losses[6].item(),
+            'Dir': losses[7].item()
         }, epoch)
 
         writer.add_scalars('Energy', {
