@@ -5,7 +5,7 @@ class Parameters:
         self.t_end = 1
         self.n_space = (40, 40)
         self.n_time = 30
-        self.dim_hidden = 80 
+        self.dim_hidden = 40 
         self.dim_mult = (1,1)
         self.n_hidden : int = 3 
         self.w0 = 0.3
