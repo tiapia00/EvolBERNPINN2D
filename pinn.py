@@ -378,7 +378,7 @@ class Loss:
 
         loss_N = (tractionleft - prescribed).pow(2).mean()
         loss += loss_N
-        loss_D = (outputD).pow(2).mean(dim=0).sum()
+        loss_D = (outputD).pow(2).mean()
         loss += 5*loss_D
         prescribed = prescribed.reshape(self.n_space, self.n_time - 1)
         tractionleft = tractionleft.reshape(self.n_space, self.n_time - 1)
@@ -418,7 +418,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        loss = (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
+        loss = (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean()
 
         return loss
 
