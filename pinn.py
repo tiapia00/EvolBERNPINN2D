@@ -254,7 +254,7 @@ class PINN(nn.Module):
 
         outNN = self.outlayer(input)
 
-        outNN = torch.sin(space[:,0].reshape(-1,1) * np.pi) * outNN
+        #outNN = torch.sin(space[:,0].reshape(-1,1) * np.pi) * outNN
 
         act_global = torch.tanh(t.repeat(1, 2)) * outNN
 
@@ -365,7 +365,9 @@ class Loss:
         W_ext_an = torch.zeros_like(V)
 
         # Boundterm
-        _, _, left, _, _ = self.points['boundary_points']
+        down, up, left, _, _ = self.points['boundary_points']
+        points_D = torch.cat([down, up], dim=0) 
+        outputD = pinn(points_D[:,:2], points_D[:,-1].unsqueeze(1))
         points = torch.cat([space, t], dim=1)
 
         matches = (points.unsqueeze(1) == left.unsqueeze(0)).all(dim=-1)
@@ -377,6 +379,7 @@ class Loss:
         # MPa
 
         loss += (tractionleft - prescribed).pow(2).mean()
+        loss += (outputD).pow(2).mean(dim=0).sum()
         prescribed = prescribed.reshape(self.n_space, self.n_time - 1)
         tractionleft = tractionleft.reshape(self.n_space, self.n_time - 1)
 
@@ -388,6 +391,7 @@ class Loss:
             if i != 0:
                 tidxN = torch.nonzero(left[:,-1] == ts).squeeze()
                 uyneut = output[tidxN, -1].reshape(self.n_space)
+                print(torch.max(torch.abs(uyneut)))
                 dWext = tractionleft[:, i-1] * uyneut
                 W_ext_eff[i] = self.b * simps(dWext, self.steps[0])
                 dWextan = prescribed[:, i-1] * uyneut
