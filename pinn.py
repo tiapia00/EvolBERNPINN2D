@@ -403,7 +403,6 @@ class Loss:
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
 
-        print(torch.max(W_ext_eff))
         return loss, V, T, W_ext_eff, W_ext_an
 
     def initial_loss(self, pinn):
