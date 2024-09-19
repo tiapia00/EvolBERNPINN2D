@@ -3,8 +3,7 @@ from tqdm import tqdm
 from typing import Callable
 import numpy as np
 import torch
-import torch.nn.init as init
-from torch import device, nn
+from torch import nn
 import torch.optim as optim
 
 def latin_hypercube_sampling(n_samples, n_dimensions, low, high):
@@ -302,15 +301,11 @@ class PINN(nn.Module):
 
         self.V= nn.Linear(2, hiddendim, bias=False)
 
-        init.normal_(self.U.weight, mean=0.0, std=1.0)
-        init.normal_(self.V.weight, mean=0.0, std=1.0)
-
         for param in self.U.parameters():
             param.requires_grad = False
 
         for param in self.V.parameters():
             param.requires_grad = False
-
 
         self.initlayer = nn.Linear(3, 2*hiddendim)
         self.layers = nn.ModuleList([])
