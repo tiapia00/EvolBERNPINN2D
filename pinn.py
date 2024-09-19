@@ -442,7 +442,7 @@ class Loss:
 
         sig = sig.reshape(self.n_space**2*self.n_time, 4)
         tractionleft = sig[:,-1][neumannidx]
-        prescribed = torch.ones_like(tractionleft)
+        prescribed = - torch.ones_like(tractionleft)
         # MPa
 
         loss += (tractionleft - prescribed).pow(2).mean()
@@ -458,6 +458,7 @@ class Loss:
                 tidxN = torch.nonzero(left[:,-1] == ts).squeeze()
                 uyneut = output[tidxN, -1].reshape(self.n_space)
                 dWext = tractionleft[:, i-1] * uyneut
+                print(torch.max(dWext))
                 W_ext_eff[i] = self.b * simps(dWext, self.steps[0])
                 dWextan = prescribed[:, i-1] * uyneut
                 dWextan = dWextan.detach()
@@ -469,7 +470,6 @@ class Loss:
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
 
-        print(torch.max(W_ext_eff))
         return loss, V, T, W_ext_eff, W_ext_an
 
 
