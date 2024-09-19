@@ -367,7 +367,6 @@ class Calculate:
         self.nsamples = nsamples 
         self.steps = steps_int
         self.device = device
-        self.dists = self.gtdistance()
         self.b = b
 
     def gettraction(self, pinn):
