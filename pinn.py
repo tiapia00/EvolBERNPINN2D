@@ -443,7 +443,7 @@ class Calculate:
         speed = getspeed(output, t, self.device)
         T = getkinetic(speed, nsamples, rho, (dx, dy)).reshape(-1)
 
-        action = self.b * torch.trapezoid(y = T - Pi, dx = dt)
+        action = self.b * torch.trapezoid(y = torch.max(Pi)/torch.max(T) * T - Pi, dx = dt)
 
         return action.pow(2)
 
@@ -476,42 +476,6 @@ class Calculate:
         else:
             return loss
 
-        
-    def gtdistance(self):
-        x, y, t = self.points['all_points']
-        points = torch.cat([x, y, t], dim=1)
-        down, up, _, _, _ = self.points['boundary_points']
-        bound_points = torch.cat([down, up], dim=0)
-
-        x = points[:,:-1]
-        t = points[:,-1]
-
-        x_bc = bound_points[:,:-1]
-        t_bc = bound_points[:,-1]
-
-        n = x.shape[0]
-        dists = torch.zeros(n, device=self.device)
-        
-        for i in range(n):
-            dist = torch.norm(x[i,:] - x_bc, dim=1)**2 + (t[i] - t_bc)**2
-            dists[i] = torch.sqrt(torch.min(dist))
-        
-        return dists
-    
-    def distance_loss(self, nn):
-        x, y, t = self.points['all_points']
-        points = torch.cat([x, y, t], dim=1)
-
-        output = nn(points)
-        loss = (output.squeeze() - self.dists.detach()).pow(2).mean()
-
-        ddot = torch.autograd.grad(output, t, torch.ones(output.shape[0], 1, device=self.device),
-                 create_graph=True, retain_graph=True)[0]
-        idx_0 = torch.nonzero(t == 0, as_tuple=False)
-        loss += ddot[idx_0].pow(2).mean()
-        
-        return loss
-
     def initial_loss(self, nn):
         x, y, t = self.points['initial_points']
         points = torch.cat([x, y, t], dim=1)
@@ -521,14 +485,9 @@ class Calculate:
         gt = initial_conditions(x, self.w0)
         v0gt = gt[:,2:]
         v0 = getspeed(output, t, self.device)
-        loss_speed = (v0gt - v0).pow(2).mean()
+        loss_speed = (v0gt - v0).pow(2).mean(dim=0).sum()
 
-        posgt = gt[:,:2] 
-        loss_position = (posgt - output).pow(2).mean()
-
-        loss = loss_speed + loss_position
-
-        return loss
+        return loss_speed
 
     def boundary_loss(self, pinn):
         ### Maybe just for Neumann ##
