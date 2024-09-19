@@ -118,10 +118,11 @@ def plot_sol(sol: torch.Tensor, space_in: torch.Tensor, t: torch.Tensor, path: s
     ani.save(file, fps=5)
 
 
-def plot_energy(t: np.ndarray, V: np.ndarray, T: np.ndarray, epoch: int, path: str):
+def plot_energy(t: np.ndarray, V: np.ndarray, T: np.ndarray, Wext: np.ndarray, epoch: int, path: str):
     plt.figure()
     plt.plot(t, V, label='Potential energy')
     plt.plot(t, T, label='Kinetic energy')
+    plt.plot(t, Wext, label='External energy')
     
     plt.legend()
     file = f'{path}/energy_{epoch}'
