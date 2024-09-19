@@ -445,9 +445,10 @@ class Loss:
         prescribed = torch.ones_like(tractionleft)
         # MPa
 
-        loss += (tractionleft - prescribed).pow(2).mean(dim=0).sum()
+        loss += (tractionleft - prescribed).pow(2).mean()
         prescribed = prescribed.reshape(self.n_space, self.n_time - 1)
         tractionleft = tractionleft.reshape(self.n_space, self.n_time - 1)
+
 
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
@@ -455,7 +456,7 @@ class Loss:
             dTt = dT[tidx].reshape(self.n_space, self.n_space)
             if i != 0:
                 tidxN = torch.nonzero(left[:,-1] == ts).squeeze()
-                uyneut = self.par['w0']*output[tidxN, -1].reshape(self.n_space)
+                uyneut = output[tidxN, -1].reshape(self.n_space)
                 dWext = tractionleft[:, i-1] * uyneut
                 W_ext_eff[i] = self.b * simps(dWext, self.steps[0])
                 dWextan = prescribed[:, i-1] * uyneut
@@ -468,6 +469,7 @@ class Loss:
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
 
+        print(torch.max(W_ext_eff))
         return loss, V, T, W_ext_eff, W_ext_an
 
 
