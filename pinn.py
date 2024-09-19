@@ -297,9 +297,9 @@ class PINN(nn.Module):
         self.act = act
         self.w0 = w0
 
-        self.U =  nn.Linear(2, hiddendim, bias=False)
+        self.U =  nn.Linear(3, hiddendim, bias=False)
 
-        self.V= nn.Linear(2, hiddendim, bias=False)
+        self.V= nn.Linear(3, hiddendim, bias=False)
 
         for param in self.U.parameters():
             param.requires_grad = False
@@ -318,14 +318,14 @@ class PINN(nn.Module):
 
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
-        spacex_t = torch.stack([space[:,0], t.squeeze()], dim=1)
+        xmax = torch.max(input[:,0])
         input0 = input
-        U = self.U(spacex_t)
-        U = torch.cat([torch.cos(U), torch.sin(U)], dim=1)
+        U = self.U(input)
+        U = torch.cat([torch.cos(np.pi * U), torch.sin(np.pi * U)], dim=1)
         
         input = input0
-        V = self.V(spacex_t)
-        V = torch.cat([torch.cos(V), torch.sin(V)], dim=1)
+        V = self.V(input)
+        V = torch.cat([torch.cos(np.pi * V), torch.sin(np.pi * V)], dim=1)
         
         input = input0
         out = self.initlayer(input)
