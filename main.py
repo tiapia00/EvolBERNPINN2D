@@ -71,7 +71,6 @@ par = {"Lx": Lx,
         "rho": rho,
         "t_ast": t_tild}
 
-
 inpoints = torch.cat(points["initial_points"], dim=1)
 spacein = inpoints[:,:2]
 cond0 = initial_conditions(spacein, w0)

@@ -444,6 +444,20 @@ class Loss:
 
         return loss
 
+    def bound_N(self, pinn):
+            _, _, _, left, right, _ = self.points['boundary_points']
+            
+            neumann = torch.cat([left, right], dim=0)
+
+            output = pinn(neumann[:,:2], neumann[:,-1].unsqueeze(1))
+            outputleft = pinn(left[:,:2], left[:,-1].unsqueeze(1))
+            tractions = torch.sum(output[:,2:], dim=1)
+            extforce = torch.ones(tractions)
+            loss = tractions.pow(2).mean()
+            #TODO: I should obtain stresses at first
+
+            return loss
+
 
     def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
         lambda_o = np.array(self.penalty)
