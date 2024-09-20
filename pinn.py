@@ -563,7 +563,7 @@ def train_model(
     from plots import plot_energy
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.Adam(pinn.parameters(), lr = learning_rate)
+    optimizer = optim.Adam(list(pinn.parameters()) + list(nninbcs.parameters()), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs):
