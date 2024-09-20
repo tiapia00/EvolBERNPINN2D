@@ -232,7 +232,7 @@ class PINN(nn.Module):
                  multuy: int,
                  magnFFT: np.ndarray,
                  device,
-                 act=nn.ReLU(),
+                 act=nn.Tanh(),
                  ):
 
         super().__init__()
@@ -404,11 +404,11 @@ class Loss:
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
-        dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
+        dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2).detach()
 
         v = torch.cat([vx, vy], dim=1)
         vnorm = torch.norm(v, dim=1)
-        dT = (1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2)
+        dT = (1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2).detach()
         dT = dT * torch.max(dV)/torch.max(dT)
 
         tgrid = torch.unique(t, sorted=True)
@@ -440,7 +440,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        loss = 3*(v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
+        loss = (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
 
         return loss
 
@@ -472,9 +472,9 @@ class Loss:
         res_loss, V, T = self.res_loss(pinn)
         enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
         init_loss = self.initial_loss(pinn)
-        loss = res_loss + init_loss + enloss
+        loss = res_loss + init_loss
 
-        return loss, res_loss, (init_loss, V, T, (V+T).mean())
+        return loss, res_loss, (init_loss, V, T, (V+T).mean(), enloss)
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -508,7 +508,8 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
-            'init': losses[0].item()
+            'init': losses[0].item(),
+            'enloss': losses[4].item()
         }, epoch)
 
         writer.add_scalars('Energy', {
