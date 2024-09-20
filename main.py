@@ -85,7 +85,7 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-nn_inbcs = NN(30, 2).to(device)
+nn_inbcs = NN(80, 3).to(device)
 
 x = points['all_points'][0].detach().cpu().numpy()
 y = points['all_points'][1].detach().cpu().numpy()
