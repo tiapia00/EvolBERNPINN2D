@@ -232,7 +232,7 @@ class PINN(nn.Module):
                  multuy: int,
                  magnFFT: np.ndarray,
                  device,
-                 act=nn.Tanh(),
+                 act=nn.ReLU(),
                  ):
 
         super().__init__()
@@ -242,11 +242,11 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = torch.randn((2, n_mode_spacey), device=device)
+        self.By = torch.sort(torch.randn((2, n_mode_spacey), device=device), dim=1) + 1
         #self.By[0,:] = torch.arange(0, n_mode_spacey, device=device) * torch.ones(n_mode_spacey, device=device)
         
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = torch.randn((1, n_mode_spacey), device=device)
+        self.Bty = torch.sort(torch.randn((1, n_mode_spacey), device=device), dim=1) + 1
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -472,9 +472,9 @@ class Loss:
         res_loss, V, T = self.res_loss(pinn)
         enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
         init_loss = self.initial_loss(pinn)
-        loss = res_loss + init_loss
+        loss = res_loss + init_loss + enloss
 
-        return loss, res_loss, (init_loss, V, T, (V+T).mean(), enloss)
+        return loss, res_loss, (init_loss, V, T, (V+T).mean(), enloss.detach())
 
     def __call__(self, pinn):
         return self.verbose(pinn)
