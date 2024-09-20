@@ -193,14 +193,15 @@ allpoints = torch.cat(points['all_points'], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 out = getout(pinn_trained, nn_inbcs, space, t)
-outin = par['w0']*out[t0idx,:2]
+outinu = par['w0']*out[t0idx,:2]
+outinstress = par['sigma_max']*out[t0idx,2:]
 v = calculate_speed(out[:,:2], t)[t0idx]
-z = torch.cat([outin, v], dim=1)
+z = torch.cat([outinu, v], dim=1)
 
 cond0 = initial_conditions(space_in, w0)
 
 plot_initial_conditions(z, cond0, space_in[:,0], space_in[:,1], dir_model)
-plot_init_stresses(par['sigma_max']*z, space[t0idx], t[t0idx], dir_model)
+plot_init_stresses(outinstress, space[t0idx], t[t0idx], dir_model)
 
 x, y, t = grid.get_all_points()
 sol, space_in = obtainsolt_u(pinn_trained, nn_inbcs, space, t, nsamples, device)
