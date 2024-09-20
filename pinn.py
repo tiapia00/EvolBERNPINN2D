@@ -610,7 +610,7 @@ def train_model(
         }, epoch)
         """
 
-        if epoch % 500 == 0:
+        if epoch % 100 == 0:
             t = loss_fn.points['all_points'][-1].unsqueeze(1)
             t = torch.unique(t, sorted=True)
             plot_energy(t.detach().cpu().numpy(), losses[0].numpy(), losses[1].numpy(), epoch, path_model) 
