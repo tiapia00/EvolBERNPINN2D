@@ -445,10 +445,10 @@ class Loss:
         prescribed = - torch.ones_like(tractionleft)
         # MPa
 
-        loss += (tractionleft - prescribed).pow(2).mean()
+        lossN = (tractionleft - prescribed).pow(2).mean()
+        loss += lossN
         prescribed = prescribed.reshape(self.n_space, self.n_time - 1)
         tractionleft = tractionleft.reshape(self.n_space, self.n_time - 1)
-
 
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
@@ -458,7 +458,6 @@ class Loss:
                 tidxN = torch.nonzero(left[:,-1] == ts).squeeze()
                 uyneut = output[tidxN, -1].reshape(self.n_space)
                 dWext = tractionleft[:, i-1] * uyneut
-                print(torch.max(dWext))
                 W_ext_eff[i] = self.b * simps(dWext, self.steps[0])
                 dWextan = prescribed[:, i-1] * uyneut
                 dWextan = dWextan.detach()
@@ -470,7 +469,7 @@ class Loss:
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
 
-        return loss, V, T, W_ext_eff, W_ext_an
+        return loss, V, T, W_ext_eff, W_ext_an, lossN.detach()
 
 
     def initial_loss(self, pinn):
@@ -501,12 +500,12 @@ class Loss:
 
 
     def verbose(self, pinn):
-        res_loss, V, T, Wext_eff, Wext_an = self.res_loss(pinn)
+        res_loss, V, T, Wext_eff, Wext_an, lossN = self.res_loss(pinn)
         enloss = ((V[0] + T[0] + Wext_eff[0]) - (Wext_eff + V + T)).pow(2).mean()
         init_loss = self.initial_loss(pinn)
         loss = res_loss + init_loss
 
-        return loss, res_loss, (init_loss, V, T, (V+T).detach().mean(), Wext_eff.detach(), Wext_an.detach())
+        return loss, res_loss, (init_loss, V, T, (V+T).detach().mean(), Wext_eff.detach(), Wext_an.detach(), lossN)
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -540,7 +539,8 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
-            'init': losses[0].item()
+            'init': losses[0].item(),
+            'neu': losses[6].item()
         }, epoch)
 
         writer.add_scalars('Energy', {
