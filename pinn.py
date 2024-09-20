@@ -223,8 +223,8 @@ class PINN(nn.Module):
 
         self.V = nn.Linear(2, hiddendim, bias=False)
 
-        init.normal_(self.U.weight, mean=0.0, std=1.0)
-        init.normal_(self.V.weight, mean=0.0, std=1.0)
+        init.normal_(self.U.weight, mean=1.0, std=1.0)
+        init.normal_(self.V.weight, mean=1.0, std=1.0)
 
         """
         for param in self.U.parameters():
