@@ -119,7 +119,7 @@ ax.set_zlabel('Z Axis')
 #plt.show()
 plt.close()
 
-nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 1000, 1e-3)
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 5000, 1e-3)
 
 x, y, t_in = points['initial_points']
 x = x.to(device)
@@ -150,7 +150,11 @@ axs[1, 1].set_xlabel(r'$\hat{x}$')
 axs[1, 1].set_ylabel(r'$\hat{y}$')
 cbar2 = fig.colorbar(scattervx, ax=axs[1,1])
 cbar2.set_label(r'$v_y$')
-plt.show()
+
+dir_model = pass_folder('model')
+dir_logs = pass_folder('model/logs')
+
+plt.savefig(f'{dir_model}/incond.png')
 
 
 if retrain_PINN:
@@ -159,8 +163,6 @@ if retrain_PINN:
 
     sol, space_in = obtainsoltinbcs_u(nn_inbcs, allpoints[:,:2], allpoints[:,-1].unsqueeze(1), nsamples)
 
-    dir_model = pass_folder('model')
-    dir_logs = pass_folder('model/logs')
 
     plot_sol(sol, space_in, allpoints[:,-1].unsqueeze(1), dir_model, True)
 
