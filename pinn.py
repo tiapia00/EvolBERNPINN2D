@@ -549,7 +549,7 @@ class Loss:
         dir_loss = self.bound_D(nninbcs)
         loss = res_loss + neu_loss + 2*dir_loss
 
-        return loss, (V.detach().cpu(),T.detach().cpu(),(V+T).mean().detach().cpu())
+        return loss, (V.detach().cpu(),T.detach().cpu(),(V+T).mean().detach().cpu(), neu_loss.item(), dir_loss.item(), res_loss.item())
 
 
 def train_model(
@@ -598,8 +598,9 @@ def train_model(
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
-            #'boundary': losses[1].item(),
-            #'en_dev': losses[2].item()
+            'neu': losses[3],
+            'dir': losses[4],
+            'res': losses[5]
         }, epoch)
 
         writer.add_scalar('Energy/V+T', losses[2].item(), epoch)
