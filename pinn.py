@@ -515,7 +515,7 @@ class Loss:
         dirichlet = torch.cat([down, up], dim=0)
 
         output = self.par['w0']*nn(dirichlet[:,:2], dirichlet[:,-1].unsqueeze(1))
-        loss = 5*output[:,:2].pow(2).mean(dim=0).sum()
+        loss = output[:,:2].pow(2).mean(dim=0).sum()
 
         return loss
 
@@ -545,7 +545,9 @@ class Loss:
 
     def __call__(self, pinn, nninbcs):
         res_loss, V, T = self.res_loss(pinn, nninbcs)
-        loss = res_loss
+        neu_loss = self.bound_N(nninbcs)
+        dir_loss = self.bound_D(nninbcs)
+        loss = res_loss + neu_loss + 2*dir_loss
 
         return loss, (V.detach().cpu(),T.detach().cpu(),(V+T).mean().detach().cpu())
 
