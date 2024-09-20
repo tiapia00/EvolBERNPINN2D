@@ -2,7 +2,7 @@ class Parameters:
     def __init__(self):
         self.x_end = 500 
         self.y_end = 0.5
-        self.t_end = 1.5 
+        self.t_end = 1 
         self.n_space = 40 
         self.n_time = 40 
         self.dim_hidden = 80
@@ -24,7 +24,7 @@ class Parameters:
             'x_end': self.x_end,
             't_end': self.t_end,
             'h': self.y_end,
-            'n_space': 1000,
+            'n_space': 100,
             'n_time': self.n_time,
             'w0': self.w0
         }
