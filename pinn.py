@@ -232,10 +232,9 @@ class PINN(nn.Module):
 
         for param in self.V.parameters():
             param.requires_grad = False
-
+        """
         self.initlayer = nn.Linear(3, 2*hiddendim)
         self.layers = nn.ModuleList([])
-        """
 
         for _ in range(nhidden):
             self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim))
