@@ -97,7 +97,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, x: torch.tensor, 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(f'{path}/init.png')
 
-def plot_sol(sol: torch.tensor, space_in: torch.tensor, t: torch.tensor, path: str):
+def plot_sol(sol: torch.Tensor, space_in: torch.Tensor, t: torch.Tensor, path: str, isinbcs: bool = False):
     # y_plot squeezed for better visualization purposes, anyway is not encoded in the 1D solution, displacements not squeezed
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 8))
@@ -107,7 +107,7 @@ def plot_sol(sol: torch.tensor, space_in: torch.tensor, t: torch.tensor, path: s
     ax.set_title(f'$\\hat{{t}} = {t[0]:.2f}$')
 
     def update(frame):
-        y_limts = np.array([-0.5, 0.5])
+        y_limts = np.array([np.min(sol), np.max(sol)])
 
         ax.clear()
 
@@ -123,7 +123,10 @@ def plot_sol(sol: torch.tensor, space_in: torch.tensor, t: torch.tensor, path: s
     n_frames = t.shape[0]
     ani = FuncAnimation(fig, update, frames=n_frames, interval=50, blit=False)
 
-    file = f'{path}/sol_time.gif'
+    if isinbcs:
+        file = f'{path}/sol_time_inbcs.gif'
+    else:
+        file = f'{path}/sol_time.gif'
     ani.save(file, fps=5)
 
 

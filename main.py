@@ -67,12 +67,12 @@ t_domain = torch.linspace(0, T, n_time)/t_tild
 
 adim = (((t_tild**2/(rho*w0)*sig_max/Lx)**(-1)).item(), (sig_max*Lx/(w0*lam)).item(), mu/lam)
 par = {"Lx": Lx,
-        "w0": w0,
+        "w0": 1,
         "lam": lam,
         "mu":mu,
         "rho": rho,
-        "t_ast": t_tild,
-        "sigma_max": sig_max}
+        "t_ast": 1,
+        "sigma_max": 1}
 
 steps = get_step((x_domain, y_domain, t_domain))
 
@@ -117,8 +117,9 @@ ax.set_xlabel('X Axis')
 ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 #plt.show()
+plt.close()
 
-nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 10000, 1e-4)
+nn_inbcs = train_inbcs(nn_inbcs, loss_fn, 1000, 1e-3)
 
 x, y, t_in = points['initial_points']
 x = x.to(device)
@@ -132,7 +133,7 @@ output = output.detach().cpu().numpy()
 fig, axs = plt.subplots(2, 2, figsize=(10, 8), gridspec_kw={'height_ratios': [1, 1], 'width_ratios': [2, 1]})
 ax_big = plt.subplot2grid((2, 2), (0, 0), colspan=2)
 
-ax_big.plot(x.squeeze().detach().cpu().numpy() + output[:,0], y.squeeze().detach().cpu().numpy() + output[:,1])
+ax_big.scatter(x.squeeze().detach().cpu().numpy() + output[:,0], y.squeeze().detach().cpu().numpy() + output[:,1])
 ax_big.set_title('Displacement')
 ax_big.set_xlabel(r'$\hat{x}$')
 ax_big.set_ylabel(r'$\hat{y}$')
@@ -149,14 +150,21 @@ axs[1, 1].set_xlabel(r'$\hat{x}$')
 axs[1, 1].set_ylabel(r'$\hat{y}$')
 cbar2 = fig.colorbar(scattervx, ax=axs[1,1])
 cbar2.set_label(r'$v_y$')
-#plt.show()
+plt.show()
 
-pinn = PINN(dim_hidden, n_hidden).to(device)
 
 if retrain_PINN:
+    allpoints = torch.cat(points['all_points'], dim=1)
+    nsamples = n_space + (n_time,)
+
+    sol, space_in = obtainsoltinbcs_u(nn_inbcs, allpoints[:,:2], allpoints[:,-1].unsqueeze(1), nsamples)
+
     dir_model = pass_folder('model')
     dir_logs = pass_folder('model/logs')
 
+    plot_sol(sol, space_in, allpoints[:,-1].unsqueeze(1), dir_model, True)
+
+    pinn = PINN(dim_hidden, n_hidden).to(device)
     pinn_trained = train_model(pinn, nn_inbcs, loss_fn=loss_fn, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs, path_model=dir_model)
 
@@ -193,7 +201,6 @@ plot_initial_conditions(z, cond0, space_in[:,0], space_in[:,1], dir_model)
 plot_init_stresses(par['sigma_max']*z, space[t0idx], t[t0idx], dir_model)
 
 x, y, t = grid.get_all_points()
-nsamples = n_space + (n_time,)
 sol, space_in = obtainsolt_u(pinn_trained, nn_inbcs, space, t, nsamples, device)
 """
 plt.figure()

@@ -113,7 +113,7 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(initial_points: torch.Tensor, w0: float, i: float = 1) -> torch.tensor:
+def initial_conditions(initial_points: torch.Tensor, w0: float, i: float = 0) -> torch.tensor:
     x = initial_points[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
     uy0 = w0*torch.sin(torch.pi*i*x)
@@ -179,15 +179,11 @@ class Grid:
 
         t0 = torch.full_like(x_grid, self.t_domain[0]).to(self.device)
         
-        front = torch.cat((t0, x_grid, y_grid), dim=1)
-
-        down = torch.cat((x0, y_grid, t_grid), dim=1)
-
-        up = torch.cat((x1, y_grid, t_grid), dim=1)
-
-        left = torch.cat((x_grid, y0, t_grid), dim=1)
-
-        right = torch.cat((x_grid, y1, t_grid), dim=1)
+        front = torch.cat((t0, x_grid, y_grid), dim=1).to(self.device)
+        down = torch.cat((x0, y_grid, t_grid), dim=1).to(self.device)
+        up = torch.cat((x1, y_grid, t_grid), dim=1).to(self.device)
+        left = torch.cat((x_grid, y0, t_grid), dim=1).to(self.device)
+        right = torch.cat((x_grid, y1, t_grid), dim=1).to(self.device)
         bound_points = torch.cat((front, down, up, left, right), dim=0)
 
         return (front, down, up, left, right, bound_points)
@@ -257,6 +253,7 @@ def obtain_dist(space: torch.Tensor, t:torch.Tensor):
 
     return phi
 
+
 class PINN(nn.Module):
     def __init__(self,
                  hiddendim: int,
@@ -317,7 +314,7 @@ class PINN(nn.Module):
 
 
 def getout(pinn: PINN, nninbcs: NN, space: torch.Tensor, t: torch.Tensor):
-    outinbcs = nninbcs(space, t).detach()
+    outinbcs = nninbcs(space, t)
     outtot = pinn(space, t, outinbcs)
 
     return outtot
@@ -498,8 +495,7 @@ class Loss:
         init = initial_conditions(init, self.w0)
 
         u = self.par['w0']*output[:,:2]
-        loss = (u - init[:,:2]).pow(2).mean(dim=0).sum()
-        loss *= 3
+        #loss = (u - init[:,:2]).pow(2).mean(dim=0).sum()
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -507,8 +503,8 @@ class Loss:
                 create_graph=True, retain_graph=True)[0]
         v = torch.cat([vx, vy], dim=1)
 
-        loss += (v - init[:,-2:]).pow(2).mean(dim=0).sum()
-        loss += self.getpdeloss(output, space, t)[0]
+        loss = (v - init[:,-2:]).pow(2).mean(dim=0).sum()
+        #loss += self.getpdeloss(output, space, t)[0]
         
         return loss
 
@@ -519,23 +515,25 @@ class Loss:
         dirichlet = torch.cat([down, up], dim=0)
 
         output = self.par['w0']*nn(dirichlet[:,:2], dirichlet[:,-1].unsqueeze(1))
-        loss = output[:,:2].pow(2).mean(dim=0).sum()
+        loss = 5*output[:,:2].pow(2).mean(dim=0).sum()
 
         return loss
 
 
-    def bound_N(self, pinn, nninbcs):
-        _, _, _, left, right, _ = self.points['boundary_points']
-        
-        neumann = torch.cat([left, right], dim=0)
+    def bound_N(self, nninbcs):
+        _, _, _, _, right, _ = self.points['boundary_points']
 
-        output = self.par['sigma_max']*getout(pinn, nninbcs, neumann[:,:2], neumann[:,-1].unsqueeze(1))
-        tractions = torch.sum(output[:,2:], dim=1)
-        loss = tractions.pow(2).mean()
+        output = nninbcs(right[:,:2], right[:,-1].unsqueeze(1))
+        tractionleft = self.par['sigma_max'] * output[:,-1].unsqueeze(1)
+        
+        prescribed = - torch.ones_like(tractionleft)
+        # MPa
+
+        loss = (tractionleft - prescribed).pow(2).mean()
 
         return loss
     
-
+    
     def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
         lambda_o = np.array(self.penalty)
         mean = np.array(mean)
@@ -547,9 +545,7 @@ class Loss:
 
     def __call__(self, pinn, nninbcs):
         res_loss, V, T = self.res_loss(pinn, nninbcs)
-        #en_dev = self.en_loss(pinn)
-        bound_loss = self.bound_N(pinn, nninbcs)
-        loss = res_loss + bound_loss
+        loss = res_loss
 
         return loss, (V.detach().cpu(),T.detach().cpu(),(V+T).mean().detach().cpu())
 
@@ -673,6 +669,31 @@ def get_mean_grad(pinn: PINN):
     return mean
 
 
+def obtainsoltinbcs_u(nninbcs: NN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
+    nx, ny, nt = nsamples
+    sol = torch.zeros(nx, ny, nt, 2)
+    spaceidx = torch.zeros(nx, ny, nt, 2)
+    tsv = torch.unique(t, sorted=True)
+    output = nninbcs(space, t)
+
+    for i in range(len(tsv)):
+        idxt = torch.nonzero(t.squeeze() == tsv[i])
+        spaceidx[:,:,i,:] = space[idxt].reshape(nx, ny, 2)
+        sol[:,:,i,:] = output[idxt,:2].reshape(nx, ny, 2)
+    
+    spaceexpand = spaceidx[:,:,0,:].unsqueeze(2).expand_as(spaceidx)
+    check = torch.all(spaceexpand == spaceidx).item()
+
+    if not check:
+        raise ValueError('Extracted space tensors not matching')
+    else:
+        space_in = spaceidx[:,:,0,:].reshape(nx*ny, 2)
+    
+    sol = sol.reshape(nx*ny, nt, 2)
+
+    return sol.detach().cpu().numpy(), space_in
+
+
 def obtainsolt_u(pinn: PINN, nninbcs: NN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple, device):
     nx, ny, nt = nsamples
     sol = torch.zeros(nx, ny, nt, 2)
@@ -705,7 +726,8 @@ def train_inbcs(nn: NN, lossfn: Loss, epochs: int, learning_rate: float):
     for _ in range(epochs):
         optimizer.zero_grad()
         loss = lossfn.initial_loss(nn)
-        #loss += lossfn.bound_D(nn)
+        loss += lossfn.bound_D(nn)
+        loss += lossfn.bound_N(nn)
         loss.backward()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
