@@ -284,7 +284,7 @@ class PINN(nn.Module):
         
         self.outlayer = nn.Linear(hiddendim, 5)
 
-        initialize_weights(self)
+        #initialize_weights(self)
 
 
     def forward(self, space, t, outinbcs):
@@ -476,8 +476,8 @@ class Loss:
         points = sample_points(20, domain, self.device)
         """
         points = torch.cat(self.points['all_points'], dim=1)
-        space = points[:,:2]
-        t = points[:,-1].unsqueeze(1)
+        space = points[:,:2].requires_grad_()
+        t = points[:,-1].unsqueeze(1).requires_grad_()
         output = getout(pinn, nninbcs, space, t) 
 
         loss, V, T = self.getpdeloss(output, space, t)
@@ -589,7 +589,7 @@ def train_model(
             loss_fn.update_penalty(max_grad, means)
         """
         loss, losses = loss_fn(pinn, nninbcs)
-        loss.backward(retain_graph=False)
+        loss.backward()
         optimizer.step()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
