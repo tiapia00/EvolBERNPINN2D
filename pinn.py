@@ -11,21 +11,40 @@ import torch.nn.init as init
 def simps(y, dx, dim=0):
     device = y.device
     n = y.size(dim)
-    if n % 2 == 0:
-        raise ValueError(
-            "The number of samples must be odd for Simpson's rule.")
+    
+    if n < 2:
+        raise ValueError("At least two samples are required for integration.")
 
     shape = list(y.shape)
     del(shape[dim])
     shape = tuple(shape)
 
+    # Initialize integral to zeros
     integral = torch.zeros(shape, device=device)
-    odd_sum = torch.sum(y.index_select(dim, torch.arange(1, n-1, 2, device=device)), dim=dim)
-    even_sum = torch.sum(y.index_select(dim, torch.arange(2, n-1, 2, device=device)), dim=dim)
+    
+    # If n is odd, we can directly apply Simpson's rule to all points
+    if n % 2 == 1:
+        odd_sum = torch.sum(y.index_select(dim, torch.arange(1, n-1, 2, device=device)), dim=dim)
+        even_sum = torch.sum(y.index_select(dim, torch.arange(2, n-1, 2, device=device)), dim=dim)
 
-    integral += 4 * odd_sum + 2 * even_sum
+        integral += (y.index_select(dim, torch.tensor([0], device=device)) + 
+                     4 * odd_sum + 2 * even_sum + 
+                     y.index_select(dim, torch.tensor([n-1], device=device)))
+        
+        integral *= dx / 3
 
-    integral *= dx / 3
+    else:
+        odd_sum = torch.sum(y.index_select(dim, torch.arange(1, n-2, 2, device=device)), dim=dim)
+        even_sum = torch.sum(y.index_select(dim, torch.arange(2, n-2, 2, device=device)), dim=dim)
+
+        integral += (y.index_select(dim, torch.tensor([0], device=device)).squeeze(dim) + 
+                     4 * odd_sum + 2 * even_sum + 
+                     y.index_select(dim, torch.tensor([n-2], device=device)).squeeze(dim))
+        
+        integral *= dx / 3
+        
+        integral += 0.5 * dx * (y.index_select(dim, torch.tensor([n-2], device=device)).squeeze(dim) + 
+                                y.index_select(dim, torch.tensor([n-1], device=device)).squeeze(dim))
 
     return integral
 
