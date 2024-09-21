@@ -495,12 +495,18 @@ def train_model(
 
     from plots import plot_energy
 
-    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, nn_approximator), nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
+        if epoch < 1000:
+            for param in nn_approximator.outlayerx():
+                param.requires_grad = False
+        else:
+            for param in nn_approximator.outlayerx():
+                param.requires_grad = True
         loss, res_loss, losses = loss_fn(nn_approximator)
         loss.backward(retain_graph=False)
         optimizer.step()
