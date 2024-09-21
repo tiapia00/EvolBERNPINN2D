@@ -48,7 +48,7 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(space: torch.Tensor, w0: float, i: float = 1) -> torch.tensor:
+def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
     uy0 = w0*torch.sin(torch.pi*i*x)
@@ -243,10 +243,10 @@ class PINN(nn.Module):
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
         self.By = torch.sort(torch.randn((2, n_mode_spacey), device=device), dim=1)[0] + 1
-        #self.By[0,:] = torch.arange(0, n_mode_spacey, device=device) * torch.ones(n_mode_spacey, device=device)
+        self.By[0,:] = torch.randn([1, n_mode_spacey], device=device) * torch.arange(n_mode_spacey, device=device)
         
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = torch.sort(torch.randn((1, n_mode_spacey), device=device), dim=1)[0] + 1
+        self.Bty = torch.randn((1, n_mode_spacey), device=device) * torch.arange(n_mode_spacey, device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
