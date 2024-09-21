@@ -502,10 +502,10 @@ def train_model(
         optimizer.zero_grad()
 
         if epoch < 1000:
-            for param in nn_approximator.outlayerx():
+            for param in nn_approximator.outlayerx.parameters():
                 param.requires_grad = False
         else:
-            for param in nn_approximator.outlayerx():
+            for param in nn_approximator.outlayerx.parameters():
                 param.requires_grad = True
         loss, res_loss, losses = loss_fn(nn_approximator)
         loss.backward(retain_graph=False)
