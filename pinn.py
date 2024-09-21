@@ -266,6 +266,8 @@ class PINN(nn.Module):
         self.layerymodes = nn.Linear(hiddimy, 2*n_mode_spacey)
 
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
+        self.outlayerx.weight.data *= 0 
+        self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
         self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
         weightslast = torch.from_numpy(magnFFT).float()
         weightslast[2:] *= 0
