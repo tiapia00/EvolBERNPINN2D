@@ -243,10 +243,10 @@ class PINN(nn.Module):
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
         self.By = torch.sort(torch.randn((2, n_mode_spacey), device=device), dim=1)[0] + 1
-        self.By[0,:] = torch.randn([1, n_mode_spacey], device=device) * torch.arange(n_mode_spacey, device=device)
+        self.By[0,:] = torch.ones([1, n_mode_spacey], device=device) * torch.arange(n_mode_spacey, device=device)
         
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = torch.randn((1, n_mode_spacey), device=device) * torch.sigmoid(torch.arange(n_mode_spacey, device=device)**2)
+        self.Bty = torch.randn((1, n_mode_spacey), device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
