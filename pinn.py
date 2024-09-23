@@ -369,10 +369,9 @@ class Loss:
         b: float,
         w0: float,
         steps_int: tuple,
-        in_penalty: np.ndarray,
         adim: tuple,
         par: dict,
-        in_adaptive: tuple,
+        in_adaptive: list,
         device: torch.device,
         verbose: bool = False
     ):
@@ -381,7 +380,6 @@ class Loss:
         self.n_space = n_space
         self.n_time = n_time
         self.steps = steps_int
-        self.penalty = in_penalty
         self.device = device
         self.adim = adim
         self.par = par
@@ -505,6 +503,7 @@ class Loss:
         return self.verbose(pinn)
 
 def calculate_norm(pinn: PINN):
+    total_norm = 0
     for param in pinn.parameters():
         if param.grad is not None:  # Ensure the parameter has gradients
             param_norm = param.grad.data.norm(2)  # Compute the L2 norm for the parameter's gradient
@@ -550,7 +549,7 @@ def train_model(
             optimizer.zero_grad()
 
             norms = (norm_res, norm_in)
-            update_adaptive(loss_fn, norms, loss, 0.9)
+            update_adaptive(loss_fn, norms, loss.detach(), 0.9)
 
         loss.backward(retain_graph=False)
         optimizer.step()

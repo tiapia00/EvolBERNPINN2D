@@ -93,7 +93,7 @@ pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, magnpos, device).to(device
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
-in_penalty = np.array([1, 2])
+in_penalty = [1, 2]
 loss_fn = Loss(
         points,
         n_space,
@@ -101,9 +101,9 @@ loss_fn = Loss(
         h/3,
         w0,
         steps,
-        in_penalty,
         adim,
         par,
+        in_penalty,
         device
     )
 
