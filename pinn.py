@@ -262,7 +262,7 @@ class PINN(nn.Module):
         for _ in range(n_hidden - 1):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
             with torch.no_grad():
-                self.hid_space_layers_y[-1].weight = nn.Parameter(self.initialize_weights(self.linear.weight))
+                self.hid_space_layers_y[-1].weight = nn.Parameter(self.initialize_weights(self.hid_space_layers_y[-1].weight))
             self.hid_space_layers_y.append(act)
 
         self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex)
