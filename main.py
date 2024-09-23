@@ -104,7 +104,7 @@ loss_fn = Loss(
         in_penalty,
         adim,
         par,
-        10,
+        5,
         device
     )
 
