@@ -549,7 +549,8 @@ def train_model(
             'global': loss.item(),
             'residual': res_loss,
             'init': losses[0].item(),
-            'enloss': losses[4].item()
+            'enloss': losses[4].item(),
+            'weights_time': torch.mean(loss_fn.weights_t).detach().item()
         }, epoch)
 
         writer.add_scalars('Energy', {
