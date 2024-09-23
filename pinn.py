@@ -434,8 +434,8 @@ class Loss:
         V = torch.zeros(tgrid.shape[0])
         T = torch.zeros_like(V)
         loss = 0
-        loss_time = torch.zeros(self.weights_t.shape[0])
-        tidx_par = torch.zeros(0, device=self.device, dtype=torch.int32)
+        loss_time = torch.zeros(self.weights_t.shape[0], requires_grad=False)
+        tidx_par = torch.zeros(0, device=self.device, dtype=torch.int32, requires_grad=False)
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
             dVt = dV[tidx].reshape(self.n_space, self.n_space)
@@ -452,7 +452,7 @@ class Loss:
                         (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())[tidx_par].pow(2).mean()
                 loss_time[i] = loss_i
                 loss += self.weights_t[i]*loss_i
-                tidx_par = torch.zeros(0, device=self.device, dtype=torch.int32)
+                tidx_par = torch.zeros(0, device=self.device, dtype=torch.int32, requires_grad=False)
 
         loss *= 1/self.weights_t.shape[0]
 
