@@ -355,7 +355,7 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
-        outNN = torch.sin(space[:,0].reshape(-1,1) * np.pi) * out
+        outNN = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
         act_global = self.apply_filter(t.repeat(1, 2)) * outNN
 
