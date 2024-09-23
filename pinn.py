@@ -261,8 +261,6 @@ class PINN(nn.Module):
         self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
-            with torch.no_grad():
-                self.hid_space_layers_y[-1].weight = nn.Parameter(self.initialize_weights(self.linear.weight))
             self.hid_space_layers_y.append(act)
 
         self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex)
@@ -271,7 +269,7 @@ class PINN(nn.Module):
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
         self.outlayerx.weight.data *= 0 
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
-        self.outlayery = nn.Linear(30, 1, bias=False)
+        self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
         """
         weightslast = torch.from_numpy(magnFFT).float()
         weightslast[2:] *= 0
@@ -279,23 +277,6 @@ class PINN(nn.Module):
         """
 
         self._initialize_weights()
-
-
-    def initialize_weights(self, weight):
-        # Create a mask for diagonal and sub-diagonal (previous-node) connections
-        mask = torch.zeros_like(weight)
-        diag_idx = torch.arange(weight.size(0))
-        sub_diag_idx = diag_idx[:-1] + 1
-
-        # Set diagonal elements (self-connections)
-        mask[diag_idx, diag_idx] = 1
-
-        # Set sub-diagonal elements (previous-node connections)
-        mask[sub_diag_idx, diag_idx[:-1]] = 1
-
-        # Randomly initialize weights but only for the valid connections
-        weight.data = mask * weight.data
-        return weight
 
     @staticmethod
     def apply_filter(alpha):
