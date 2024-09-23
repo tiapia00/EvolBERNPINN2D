@@ -372,6 +372,7 @@ class Loss:
         in_penalty: np.ndarray,
         adim: tuple,
         par: dict,
+        in_adaptive: tuple,
         device: torch.device,
         verbose: bool = False
     ):
@@ -385,6 +386,7 @@ class Loss:
         self.adim = adim
         self.par = par
         self.b = b
+        self.adaptive = in_adaptive
 
     def res_loss(self, pinn):
         x, y, t = self.points['all_points']
@@ -421,6 +423,8 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         
+        loss *= self.adaptive[0]
+        
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2).detach()
 
@@ -450,7 +454,7 @@ class Loss:
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
-        loss = 10 * (output - 1/self.w0*initial_conditions(space, self.w0)[:,:2]).pow(2).mean(dim=0).sum()
+        loss = (output - 1/self.w0*initial_conditions(space, self.w0)[:,:2]).pow(2).mean(dim=0).sum()
 
         initial_speed = initial_conditions(space, pinn.w0)[:,2:]
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -461,6 +465,7 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
 
         loss += (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
+        loss *= self.adaptive[1]
 
         return loss
 
@@ -494,12 +499,23 @@ class Loss:
         init_loss = self.initial_loss(pinn)
         loss = res_loss + init_loss
 
-        return loss, res_loss, (init_loss, V, T, (V+T).mean(), enloss.detach())
+        return loss, res_loss, init_loss, (init_loss, V, T, (V+T).mean(), enloss.detach())
 
     def __call__(self, pinn):
         return self.verbose(pinn)
 
+def calculate_norm(pinn: PINN):
+    for param in pinn.parameters():
+        if param.grad is not None:  # Ensure the parameter has gradients
+            param_norm = param.grad.data.norm(2)  # Compute the L2 norm for the parameter's gradient
+            total_norm += param_norm.item() ** 2  # Sum the squares of the norms
+    
+    return total_norm
 
+def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
+    for i in range(len(norm)):
+        loss_fn.adaptive[i] = alpha * loss_fn.adaptive[i] + (1-alpha) * total/norm[i]
+    
 def train_model(
     nn_approximator: PINN,
     loss_fn: Callable,
@@ -522,7 +538,20 @@ def train_model(
         for param in nn_approximator.outlayerx.parameters():
             param.requires_grad = False
 
-        loss, res_loss, losses = loss_fn(nn_approximator)
+        loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
+
+        if epoch % 1000 == 0:
+            res_loss.backward(retain_graph=True)
+            norm_res = calculate_norm(nn_approximator)
+            optimizer.zero_grad()
+
+            init_loss.backward(retain_graph=True)
+            norm_in = calculate_norm(nn_approximator)
+            optimizer.zero_grad()
+
+            norms = (norm_res, norm_in)
+            update_adaptive(loss_fn, norms, loss, 0.9)
+
         loss.backward(retain_graph=False)
         optimizer.step()
 
@@ -539,6 +568,11 @@ def train_model(
             'V+T': losses[3].detach().item(),
             'V': losses[1].mean().detach().item(),
             'T': losses[2].mean().detach().item()
+        }, epoch)
+
+        writer.add_scalars('Adaptive', {
+            'res': loss_fn.adaptive[0].detach().item(),
+            'init': loss_fn.adaptive[1].detach().item()
         }, epoch)
 
         if epoch % 500 == 0:
