@@ -243,11 +243,15 @@ class PINN(nn.Module):
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
         self.By = torch.sort(torch.randn((2, n_mode_spacey), device=device), dim=1)[0] + 2 
+        self.bx = torch.randn(1, n_mode_spacex, device=device)
         self.By[1,:] = torch.zeros(n_mode_spacey, device=device)
+        self.by = torch.randn(1, n_mode_spacey, device=device)
         #self.By[0,:] = torch.ones([1, n_mode_spacey], device=device) * torch.arange(n_mode_spacey, device=device)
         
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
+        self.btx = torch.randn(1, n_mode_spacex, device=device)
         self.Bty = torch.ones(1, n_mode_spacey, device=device)
+        self.bty = torch.randn(1, n_mode_spacey, device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -302,8 +306,8 @@ class PINN(nn.Module):
     def apply_compl_filter(alpha):
         return (1-torch.tanh(alpha))
 
-    def fourier_features(self, input, B):
-        x_proj = input @ B
+    def fourier_features(self, input, B, b):
+        x_proj = input @ B + b
         return torch.cat([torch.sin(np.pi * x_proj),
                 torch.cos(np.pi * x_proj)], dim=1)
 
@@ -316,10 +320,10 @@ class PINN(nn.Module):
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
     def forward(self, space, t):
-        fourier_space_x = self.fourier_features(space, self.Bx)
-        fourier_space_y = self.fourier_features(space, self.By)
-        fourier_tx = self.fourier_features(t, self.Btx)
-        fourier_ty = self.fourier_features(t, self.Bty)
+        fourier_space_x = self.fourier_features(space, self.Bx, self.bx)
+        fourier_space_y = self.fourier_features(space, self.By, self.by)
+        fourier_tx = self.fourier_features(t, self.Btx, self.btx)
+        fourier_ty = self.fourier_features(t, self.Bty, self.bty)
 
         x_in = fourier_space_x
         y_in = fourier_space_y
