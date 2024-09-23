@@ -242,12 +242,12 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = torch.sort(torch.randn((2, n_mode_spacey), device=device), dim=1)[0] + 2 
+        self.By = 2 * torch.ones((2, n_mode_spacey), device=device) 
         self.By[1,:] = torch.zeros(n_mode_spacey, device=device)
         #self.By[0,:] = torch.ones([1, n_mode_spacey], device=device) * torch.arange(n_mode_spacey, device=device)
         
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = torch.ones(1, n_mode_spacey, device=device)
+        self.Bty = 2 * torch.ones(1, n_mode_spacey, device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -349,10 +349,10 @@ class Loss:
         b: float,
         w0: float,
         steps_int: tuple,
-        in_penalty: np.ndarray,
         adim: tuple,
         par: dict,
         partition_time: int,
+        in_adap: list,
         device: torch.device,
         verbose: bool = False
     ):
@@ -361,10 +361,10 @@ class Loss:
         self.n_space = n_space
         self.n_time = n_time
         self.steps = steps_int
-        self.penalty = in_penalty
         self.device = device
         self.adim = adim
         self.par = par
+        self.adaptive = in_adap
         self.weights_t = torch.ones(partition_time, device=device)
         self.b = b
 
@@ -431,6 +431,7 @@ class Loss:
                 tidx_par = torch.zeros(0, device=self.device, dtype=torch.int32, requires_grad=False)
 
         loss *= 1/self.weights_t.shape[0]
+        loss *= self.adaptive[0]
 
         return loss, V, T, loss_time
 
@@ -452,6 +453,7 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
 
         loss += (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
+        loss *= self.adaptive[1]
 
         return loss
 
@@ -485,10 +487,24 @@ class Loss:
         init_loss = self.initial_loss(pinn)
         loss = res_loss + init_loss
 
-        return loss, res_loss, (init_loss, V, T, (V+T).mean(), enloss.detach(), loss_time.detach())
+        return loss, res_loss, init_loss, (init_loss, V, T, (V+T).mean(), enloss.detach(), loss_time.detach())
 
     def __call__(self, pinn):
         return self.verbose(pinn)
+
+
+def calculate_norm(pinn: PINN):
+    total_norm = 0
+    for param in pinn.parameters():
+        if param.grad is not None:  # Ensure the parameter has gradients
+            param_norm = param.grad.data.norm(2)  # Compute the L2 norm for the parameter's gradient
+            total_norm += param_norm.item() ** 2  # Sum the squares of the norms
+    
+    return total_norm
+
+def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
+    for i in range(len(norm)):
+        loss_fn.adaptive[i] = alpha * loss_fn.adaptive[i] + (1-alpha) * total/norm[i]
 
 def update_weights_t(weights_t: torch.Tensor, eps: float, loss_time: torch.Tensor):
     for i in torch.arange(weights_t.shape[0]-1):
@@ -517,7 +533,20 @@ def train_model(
         for param in nn_approximator.outlayerx.parameters():
             param.requires_grad = False
 
-        loss, res_loss, losses = loss_fn(nn_approximator)
+        loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
+
+        if epoch % 1000 == 0:
+            res_loss.backward(retain_graph=True)
+            norm_res = calculate_norm(nn_approximator)
+            optimizer.zero_grad()
+
+            init_loss.backward(retain_graph=True)
+            norm_in = calculate_norm(nn_approximator)
+            optimizer.zero_grad()
+
+            norms = (norm_res, norm_in)
+            update_adaptive(loss_fn, norms, loss.detach(), 0.9)
+
         loss.backward(retain_graph=False)
         optimizer.step()
 
@@ -525,7 +554,7 @@ def train_model(
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
-            'residual': res_loss,
+            'residual': res_loss.item(),
             'init': losses[0].item(),
             'enloss': losses[4].item(),
             'weights_time': torch.mean(loss_fn.weights_t).detach().item()
@@ -537,13 +566,18 @@ def train_model(
             'T': losses[2].mean().detach().item()
         }, epoch)
 
+        writer.add_scalars('Adaptive', {
+            'res': loss_fn.adaptive[0].detach().item(),
+            'init': loss_fn.adaptive[1].detach().item()
+        }, epoch)
+
         if epoch % 500 == 0:
             t = loss_fn.points['all_points'][-1].unsqueeze(1)
             t = torch.unique(t, sorted=True)
             plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(), epoch, modeldir) 
-        
+
         update_weights_t(loss_fn.weights_t, 2, losses[-1])
-        
+
         pbar.update(1)
 
     pbar.update(1)
@@ -552,7 +586,7 @@ def train_model(
     writer.close()
 
     return nn_approximator
-
+    
 def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
     nx, ny, nt = nsamples
     sol = torch.zeros(nx, ny, nt, 2)
