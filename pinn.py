@@ -566,7 +566,7 @@ def train_model(
             t = torch.unique(t, sorted=True)
             plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(), epoch, modeldir) 
         
-        update_weights_t(loss_fn.weights_t, 5, losses[-1])
+        update_weights_t(loss_fn.weights_t, 2, losses[-1])
         
         pbar.update(1)
 
