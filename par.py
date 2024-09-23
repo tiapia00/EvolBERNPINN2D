@@ -7,7 +7,7 @@ class Parameters:
         self.n_time = 40 
         self.dim_hidden = (1, 20) 
         self.multux = 1
-        self.multuy = 2 
+        self.multuy = 4 
         self.n_hidden : int = 1 
         self.w0 = 1 
         self.pinn_par = {
