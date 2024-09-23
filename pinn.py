@@ -252,14 +252,14 @@ class PINN(nn.Module):
         hiddimx = multux * 2 * n_mode_spacex
         self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
         for _ in range(n_hidden - 1):
-            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx), bias=False)
+            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
             self.hid_space_layers_x.append(act)
 
         self.hid_space_layers_y = nn.ModuleList()
         hiddimy = multuy * 2 * n_mode_spacey
         self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy), bias=False)
+            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
             with torch.no_grad():
                 self.hid_space_layers_y[-1].weight = nn.Parameter(self.initialize_weights(self.linear.weight))
             self.hid_space_layers_y.append(act)
@@ -275,7 +275,7 @@ class PINN(nn.Module):
         weightslast[2:] *= 0
         self.outlayery.weight.data = weightslast[:n_mode_spacey].unsqueeze(0)
 
-        #self._initialize_weights()
+        self._initialize_weights()
 
 
     def initialize_weights(self, weight):
