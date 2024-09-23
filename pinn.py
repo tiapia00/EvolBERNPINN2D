@@ -564,7 +564,6 @@ def train_model(
             plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(), epoch, modeldir) 
         
         update_weights_t(loss_fn.weights_t, 5, losses[-1])
-        print(loss_fn.weights_t)
         
         pbar.update(1)
 
