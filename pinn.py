@@ -238,9 +238,9 @@ class PINN(nn.Module):
         self.act = act
         self.w0 = w0
 
-        self.U =  nn.Linear(3, hiddendim, bias=False)
+        self.U =  nn.Linear(3, hiddendim)
 
-        self.V = nn.Linear(3, hiddendim, bias=False)
+        self.V = nn.Linear(3, hiddendim)
 
         init.normal_(self.U.weight, mean=2.0, std=0.1)
         init.normal_(self.V.weight, mean=2.0, std=0.1)
