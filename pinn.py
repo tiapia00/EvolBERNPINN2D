@@ -453,8 +453,10 @@ class Loss:
                 tidxN = torch.nonzero(left[:,-1] == ts).squeeze()
                 uyneut = output[tidxN, -1].reshape(self.n_space)
                 dWext = tractionleft[:, i-1] * uyneut
+                dWext = torch.max(dVt)/torch.max(dWext) * dWext
                 W_ext_eff[i] = self.b * simps(dWext, self.steps[0])
                 dWextan = prescribed[:, i-1] * uyneut
+                dWextan = torch.max(dVt)/torch.max(dWextan) * dWextan
                 dWextan = dWextan.detach()
                 W_ext_an[i] = self.b * simps(dWextan, self.steps[0])
             else:
