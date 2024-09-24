@@ -258,7 +258,8 @@ class PINN(nn.Module):
         for _ in range(nhidden):
             self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim))
         
-        self.outlayer = nn.Linear(2*hiddendim, 2)
+        self.outlayerx = nn.Linear(2*hiddendim, 1)
+        self.outlayery = nn.Linear(2*hiddendim, 1)
 
 
     def forward(self, space, t):
@@ -279,7 +280,10 @@ class PINN(nn.Module):
             out = layer(out)
             out = self.act(out) * U + (1-self.act(out)) * V
 
-        outNN = self.outlayer(out)
+        outNNx = self.outlayerx(out)
+        outNNy = self.outlayery(out)
+
+        outNN = torch.cat([outNNx, outNNy], dim=1)
 
         outNN = torch.sin(space[:,0].reshape(-1,1) * np.pi) * outNN
 
