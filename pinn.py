@@ -226,7 +226,6 @@ def calculate_fft(signal: np.ndarray, dx: float, x: np.ndarray):
 class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: tuple,
-                 w0: float,
                  n_hidden: int,
                  multux: int,
                  multuy: int,
@@ -237,7 +236,6 @@ class PINN(nn.Module):
 
         super().__init__()
 
-        self.w0 = w0
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
 
@@ -441,10 +439,10 @@ class Loss:
         x, y, t = init_points
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
+        init = initial_conditions(space, self.w0)
 
-        loss = torch.abs(output - initial_conditions(space, t)[:,:2]).mean(dim=0).sum()
+        loss = torch.abs(self.w0 * output - init[:,:2]).mean(dim=0).sum()
 
-        initial_speed = initial_conditions(space, pinn.w0)[:,2:]
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -452,7 +450,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        #loss += (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
+        loss += (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
         loss *= self.adaptive[1]
 
         return loss
