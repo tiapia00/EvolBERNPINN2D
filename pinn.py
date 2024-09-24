@@ -435,7 +435,7 @@ class Loss:
 
         sig = sig.reshape(self.n_space**2*self.n_time, 4)
         tractionleft = sig[:,-1][neumannidx]
-        prescribed = - torch.ones_like(tractionleft) * torch.exp(
+        prescribed = torch.exp(
                 - points[neumannidx,-1].unsqueeze(1)) * torch.sin(2 * np.pi * points[neumannidx,-1].unsqueeze(1))
         # MPa
 
