@@ -442,7 +442,7 @@ class Loss:
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
-        loss = (output - initial_conditions(space, t)[:,:2]).pow(2).mean(dim=0).sum()
+        loss = torch.abs(output - initial_conditions(space, t)[:,:2]).mean(dim=0).sum()
 
         initial_speed = initial_conditions(space, pinn.w0)[:,2:]
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
