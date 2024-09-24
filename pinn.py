@@ -251,7 +251,7 @@ class PINN(nn.Module):
         for param in self.V.parameters():
             param.requires_grad = False
 
-        self.initlayer = nn.Linear(3, 2*hiddendim)
+        self.initlayer = nn.Linear(3, 2*hiddendim, bias=False)
         self.layers = nn.ModuleList([])
 
         for _ in range(nhidden):
@@ -290,7 +290,7 @@ class PINN(nn.Module):
         act_global = t.repeat(1, 2) * outNN
 
         init = 1/self.w0*initial_conditions(space, self.w0)[:,:2]
-        act_init = 1 - t.repeat(1, 2) * init
+        act_init = (1 - t.repeat(1, 2)) * init
 
         out = act_global + act_init
 
