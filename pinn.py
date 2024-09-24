@@ -8,6 +8,12 @@ import torch.optim as optim
 import torch.nn.init as init
 
 
+def calculate_fft(signal: np.ndarray, dx: float) -> tuple:
+    signal = np.hanning(signal.shape[0]) * signal
+    yf = np.fft.rfft(signal)
+    freq = np.fft.rfftfreq(signal.shape[0], d=dx)
+    return yf, freq
+
 def simps(y, dx, dim=0):
     device = y.device
     n = y.size(dim)
@@ -52,7 +58,7 @@ def simps(y, dx, dim=0):
 def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0 * (torch.sin(2 * torch.pi * x) + torch.sin(4 * torch.pi * x + torch.pi/2))
+    uy0 = w0 * (torch.sin(2 * torch.pi * x) + torch.sin(4 * torch.pi * x))
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -217,33 +223,49 @@ def matern52(alpha):
     phi = (torch.ones_like(alpha) + 5 ** 0.5 * alpha + (5 / 3) * alpha.pow(2)) * torch.exp(-5 ** 0.5 * alpha)
     return phi
 
-class TrigAct(nn.Module):
+class Paired_layer(nn.Module):
+    def __init__(self, hidden_dim):
+        super(Paired_layer, self).__init__()
+        self.hidden_dim = hidden_dim
+        # Linear layer to transform each pair of neurons into one neuron
+        self.fc = nn.Linear(2, 1, bias=False)  # Combine 2 adjacent neurons into 1 neuron
+        
     def forward(self, x):
-        return torch.sin(x)
+        # x shape: [batch_size, 2*hidden_dim]
+        
+        # Reshape to [batch_size, hidden_dim, 2] where we group every 2 neurons together
+        x = x.view(x.size(0), self.hidden_dim, 2)
+        
+        # Apply the linear layer to each pair of neurons
+        x = self.fc(x)  # Shape will become [batch_size, hidden_dim, 1]
+        
+        # Remove the last dimension (since it's now 1) to return to [batch_size, hidden_dim]
+        x = x.squeeze(-1)
+        
+        return x
 
-def parabolic(a, x):
-    return (a * x ** 2 - a * x)
 
 class PINN(nn.Module):
     def __init__(self,
                  hiddendim: int,
                  w0: float, 
                  nhidden: int,
+                 yf: np.ndarray,
+                 freq: np.ndarray,
                  act=nn.Tanh(),
                  ):
 
         super().__init__()
         self.hiddendim = hiddendim
         self.nhidden = nhidden
-        self.act = act
         self.w0 = w0
 
         self.U =  nn.Linear(3, hiddendim)
 
         self.V = nn.Linear(3, hiddendim)
 
-        init.normal_(self.U.weight, mean=2.0, std=0.1)
-        init.normal_(self.V.weight, mean=2.0, std=0.1)
+        self.U.weight.data[:, 0] = torch.from_numpy(freq[:hiddendim])
+        self.V.weight.data[:, 0] = torch.from_numpy(freq[:hiddendim])
 
         for param in self.U.parameters():
             param.requires_grad = False
@@ -251,28 +273,34 @@ class PINN(nn.Module):
         for param in self.V.parameters():
             param.requires_grad = False
 
-        self.initlayer = nn.Linear(3, 2*hiddendim, bias=False)
-        self.layers = nn.ModuleList([])
+        self.pairmodes = Paired_layer(hiddendim)
 
-        for _ in range(nhidden):
-            self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim, bias=False))
-        
-        self.outlayerx = nn.Linear(2*hiddendim, 1, bias=False)
+        self.initlayer = nn.Linear(3, hiddendim)
+        self.layers = nn.ModuleList([])
+        for _ in range(nhidden - 2):
+            self.layers.append(nn.Linear(hiddendim, hiddendim, bias=False))
+            self.layers.append(act)
+
+        self.outlayerx = nn.Linear(hiddendim, 1, bias=False)
         self.outlayerx.weight.data *= 0
 
         for param in self.outlayerx.parameters():
             param.requires_grad = False
 
-        self.outlayery = nn.Linear(2*hiddendim, 1, bias=False)
+        self.outlayery = nn.Linear(hiddendim, 1, bias=False)
+        self.outlayery.weight.data[:,:] = torch.from_numpy(np.abs(yf[:hiddendim]))
 
 
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
         U = self.U(input)
-        U = torch.cat([torch.cos(np.pi * U), torch.sin(np.pi * U)], dim=1)
+        U = torch.cat([torch.cos(2 * np.pi * U), torch.sin(2 * np.pi * U)], dim=1)
         
         V = self.V(input)
-        V = torch.cat([torch.cos(np.pi * V), torch.sin(np.pi * V)], dim=1)
+        V = torch.cat([torch.cos(2 * np.pi * V), torch.sin(2 * np.pi * V)], dim=1)
+
+        U = self.pairmodes(U)
+        V = self.pairmodes(V)
         
         out = self.initlayer(input)
 

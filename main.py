@@ -75,7 +75,16 @@ par = {"Lx": Lx,
         "mu":mu,
         "rho": rho,
         "t_ast": t_tild}
-pinn = PINN(dim_hidden, w0, n_hidden).to(device)
+
+inpoints = torch.cat(points["initial_points"], dim=1)
+spacein = inpoints[:,:2]
+cond0 = initial_conditions(spacein, w0)
+condx = cond0[:,:2].reshape(n_space, n_space, 2)
+condx = condx[:, 0, 1]
+yf, freq = calculate_fft(condx.detach().cpu().numpy(), steps[0].item())
+yf *= 1/np.max(np.abs(yf))
+
+pinn = PINN(dim_hidden, w0, n_hidden, yf, freq).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
