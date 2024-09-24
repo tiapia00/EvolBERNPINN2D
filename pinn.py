@@ -279,7 +279,7 @@ class PINN(nn.Module):
         weightslast[2:] *= 0
         self.outlayery.weight.data = weightslast[:n_mode_spacey].unsqueeze(0)
         """
-        self._initialize_weights()
+        #self._initialize_weights()
 
 
     def initialize_weights(self, weight):
@@ -355,7 +355,10 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
-        out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
+        outNN = t * out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
+        outinit = (1-t) * 1/self.w0 * initial_conditions(space, self.w0)
+
+        out = outNN + outinit
 
         return out
 
@@ -452,8 +455,6 @@ class Loss:
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
-        loss = torch.abs(output - 1/self.w0*initial_conditions(space, self.w0)[:,:2]).mean(dim=0).sum()
-
         initial_speed = initial_conditions(space, pinn.w0)[:,2:]
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -462,7 +463,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        #loss += (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
+        loss += (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
         loss *= self.adaptive[1]
 
         return loss
