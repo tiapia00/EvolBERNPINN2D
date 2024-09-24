@@ -274,7 +274,7 @@ class PINN(nn.Module):
         self.outlayery.weight.data = weightslast[:n_mode_spacey].unsqueeze(0)
         """
 
-        #self._initialize_weights()
+        self._initialize_weights()
 
     @staticmethod
     def apply_filter(alpha):
