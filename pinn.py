@@ -287,10 +287,10 @@ class PINN(nn.Module):
 
         outNN = space[:,0].unsqueeze(1) * outNN * (1 - space[:,0].unsqueeze(1))
 
-        act_global = torch.tanh(t.repeat(1, 2)) * outNN
+        act_global = t.repeat(1, 2) * outNN
 
         init = 1/self.w0*initial_conditions(space, self.w0)[:,:2]
-        act_init = torch.tanh(1 - t.repeat(1, 2)) * init
+        act_init = 1 - t.repeat(1, 2) * init
 
         out = act_global + act_init
 
