@@ -245,13 +245,12 @@ class PINN(nn.Module):
         init.normal_(self.U.weight, mean=2.0, std=1.0)
         init.normal_(self.V.weight, mean=2.0, std=1.0)
 
-        """
         for param in self.U.parameters():
             param.requires_grad = False
 
         for param in self.V.parameters():
             param.requires_grad = False
-        """
+
         self.initlayer = nn.Linear(3, 2*hiddendim)
         self.layers = nn.ModuleList([])
 
@@ -260,21 +259,20 @@ class PINN(nn.Module):
         
         self.outlayerx = nn.Linear(2*hiddendim, 1)
         self.outlayerx.weight.data *= 0
+        for param in self.outlayerx.parameters():
+            param.requires_grad = False
+
         self.outlayery = nn.Linear(2*hiddendim, 1)
 
 
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
-        spacex_t = torch.stack([space[:,0], t.squeeze()], dim=1)
-        input0 = input
-        U = self.U(spacex_t)
+        U = self.U(input)
         U = torch.cat([torch.cos(np.pi * U), torch.sin(np.pi * U)], dim=1)
         
-        input = input0
-        V = self.V(spacex_t)
+        V = self.V(input)
         V = torch.cat([torch.cos(np.pi * V), torch.sin(np.pi * V)], dim=1)
         
-        input = input0
         out = self.initlayer(input)
 
         for layer in self.layers:
