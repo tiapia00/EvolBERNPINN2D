@@ -52,7 +52,7 @@ def simps(y, dx, dim=0):
 def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = torch.sin(torch.pi*i*x)
+    uy0 = w0 * torch.sin(torch.pi*i*x)
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -259,6 +259,7 @@ class PINN(nn.Module):
             self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim))
         
         self.outlayerx = nn.Linear(2*hiddendim, 1)
+        self.outlayerx.weight.data *= 0
         self.outlayery = nn.Linear(2*hiddendim, 1)
 
 
