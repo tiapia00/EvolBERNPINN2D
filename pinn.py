@@ -255,14 +255,11 @@ class PINN(nn.Module):
         self.layers = nn.ModuleList([])
 
         for _ in range(nhidden):
-            self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim))
+            self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim, bias=False))
         
-        self.outlayerx = nn.Linear(2*hiddendim, 1)
+        self.outlayerx = nn.Linear(2*hiddendim, 1, bias=False)
         self.outlayerx.weight.data *= 0
-        for param in self.outlayerx.parameters():
-            param.requires_grad = False
-
-        self.outlayery = nn.Linear(2*hiddendim, 1)
+        self.outlayery = nn.Linear(2*hiddendim, 1, bias=False)
 
 
     def forward(self, space, t):
@@ -284,7 +281,7 @@ class PINN(nn.Module):
 
         outNN = torch.cat([outNNx, outNNy], dim=1)
 
-        outNN = torch.sin(space[:,0].reshape(-1,1) * np.pi) * outNN
+        outNN = space[:,0].unsqueeze(1) * outNN * (1 - space[:,0].unsqueeze(1))
 
         act_global = torch.tanh(t.repeat(1, 2)) * outNN
 
