@@ -260,7 +260,7 @@ class PINN(nn.Module):
         self.outlayerx = nn.Linear(2*hiddendim, 1, bias=False)
         self.outlayerx.weight.data *= 0
 
-        for param in self.V.parameters():
+        for param in self.outlayery.parameters():
             param.requires_grad = False
 
         self.outlayery = nn.Linear(2*hiddendim, 1, bias=False)
