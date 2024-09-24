@@ -242,8 +242,8 @@ class PINN(nn.Module):
 
         self.V = nn.Linear(2, hiddendim, bias=False)
 
-        init.normal_(self.U.weight, mean=1.0, std=1.0)
-        init.normal_(self.V.weight, mean=1.0, std=1.0)
+        init.normal_(self.U.weight, mean=2.0, std=1.0)
+        init.normal_(self.V.weight, mean=2.0, std=1.0)
 
         """
         for param in self.U.parameters():
@@ -267,11 +267,11 @@ class PINN(nn.Module):
         spacex_t = torch.stack([space[:,0], t.squeeze()], dim=1)
         input0 = input
         U = self.U(spacex_t)
-        U = torch.cat([torch.cos(U), torch.sin(U)], dim=1)
+        U = torch.cat([torch.cos(np.pi * U), torch.sin(np.pi * U)], dim=1)
         
         input = input0
         V = self.V(spacex_t)
-        V = torch.cat([torch.cos(V), torch.sin(V)], dim=1)
+        V = torch.cat([torch.cos(np.pi * V), torch.sin(np.pi * V)], dim=1)
         
         input = input0
         out = self.initlayer(input)
