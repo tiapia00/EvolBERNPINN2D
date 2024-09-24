@@ -439,7 +439,6 @@ def calculate_norm(pinn: PINN):
 
 def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
     for i in range(len(norm)):
-        print(norm[i])
         loss_fn.adaptive[i] = alpha * loss_fn.adaptive[i] + (1-alpha) * total/norm[i]
 
 def update_weights_t(weights_t: torch.Tensor, eps: float, loss_time: torch.Tensor):
