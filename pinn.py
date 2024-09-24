@@ -231,7 +231,7 @@ class PINN(nn.Module):
                  multuy: int,
                  magnFFT: np.ndarray,
                  device,
-                 act=nn.ReLU(),
+                 act=nn.Tanh(),
                  ):
 
         super().__init__()
@@ -251,14 +251,14 @@ class PINN(nn.Module):
         hiddimx = multux * 2 * n_mode_spacex
         self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
         for _ in range(n_hidden - 1):
-            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
+            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx), bias=False)
             self.hid_space_layers_x.append(act)
 
         self.hid_space_layers_y = nn.ModuleList()
         hiddimy = multuy * 2 * n_mode_spacey
         self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
+            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy), bias=False)
             self.hid_space_layers_y.append(act)
 
         self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex)
@@ -289,11 +289,14 @@ class PINN(nn.Module):
         return torch.cat([torch.sin(np.pi * x_proj),
                 torch.cos(np.pi * x_proj)], dim=1)
 
-    def _initialize_weights(self):
-        # Initialize all layers with Xavier initialization
+    def _initialize_weights(self, mean=0.0, std=0.02):
+        """
+        Initializes weights of all layers using a normal distribution with specified mean and std deviation.
+        Biases are initialized to zero.
+        """
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)  # Glorot uniform initialization
+                nn.init.normal_(layer.weight, mean=mean, std=std)  # Normal distribution
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
