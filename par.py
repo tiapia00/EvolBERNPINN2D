@@ -7,7 +7,7 @@ class Parameters:
         self.n_time = 40 
         self.dim_hidden = 30
         self.n_hidden : int = 1 
-        self.w0 = 30
+        self.w0 = 1 
         self.pinn_par = {
             'x_end': self.x_end,
             'y_end': self.y_end,
