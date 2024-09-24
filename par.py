@@ -7,7 +7,7 @@ class Parameters:
         self.n_time = 40 
         self.dim_hidden = (1, 15) 
         self.multux = 1
-        self.multuy = 1 
+        self.multuy = 2 
         self.n_hidden : int = 1 
         self.w0 = 0.05 
         self.pinn_par = {
@@ -21,7 +21,7 @@ class Parameters:
             'n_hidden_space': self.n_hidden,
             'multux': self.multux,
             'multuy': self.multuy,
-            'lr': 5e-4,
+            'lr': 8e-5,
             'epochs': 4000 
         }
         self.beam_par = {
