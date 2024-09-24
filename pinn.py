@@ -264,8 +264,8 @@ class PINN(nn.Module):
 
         self.V = nn.Linear(3, hiddendim)
 
-        self.U.weight.data[:, 0] = torch.from_numpy(freq[:hiddendim])
-        self.V.weight.data[:, 0] = torch.from_numpy(freq[:hiddendim])
+        #self.U.weight.data[:, 0] = torch.from_numpy(freq[:hiddendim])
+        #self.V.weight.data[:, 0] = torch.from_numpy(freq[:hiddendim])
 
         for param in self.U.parameters():
             param.requires_grad = False
@@ -288,7 +288,7 @@ class PINN(nn.Module):
             param.requires_grad = False
 
         self.outlayery = nn.Linear(hiddendim, 1, bias=False)
-        self.outlayery.weight.data[:,:] = torch.from_numpy(np.abs(yf[:hiddendim]))
+        #self.outlayery.weight.data[:,:] = torch.from_numpy(np.abs(yf[:hiddendim]))
 
 
     def forward(self, space, t):
