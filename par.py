@@ -21,7 +21,7 @@ class Parameters:
             'n_hidden_space': self.n_hidden,
             'multux': self.multux,
             'multuy': self.multuy,
-            'lr': 8e-5,
+            'lr': 1e-3,
             'epochs': 4000 
         }
         self.beam_par = {
