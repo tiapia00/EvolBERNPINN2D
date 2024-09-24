@@ -22,7 +22,7 @@ class Parameters:
             'multux': self.multux,
             'multuy': self.multuy,
             'lr': 1e-3,
-            'epochs': 1000 
+            'epochs': 10000 
         }
         self.beam_par = {
             'x_end': self.x_end,
