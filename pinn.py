@@ -49,10 +49,10 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.tensor:
+def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0 * torch.sin(torch.pi*i*x)
+    uy0 = w0 * (torch.sin(2 * torch.pi * x) + torch.sin(4 * torch.pi * x + torch.pi/2))
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
