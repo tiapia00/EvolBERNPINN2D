@@ -251,13 +251,13 @@ class PINN(nn.Module):
         hiddimx = multux * 2 * n_mode_spacex
         self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
         for _ in range(n_hidden - 1):
-            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx, bias=False))
+            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
 
         self.hid_space_layers_y = nn.ModuleList()
         hiddimy = multuy * 2 * n_mode_spacey
         self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy, bias=False))
+            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
 
         self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex)
 
