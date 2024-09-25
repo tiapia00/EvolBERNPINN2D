@@ -437,7 +437,7 @@ class Loss:
         output = pinn(space, t)
         init = initial_conditions(space, self.w0)
 
-        loss = torch.abs(self.w0 * output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)).mean()
+        loss = torch.abs(output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)/self.w0).mean()
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
