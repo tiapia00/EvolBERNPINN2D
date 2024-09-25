@@ -231,7 +231,7 @@ class PINN(nn.Module):
                  multuy: int,
                  magnFFT: np.ndarray,
                  device,
-                 act=nn.Tanh(),
+                 act=nn.LeakyReLU(negative_slope=0.01),
                  ):
 
         super().__init__()
@@ -274,7 +274,7 @@ class PINN(nn.Module):
         self.outlayery.weight.data = weightslast[:n_mode_spacey].unsqueeze(0)
         """
 
-        #self._initialize_weights()
+        self._initialize_weights()
 
     @staticmethod
     def apply_filter(alpha):
@@ -289,14 +289,14 @@ class PINN(nn.Module):
         return torch.cat([torch.sin(np.pi * x_proj),
                 torch.cos(np.pi * x_proj)], dim=1)
 
-    def _initialize_weights(self, mean=0.0, std=0.02):
+    def _initialize_weights(self):
         """
         Initializes weights of all layers using a normal distribution with specified mean and std deviation.
         Biases are initialized to zero.
         """
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
-                nn.init.normal_(layer.weight, mean=mean, std=std)  # Normal distribution
+                nn.init.xavier_normal_(layer.weight)  # Xavier uniform initialization
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
@@ -444,7 +444,7 @@ class Loss:
         output = pinn(space, t)
         init = initial_conditions(space, self.w0)
 
-        loss = torch.abs(self.w0 * output - init[:,:2]).mean(dim=0).sum()
+        loss = (self.w0 * output - init[:,:2]).pow(2).mean(dim=0).sum()
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
