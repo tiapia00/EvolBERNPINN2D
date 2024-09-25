@@ -262,7 +262,6 @@ class PINN(nn.Module):
             self.hid_space_layers_y.append(act)
 
         self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex)
-        self._initialize_weights()
 
         self.layerymodes = nn.Linear(hiddimy, 2*n_mode_spacey)
 
@@ -270,6 +269,9 @@ class PINN(nn.Module):
         self.outlayerx.weight.data *= 0 
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
         self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
+
+        self._initialize_weights()
+
         """
         weightslast = torch.from_numpy(magnFFT).float()
         weightslast[2:] *= 0
@@ -289,7 +291,7 @@ class PINN(nn.Module):
         """
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)  # Xavier uniform initialization
+                nn.init.xavier_normal_(layer.weight)  # Xavier uniform initialization
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
