@@ -535,7 +535,7 @@ def train_model(
 
         loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
 
-        if epoch % 1000 == 0:
+        if epoch % 200 == 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(nn_approximator)
             optimizer.zero_grad()
@@ -576,7 +576,7 @@ def train_model(
             t = torch.unique(t, sorted=True)
             plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(), epoch, modeldir) 
 
-        update_weights_t(loss_fn.weights_t, 2, losses[-1])
+        update_weights_t(loss_fn.weights_t, 1, losses[-1])
 
         pbar.update(1)
 
