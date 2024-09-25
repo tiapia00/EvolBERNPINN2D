@@ -349,7 +349,7 @@ class Loss:
         steps_int: tuple,
         adim: tuple,
         par: dict,
-        in_adaptive: list,
+        in_adaptive: torch.Tensor,
         device: torch.device,
         verbose: bool = False
     ):
@@ -431,7 +431,7 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        loss = torch.abs(output - init[:,:2]).mean(dim=0).sum()
+        loss = torch.abs(self.par['w0'] * output - init[:,:2]).mean(dim=0).sum()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -505,18 +505,15 @@ def train_model(
 
     from plots import plot_energy
 
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, nn_approximator.parameters()), lr = learning_rate)
+    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        for param in nn_approximator.outlayerx.parameters():
-            param.requires_grad = False
-
         loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
 
-        if epoch % 1000 == 0:
+        if epoch % 600 == 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(nn_approximator)
             optimizer.zero_grad()
@@ -541,14 +538,14 @@ def train_model(
         }, epoch)
 
         writer.add_scalars('Energy', {
-            'V+T': losses[3].detach().item(),
-            'V': losses[1].mean().detach().item(),
-            'T': losses[2].mean().detach().item()
+            'V+T': losses[3].item(),
+            'V': losses[1].mean().item(),
+            'T': losses[2].mean().item()
         }, epoch)
 
         writer.add_scalars('Adaptive', {
-            'res': loss_fn.adaptive[0].detach().item(),
-            'init': loss_fn.adaptive[1].detach().item()
+            'res': loss_fn.adaptive[0].item(),
+            'init': loss_fn.adaptive[1].item()
         }, epoch)
 
         if epoch % 500 == 0:
