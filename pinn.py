@@ -334,9 +334,6 @@ class PINN(nn.Module):
         yout = self.outlayery(yout)
 
         out = torch.cat([xout, yout], dim=1)
-        init = initial_conditions(space, self.w0)[:,:2]
-
-        out = t * out + init
 
         return out
 
@@ -434,7 +431,7 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        #loss = torch.abs(self.par['w0'] * output - init[:,:2]).mean(dim=0).sum()
+        loss = torch.abs(self.par['w0'] * output - init[:,:2]).mean(dim=0).sum()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
