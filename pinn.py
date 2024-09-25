@@ -444,7 +444,7 @@ class Loss:
         output = pinn(space, t)
         init = initial_conditions(space, self.w0)
 
-        loss = self.adaptive[1] * (self.w0 * output - init[:,:2]).pow(2).mean(dim=0).sum()
+        loss = self.adaptive[1] * torch.abs(self.w0 * output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)).mean()
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -470,16 +470,6 @@ class Loss:
             #TODO: I should obtain stresses at first
 
             return loss
-
-
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
-        lambda_o = np.array(self.penalty)
-        mean = np.array(mean)
-        
-        lambda_n = max_grad / (lambda_o * (np.abs(mean)))
-
-        self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
-
 
     def verbose(self, pinn):
         res_loss, V, T, loss_time = self.res_loss(pinn)
