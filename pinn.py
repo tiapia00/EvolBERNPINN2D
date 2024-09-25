@@ -553,8 +553,8 @@ def train_model(
         }, epoch)
 
         writer.add_scalars('Adaptive', {
-            'res': loss_fn.adaptive[0].detach().item(),
-            'init': loss_fn.adaptive[1].detach().item()
+            'res': loss_fn.adaptive[0].item(),
+            'init': loss_fn.adaptive[1].item()
         }, epoch)
 
         if epoch % 500 == 0:
