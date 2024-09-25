@@ -508,7 +508,7 @@ def train_model(
 
     from plots import plot_energy
 
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, nn_approximator.parameters()), lr = learning_rate)
+    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
@@ -519,7 +519,7 @@ def train_model(
 
         loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
 
-        if epoch % 600 == 0 and epoch != 0:
+        if epoch % 200 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(nn_approximator)
             optimizer.zero_grad()
@@ -529,7 +529,7 @@ def train_model(
             optimizer.zero_grad()
 
             norms = (norm_res, norm_in)
-            update_adaptive(loss_fn, norms, loss.detach(), 0.8)
+            update_adaptive(loss_fn, norms, loss.detach(), 0.7)
 
         loss.backward(retain_graph=False)
         optimizer.step()
@@ -560,7 +560,7 @@ def train_model(
             t = torch.unique(t, sorted=True)
             plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(), epoch, modeldir) 
 
-        update_weights_t(loss_fn.weights_t, 0.5, losses[-1])
+        update_weights_t(loss_fn.weights_t, 1, losses[-1])
 
         pbar.update(1)
 
