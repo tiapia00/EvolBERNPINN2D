@@ -58,14 +58,31 @@ def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.te
 
 
 class Grid:
-    def __init__(self, x_domain, y_domain, t_domain, device):
+    def __init__(self, x_domain, multx_in, y_domain, t_domain, device):
         self.x_domain = x_domain
         self.y_domain = y_domain
         self.t_domain = t_domain
         self.device = device
+        self.multx_in = multx_in
         self.requires_grad = True
         self.grid_init = self.generate_grid_init()
+        self.grid_init_hyper = self.generate_grid_init_hyper()
         self.grid_bound = self.generate_grid_bound()
+
+    def generate_grid_init_hyper(self):
+        xmax = torch.max(self.x_domain)
+
+        x = torch.linspace(0, xmax, self.multx_in * len(self.x_domain))
+        y = self.y_domain
+        x_grid, y_grid = torch.meshgrid(x, y, indexing="ij")
+
+        x_grid = x_grid.reshape(-1, 1)
+        y_grid = y_grid.reshape(-1, 1)
+        t0 = torch.zeros_like(x_grid)
+
+        grid_init = torch.cat((x_grid, y_grid, t0), dim=1)
+
+        return grid_init
 
     def generate_grid_init(self):
         x = self.x_domain
@@ -132,6 +149,18 @@ class Grid:
         y_grid.requires_grad_(True)
 
         t0 = self.grid_init[:, 2].unsqueeze(1).to(self.device)
+        t0.requires_grad_(True)
+
+        return (x_grid, y_grid, t0)
+
+    def get_initial_points_hyper(self):
+        x_grid = self.grid_init_hyper[:, 0].unsqueeze(1).to(self.device)
+        x_grid.requires_grad_(True)
+
+        y_grid = self.grid_init_hyper[:, 1].unsqueeze(1).to(self.device)
+        y_grid.requires_grad_(True)
+
+        t0 = self.grid_init_hyper[:, 2].unsqueeze(1).to(self.device)
         t0.requires_grad_(True)
 
         return (x_grid, y_grid, t0)
@@ -338,6 +367,7 @@ class PINN(nn.Module):
         return out
 
 
+
 class Loss:
     def __init__(
         self,
@@ -362,7 +392,7 @@ class Loss:
         self.adim = adim
         self.par = par
         self.b = b
-        self.adaptive = in_adaptive
+        self.lambdas = in_adaptive
 
     def res_loss(self, pinn):
         x, y, t = self.points['all_points']
@@ -399,8 +429,6 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         
-        loss *= self.adaptive[0].item()
-        
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2).detach()
 
@@ -425,7 +453,7 @@ class Loss:
 
 
     def initial_loss(self, pinn):
-        init_points = self.points['initial_points']
+        init_points = self.points['initial_points_hyper']
         x, y, t = init_points
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
@@ -440,7 +468,6 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
 
         loss = (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
-        loss *= self.adaptive[1].item()
 
         return loss
 
@@ -474,24 +501,37 @@ class Loss:
         init_loss = self.initial_loss(pinn)
         loss = res_loss + init_loss
 
-        return loss, res_loss, init_loss, (init_loss, V, T, (V+T).mean(), enloss.detach())
+        return loss, (res_loss.detach(), init_loss.detach(), V, T, (V+T).mean(), enloss.detach())
 
     def __call__(self, pinn):
         return self.verbose(pinn)
 
-def calculate_norm(pinn: PINN):
-    total_norm = 0
-    for param in pinn.parameters():
-        if param.grad is not None:  # Ensure the parameter has gradients
-            param_norm = param.grad.data.norm(2)  # Compute the L2 norm for the parameter's gradient
-            total_norm += param_norm.item() ** 2  # Sum the squares of the norms
-    
-    return total_norm
+def updateReLo(lambdas: list, losses: list, mu: float, alpha: float, T: float):
+    """
+    losses[0] = L(0)
+    losses[1] = L(t-1)
+    losses[2] = L(t)
 
-def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
-    for i in range(len(norm)):
-        loss_fn.adaptive[i] = alpha * loss_fn.adaptive[i] + (1-alpha) * total/norm[i]
+    lambdas[0] = lambdas(t-1)
+    lambdas[1] = lambdas(t)
+    """
+    bernoulli_dist = torch.distributions.Bernoulli(probs=mu)
+    rho = bernoulli_dist.sample()
     
+    losses_0 = losses[0]
+    losses_im1 = losses[1]
+    losses_i = losses[-1]
+    m = len(losses_i)
+
+    lambdabal_0 = m * torch.exp(losses_i/(T * losses_0))/torch.sum(torch.exp(losses_i/(T * losses_0)))
+    lambdabal_im1 = m * torch.exp(losses_i/(T * losses_im1))/torch.sum(torch.exp(losses_i/(T * losses_im1)))
+
+    lambdahist = rho * lambdas[0] + (1 - rho) * lambdabal_0
+
+    lambdas = lambdahist + (1 - alpha) * lambdabal_im1
+
+    return lambdas
+
 def train_model(
     nn_approximator: PINN,
     loss_fn: Callable,
@@ -508,50 +548,53 @@ def train_model(
     optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
+    mu = 0.9
+    alpha = 0.9
+    T = 0.1
+
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
-
-        if epoch % 600 == 0:
-            res_loss.backward(retain_graph=True)
-            norm_res = calculate_norm(nn_approximator)
-            optimizer.zero_grad()
-
-            init_loss.backward(retain_graph=True)
-            norm_in = calculate_norm(nn_approximator)
-            optimizer.zero_grad()
-
-            norms = (norm_res, norm_in)
-            update_adaptive(loss_fn, norms, loss.detach(), 0.9)
+        loss, losses = loss_fn(nn_approximator)
+        if epoch == 0:
+            losses0 = torch.stack([losses[0], losses[1]])
+        else:
+            if epoch == 1:
+                lossesReLo = [losses0, losses0, torch.stack([losses[0], losses[1]])]
+                loss_fn.lambdas = updateReLo(loss_fn.lambdas.detach(), lossesReLo, mu = mu, alpha = alpha, T = T)
+            else:
+                lossesReLo = [losses0, losses_im1, torch.stack([losses[0], losses[1]])]
+                loss_fn.lambdas = updateReLo(loss_fn.lambdas.detach(), lossesReLo, mu = mu, alpha = alpha, T = T)
+            losses_im1 = torch.stack([losses[0], losses[1]])
 
         loss.backward(retain_graph=False)
+
         optimizer.step()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
-            'residual': res_loss.item(),
-            'init': losses[0].item(),
-            'enloss': losses[4].item()
+            'residual': losses[0].item(),
+            'init': losses[1].item(),
+            'enloss': losses[5].item()
         }, epoch)
 
         writer.add_scalars('Energy', {
-            'V+T': losses[3].item(),
-            'V': losses[1].mean().item(),
-            'T': losses[2].mean().item()
+            'V+T': losses[4].item(),
+            'V': losses[2].mean().item(),
+            'T': losses[3].mean().item()
         }, epoch)
 
         writer.add_scalars('Adaptive', {
-            'res': loss_fn.adaptive[0].item(),
-            'init': loss_fn.adaptive[1].item()
+            'res': loss_fn.lambdas[0].item(),
+            'init': loss_fn.lambdas[1].item()
         }, epoch)
 
         if epoch % 500 == 0:
             t = loss_fn.points['all_points'][-1].unsqueeze(1)
             t = torch.unique(t, sorted=True)
-            plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(), epoch, modeldir) 
+            plot_energy(t.detach().cpu().numpy(), losses[2].detach().cpu().numpy(), losses[3].detach().cpu().numpy(), epoch, modeldir) 
 
         pbar.update(1)
 
@@ -571,6 +614,8 @@ def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tup
 
     for i in range(len(tsv)):
         idxt = torch.nonzero(t.squeeze() == tsv[i])
+        if i == 0:
+            spaceidx[:,:,i,:] = space[idxt].reshape(nx, ny, 2)
         spaceidx[:,:,i,:] = space[idxt].reshape(nx, ny, 2)
         sol[:,:,i,:] = output[idxt,:2].reshape(nx, ny, 2)
     

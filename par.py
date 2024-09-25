@@ -5,9 +5,10 @@ class Parameters:
         self.t_end = 1 
         self.n_space = 50
         self.n_time = 40 
-        self.dim_hidden = (1, 5) 
+        self.dim_hidden = (1, 10) 
         self.multux = 1
         self.multuy = 1 
+        self.multhyperx = 2
         self.n_hidden : int = 3 
         self.w0 = 1 
         self.pinn_par = {
@@ -21,6 +22,7 @@ class Parameters:
             'n_hidden_space': self.n_hidden,
             'multux': self.multux,
             'multuy': self.multuy,
+            'multhyperx': self.multhyperx,
             'lr': 5e-4,
             'epochs': 4000 
         }
