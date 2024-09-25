@@ -93,7 +93,8 @@ pinn = PINN(dim_hidden, n_hidden, multux, multuy, magnpos, device).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
-in_adap = [1, 1]
+in_adap = torch.tensor([1., 1.])
+in_adap.requires_grad_(False)
 loss_fn = Loss(
         points,
         n_space,
