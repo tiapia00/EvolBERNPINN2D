@@ -232,7 +232,6 @@ class PINN(nn.Module):
                  multuy: int,
                  magnFFT: np.ndarray,
                  device,
-                 act=nn.LeakyReLU(negative_slope=0.01),
                  ):
 
         super().__init__()
@@ -258,14 +257,12 @@ class PINN(nn.Module):
         self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
         for _ in range(n_hidden - 1):
             self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx), bias=False)
-            self.hid_space_layers_x.append(act)
 
         self.hid_space_layers_y = nn.ModuleList()
         hiddimy = multuy * 2 * n_mode_spacey
         self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy), bias=False)
-            self.hid_space_layers_y.append(act)
 
         self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex)
         self.layerymodes = nn.Linear(hiddimy, 2*n_mode_spacey)
@@ -338,11 +335,6 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
-        outNN = t * out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
-        outinit = (1-t) * 1/self.w0 * initial_conditions(space, self.w0)[:,:2]
-
-        out = outNN + outinit
-
         return out
 
 
@@ -407,7 +399,7 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         
-        loss *= self.adaptive[0]
+        loss *= self.adaptive[0].item()
         
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2).detach()
@@ -438,7 +430,8 @@ class Loss:
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
-        initial_speed = initial_conditions(space, pinn.w0)[:,2:]
+        init = initial_conditions(space, pinn.w0)
+        loss = torch.abs(output - init[:,:2]).mean(dim=0).sum()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -446,8 +439,8 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        loss = (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
-        loss *= self.adaptive[1]
+        loss = (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
+        loss *= self.adaptive[1].item()
 
         return loss
 
