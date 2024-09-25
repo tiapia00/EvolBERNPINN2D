@@ -293,7 +293,7 @@ class PINN(nn.Module):
         act_global = t.repeat(1, 2) * outNN
 
         init = 1/self.w0*initial_conditions(space, self.w0)[:,:2]
-        act_init = 1 - t.repeat(1, 2) * init
+        act_init = (1 - t.repeat(1, 2)) * init
 
         out = act_global + act_init
 
