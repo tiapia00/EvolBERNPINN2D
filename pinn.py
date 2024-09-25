@@ -232,7 +232,7 @@ class PINN(nn.Module):
                  multuy: int,
                  magnFFT: np.ndarray,
                  device,
-                 act=nn.Tanh(),
+                 act=nn.LeakyReLU(negative_slope=0.01),
                  ):
 
         super().__init__()
@@ -279,24 +279,7 @@ class PINN(nn.Module):
         weightslast[2:] *= 0
         self.outlayery.weight.data = weightslast[:n_mode_spacey].unsqueeze(0)
         """
-        #self._initialize_weights()
-
-
-    def initialize_weights(self, weight):
-        # Create a mask for diagonal and sub-diagonal (previous-node) connections
-        mask = torch.zeros_like(weight)
-        diag_idx = torch.arange(weight.size(0))
-        sub_diag_idx = diag_idx[:-1] + 1
-
-        # Set diagonal elements (self-connections)
-        mask[diag_idx, diag_idx] = 1
-
-        # Set sub-diagonal elements (previous-node connections)
-        mask[sub_diag_idx, diag_idx[:-1]] = 1
-
-        # Randomly initialize weights but only for the valid connections
-        weight.data = mask * weight.data
-        return weight
+        self._initialize_weights()
 
     @staticmethod
     def apply_filter(alpha):
@@ -315,7 +298,7 @@ class PINN(nn.Module):
         # Initialize all layers with Xavier initialization
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)  # Glorot uniform initialization
+                nn.init.xavier_normal_(layer.weight)  # Glorot uniform initialization
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
