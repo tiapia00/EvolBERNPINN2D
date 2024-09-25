@@ -267,7 +267,6 @@ class PINN(nn.Module):
 
         self.outlayery = nn.Linear(2*hiddendim, 1, bias=False)
 
-
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
         U = self.U(input)
