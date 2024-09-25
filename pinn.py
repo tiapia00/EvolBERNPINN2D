@@ -535,7 +535,7 @@ def train_model(
 
         loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
 
-        if epoch % 200 == 0:
+        if epoch % 600 == 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(nn_approximator)
             optimizer.zero_grad()
@@ -545,7 +545,7 @@ def train_model(
             optimizer.zero_grad()
 
             norms = (norm_res, norm_in)
-            update_adaptive(loss_fn, norms, loss.detach(), 0.6)
+            update_adaptive(loss_fn, norms, loss.detach(), 0.8)
 
         loss.backward(retain_graph=False)
         optimizer.step()
