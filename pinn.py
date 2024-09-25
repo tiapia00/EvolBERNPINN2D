@@ -444,7 +444,7 @@ class Loss:
         output = pinn(space, t)
         init = initial_conditions(space, self.w0)
 
-        loss = (self.w0 * output - init[:,:2]).pow(2).mean(dim=0).sum()
+        loss = self.adaptive[1] * (self.w0 * output - init[:,:2]).pow(2).mean(dim=0).sum()
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -454,7 +454,6 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
 
         loss += (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
-        loss *= self.adaptive[1]
 
         return loss
 
