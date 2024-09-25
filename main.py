@@ -136,7 +136,7 @@ print(pinn_trained)
 pinn_trained.eval()
 
 tin = inpoints[:,-1].unsqueeze(1)
-z = pinn_trained(spacein, tin)
+z = par['w0'] * pinn_trained(spacein, tin)
 v = calculate_speed(z, tin, par)
 z = torch.cat([z, v], dim=1)
 
