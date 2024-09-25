@@ -427,7 +427,7 @@ class Loss:
                 tidx_par = torch.zeros(0, device=self.device, dtype=torch.int32, requires_grad=False)
 
         loss *= 1/self.weights_t.shape[0]
-        loss *= self.adaptive[0]
+        loss *= self.adaptive[0].item()
 
         return loss, V, T, loss_time
 
@@ -449,7 +449,7 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
 
         loss += (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
-        loss *= self.adaptive[1]
+        loss *= self.adaptive[1].item()
 
         return loss
 
