@@ -545,7 +545,7 @@ def train_model(
             optimizer.zero_grad()
 
             norms = (norm_res, norm_in)
-            update_adaptive(loss_fn, norms, loss.detach(), 0.9)
+            update_adaptive(loss_fn, norms, loss.detach(), 0.6)
 
         loss.backward(retain_graph=False)
         optimizer.step()
