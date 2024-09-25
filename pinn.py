@@ -286,14 +286,7 @@ class PINN(nn.Module):
 
         outNN = torch.cat([outNNx, outNNy], dim=1)
 
-        outNN = space[:,0].unsqueeze(1) * outNN * (1 - space[:,0].unsqueeze(1))
-
-        act_global = t.repeat(1, 2) * outNN
-
-        init = 1/self.w0*initial_conditions(space, self.w0)[:,:2]
-        act_init = (1 - t.repeat(1, 2)) * init
-
-        out = act_global + act_init
+        out = space[:,0].unsqueeze(1) * outNN * (1 - space[:,0].unsqueeze(1))
 
         return out
 
@@ -405,7 +398,8 @@ class Loss:
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
-        initial_speed = initial_conditions(space, pinn.w0)[:,2:]
+        init = initial_conditions(space, pinn.w0)
+        loss = self.adim[1] * torch.abs(self.par['w0'] * output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -413,7 +407,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        loss = self.adaptive[1] * (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
+        loss += (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
 
         return loss
 
