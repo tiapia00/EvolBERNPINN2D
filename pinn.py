@@ -463,18 +463,18 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        loss = torch.abs(output[:,1].unsqueeze(1) - init[:,:1].unsqueeze(1)/self.w0).mean()
+
+        lossx = self.lambdas[1] * torch.abs(output[:,0].unsqueeze(1) - init[:,0].unsqueeze(1)/self.w0).mean()
+        lossy = self.lambdas[2] * torch.abs(output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)/self.w0).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         
-        v = torch.cat([vx, vy], dim=1)
+        lossvx = self.lambdas[3] * (vx * self.par['w0']/self.par['t_ast'] - init[:,2].unsqueeze(1)).pow(2).mean()
+        lossvy = self.lambdas[4] * (vy * self.par['w0']/self.par['t_ast'] - init[:,3].unsqueeze(1)).pow(2).mean()
 
-        loss = (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
-        loss *= self.lambdas[1]
-
-        return loss
+        return (lossx, lossy, lossvx, lossvy)
 
     def bound_N(self, pinn):
             _, _, _, left, right, _ = self.points['boundary_points']
@@ -490,23 +490,14 @@ class Loss:
 
             return loss
 
-
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
-        lambda_o = np.array(self.penalty)
-        mean = np.array(mean)
-        
-        lambda_n = max_grad / (lambda_o * (np.abs(mean)))
-
-        self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
-
-
     def verbose(self, pinn):
         res_loss, V, T = self.res_loss(pinn)
         enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
-        init_loss = self.initial_loss(pinn)
-        loss = res_loss + init_loss
+        init_losses = self.initial_loss(pinn)
+        init_loss = torch.sum(torch.stack(init_losses).detach())
+        loss = res_loss + torch.sum(torch.stack(init_losses))
 
-        return loss, (res_loss.detach(), init_loss.detach(), V, T, (V+T).mean(), enloss.detach())
+        return loss, (res_loss.detach(), init_losses, init_loss.detach(), V, T, (V+T).mean(), enloss.detach())
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -559,15 +550,16 @@ def train_model(
 
         loss, losses = loss_fn(nn_approximator)
         if epoch == 0:
-            losses0 = torch.stack([losses[0], losses[1]])
+            losses0 = torch.cat([losses[0].unsqueeze(0), torch.stack(losses[1])])
+            print(losses0.shape)
         else:
             if epoch == 1:
-                lossesReLo = [losses0, losses0, torch.stack([losses[0], losses[1]])]
+                lossesReLo = [losses0, losses0, torch.cat([losses[0].unsqueeze(0), torch.stack(losses[1])])]
                 loss_fn.lambdas = updateReLo(loss_fn.lambdas.detach(), lossesReLo, mu = mu, alpha = alpha, T = T)
             else:
-                lossesReLo = [losses0, losses_im1, torch.stack([losses[0], losses[1]])]
+                lossesReLo = [losses0, losses_im1, torch.cat([losses[0].unsqueeze(0), torch.stack(losses[1])])]
                 loss_fn.lambdas = updateReLo(loss_fn.lambdas.detach(), lossesReLo, mu = mu, alpha = alpha, T = T)
-            losses_im1 = torch.stack([losses[0], losses[1]])
+            losses_im1 = torch.stack([losses[0], torch.stack(losses[1])])
 
         loss.backward(retain_graph=False)
 
@@ -578,7 +570,7 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': losses[0].item(),
-            'init': losses[1].item(),
+            'init': torch.sum(torch.stack(losses[1])).item(),
             'enloss': losses[5].item()
         }, epoch)
 
@@ -590,7 +582,10 @@ def train_model(
 
         writer.add_scalars('Adaptive', {
             'res': loss_fn.lambdas[0].item(),
-            'init': loss_fn.lambdas[1].item()
+            'initux': loss_fn.lambdas[1].item(),
+            'inituy': loss_fn.lambdas[2].item(),
+            'initvx': loss_fn.lambdas[3].item(),
+            'initvy': loss_fn.lambdas[4].item()
         }, epoch)
 
         if epoch % 500 == 0:
