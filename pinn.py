@@ -443,7 +443,7 @@ class Loss:
         lossvy = (vy * self.par['w0']/self.par['t_ast'] - init[:,3].unsqueeze(1)).pow(2).mean()
         lossv = self.adaptive[3].item() * (lossvx + lossvy)
 
-        inloss = lossx + lossy + lossv
+        inloss = lossv
 
         return inloss, (lossx, lossy, lossv)
 
