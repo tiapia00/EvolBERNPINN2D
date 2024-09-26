@@ -512,7 +512,7 @@ def train_model(
                 norms.append(calculate_norm(nn_approximator))
                 optimizer.zero_grad()
             
-            print(norms)
+            print(len(norms))
             print(norm_res)
             norms.insert(0, norm_res)
             update_adaptive(loss_fn, norms, loss.detach(), 0.9)
