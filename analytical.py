@@ -26,7 +26,7 @@ def obtain_analytical_free(my_beam: Beam, w0: float, tf: float,
     my_beam.update_phi(phi)
     my_In_Cond = In_Cond(my_beam)
 
-    w0 = w0*my_beam.phi[:, 0]
+    w0 = w0*(my_beam.phi[:, 0] + my_beam.phi[:, 1])
     wdot_0 = np.zeros(len(w0))
 
     my_In_Cond.pass_init_cond(w0, wdot_0)

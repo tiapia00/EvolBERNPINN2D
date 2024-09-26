@@ -6,6 +6,7 @@ from read_write import get_last_modified_file, pass_folder, delete_old_files, ge
 from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
+import matplotlib.animation as animation
 
 torch.set_default_dtype(torch.float32)
 
@@ -41,7 +42,25 @@ Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
-t_tild, w_ad, V0 = obtain_analytical_free(my_beam, w0, t, n_time, 2)
+t_tild, w, V0 = obtain_analytical_free(my_beam, w0, t, 500, 2)
+
+fig = plt.figure()
+ax = plt.axes()
+
+def drawframe(i):
+    ax.clear()
+
+    plt.title("Solution")
+    ax.set_ylim(np.min(w), np.max(w))
+    ax.set_xlabel('$x$')
+    ax.set_ylabel('$w$')
+    ax.plot(my_beam.xi, w[:, i], color='blue')
+    return ax
+
+ani = animation.FuncAnimation(
+    fig, drawframe, frames=w.shape[1], blit=False, repeat=True)
+
+plt.show()
 
 lam, mu = par.to_matpar_PINN()
 
