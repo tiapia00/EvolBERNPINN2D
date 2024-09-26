@@ -463,7 +463,7 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        loss = torch.abs(self.par['w0'] * output - init[:,:2]).mean(dim=0).sum()
+        loss = torch.abs(output[:,1].unsqueeze(1) - init[:,:1].unsqueeze(1)/self.w0).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -472,7 +472,7 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
 
         loss = (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
-        loss *= self.lambdas[1]
+        loss *= self.lambdas[0]
 
         return loss
 
@@ -516,9 +516,6 @@ def updateReLo(lambdas: list, losses: list, mu: float, alpha: float, T: float):
     losses[0] = L(0)
     losses[1] = L(t-1)
     losses[2] = L(t)
-
-    lambdas[0] = lambdas(t-1)
-    lambdas[1] = lambdas(t)
     """
     bernoulli_dist = torch.distributions.Bernoulli(probs=mu)
     rho = bernoulli_dist.sample()
@@ -531,7 +528,7 @@ def updateReLo(lambdas: list, losses: list, mu: float, alpha: float, T: float):
     lambdabal_0 = m * torch.exp(losses_i/(T * losses_0))/torch.sum(torch.exp(losses_i/(T * losses_0)))
     lambdabal_im1 = m * torch.exp(losses_i/(T * losses_im1))/torch.sum(torch.exp(losses_i/(T * losses_im1)))
 
-    lambdahist = rho * lambdas[0] + (1 - rho) * lambdabal_0
+    lambdahist = rho * lambdas + (1 - rho) * lambdabal_0
 
     lambdas = lambdahist + (1 - alpha) * lambdabal_im1
 
