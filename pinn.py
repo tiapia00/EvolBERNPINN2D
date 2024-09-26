@@ -474,7 +474,9 @@ class Loss:
         lossvx = self.lambdas[3] * (vx * self.par['w0']/self.par['t_ast'] - init[:,2].unsqueeze(1)).pow(2).mean()
         lossvy = self.lambdas[4] * (vy * self.par['w0']/self.par['t_ast'] - init[:,3].unsqueeze(1)).pow(2).mean()
 
-        return (lossx, lossy, lossvx, lossvy)
+        inloss = lossx + lossy + lossvx + lossvy
+
+        return inloss, (lossx.detach(), lossy.detach(), lossvx.detach(), lossvy.detach())
 
     def bound_N(self, pinn):
             _, _, _, left, right, _ = self.points['boundary_points']
@@ -493,11 +495,10 @@ class Loss:
     def verbose(self, pinn):
         res_loss, V, T = self.res_loss(pinn)
         enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
-        init_losses = self.initial_loss(pinn)
-        init_loss = torch.sum(torch.stack(init_losses).detach())
-        loss = res_loss + torch.sum(torch.stack(init_losses))
+        inloss, init_losses = self.initial_loss(pinn)
+        loss = res_loss + inloss
 
-        return loss, (res_loss.detach(), init_losses, init_loss.detach(), V, T, (V+T).mean(), enloss.detach())
+        return loss, (res_loss.detach(), init_losses, inloss.detach(), V, T, (V+T).mean(), enloss.detach())
 
     def __call__(self, pinn):
         return self.verbose(pinn)
