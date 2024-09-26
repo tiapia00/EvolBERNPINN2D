@@ -516,9 +516,11 @@ def updateReLo(lambdas: list, losses: list, mu: float, alpha: float, T: float):
     losses_im1 = losses[1]
     losses_i = losses[-1]
     m = len(losses_i)
+    
+    sub = 10**2
 
-    lambdabal_0 = m * torch.exp(losses_i/(T * losses_0))/torch.sum(torch.exp(losses_i/(T * losses_0)))
-    lambdabal_im1 = m * torch.exp(losses_i/(T * losses_im1))/torch.sum(torch.exp(losses_i/(T * losses_im1)))
+    lambdabal_0 = m * torch.exp(losses_i/(T * losses_0) + sub)/torch.sum(torch.exp(losses_i/(T * losses_0) + sub))
+    lambdabal_im1 = m * torch.exp(losses_i/(T * losses_im1) + sub)/torch.sum(torch.exp(losses_i/(T * losses_im1) + sub))
 
     lambdahist = rho * lambdas + (1 - rho) * lambdabal_0
 
