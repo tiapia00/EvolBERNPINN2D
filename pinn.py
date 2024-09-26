@@ -517,7 +517,7 @@ def updateReLo(lambdas: list, losses: list, mu: float, alpha: float, T: float):
     losses_i = losses[-1]
     m = len(losses_i)
 
-    lambdabal_0 = m * torch.exp(losses_i/(T * losses_0) - 10**9)/torch.sum(torch.exp(losses_i/(T * losses_0) - 10**9))
+    lambdabal_0 = m * torch.exp(losses_i/(T * losses_0))/torch.sum(torch.exp(losses_i/(T * losses_0)))
     lambdabal_im1 = m * torch.exp(losses_i/(T * losses_im1))/torch.sum(torch.exp(losses_i/(T * losses_im1)))
 
     lambdahist = rho * lambdas + (1 - rho) * lambdabal_0
@@ -544,7 +544,7 @@ def train_model(
 
     mu = 0.9
     alpha = 0.9
-    T = 0.1
+    T = 10  
 
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
