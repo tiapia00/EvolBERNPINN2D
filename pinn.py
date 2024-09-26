@@ -49,10 +49,10 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.tensor:
+def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0 * torch.sin(torch.pi*i*x)
+    uy0 = w0 * (torch.sin(torch.pi * x) + torch.sin(2 * torch.pi * x))
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -242,9 +242,8 @@ class PINN(nn.Module):
 
         self.V = nn.Linear(3, hiddendim)
 
-        init.normal_(self.U.weight, mean=2.0, std=0.1)
-        init.normal_(self.V.weight, mean=2.0, std=0.1)
-
+        init.normal_(self.U.weight, mean=2.0, std=0.5)
+        init.normal_(self.V.weight, mean=2.0, std=0.5)
 
         for param in self.U.parameters():
             param.requires_grad = False
@@ -288,14 +287,7 @@ class PINN(nn.Module):
 
         outNN = torch.cat([outNNx, outNNy], dim=1)
 
-        outNN = space[:,0].unsqueeze(1) * outNN * (1 - space[:,0].unsqueeze(1))
-
-        act_global = t.repeat(1, 2) * outNN
-
-        init = 1/self.w0*initial_conditions(space, self.w0)[:,:2]
-        act_init = (1 - t.repeat(1, 2)) * init
-
-        out = act_global + act_init
+        out = space[:,0].unsqueeze(1) * outNN * (1 - space[:,0].unsqueeze(1))
 
         return out
 
@@ -389,8 +381,10 @@ class Loss:
         x, y, t = init_points
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
+        init = initial_conditions(space, 1)
 
-        initial_speed = initial_conditions(space, pinn.w0)[:,2:]
+        loss = (init[:,:2] - output).pow(2).mean(dim=0).sum()
+
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -398,7 +392,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        loss = (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean(dim=0).sum()
+        loss += (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
 
         return loss
 
