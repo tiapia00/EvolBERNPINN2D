@@ -6,7 +6,7 @@ class Parameters:
         self.n_space = 40 
         self.n_time = 40 
         self.dim_hidden = 50
-        self.n_hidden : int = 2 
+        self.n_hidden : int = 1 
         self.multhyperx = 1 
         self.w0 = 1 
         self.pinn_par = {

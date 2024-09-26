@@ -274,6 +274,9 @@ class PINN(nn.Module):
         init.normal_(self.U.weight, mean=2.0, std=0.1)
         init.normal_(self.V.weight, mean=2.0, std=0.1)
 
+        init.normal_(self.U.bias, mean=0., std=0.1)
+        init.normal_(self.V.bias, mean=0., std=0.1)
+
         for param in self.U.parameters():
             param.requires_grad = False
 
@@ -429,8 +432,8 @@ class Loss:
 
         init = initial_conditions(space, pinn.w0)
 
-        lossx = self.lambdas[1].item() * torch.abs(output[:,0].unsqueeze(1) - init[:,0].unsqueeze(1)/self.w0).mean()
-        lossy = self.lambdas[2].item() * torch.abs(output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)/self.w0).mean()
+        lossx = self.lambdas[1].item() * (output[:,0].unsqueeze(1) - init[:,0].unsqueeze(1)/self.w0).pow(2).mean()
+        lossy = self.lambdas[2].item() * (output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)/self.w0).pow(2).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
