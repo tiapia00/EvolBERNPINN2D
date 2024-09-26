@@ -517,7 +517,7 @@ def updateReLo(lambdas: list, losses: list, mu: float, alpha: float, T: float):
     losses_i = losses[-1]
     m = len(losses_i)
     
-    sub = 10**2
+    sub = - 10**7
 
     lambdabal_0 = m * torch.exp(losses_i/(T * losses_0) + sub)/torch.sum(torch.exp(losses_i/(T * losses_0) + sub))
     lambdabal_im1 = m * torch.exp(losses_i/(T * losses_im1) + sub)/torch.sum(torch.exp(losses_i/(T * losses_im1) + sub))
