@@ -364,6 +364,8 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
+        out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
+
         return out
 
 
@@ -429,6 +431,8 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         
+        loss *= self.lambdas[0]
+        
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2).detach()
 
@@ -468,6 +472,7 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
 
         loss = (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
+        loss *= self.lambdas[1]
 
         return loss
 
