@@ -58,14 +58,31 @@ def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.te
 
 
 class Grid:
-    def __init__(self, x_domain, y_domain, t_domain, device):
+    def __init__(self, x_domain, multx_in, y_domain, t_domain, device):
         self.x_domain = x_domain
         self.y_domain = y_domain
         self.t_domain = t_domain
         self.device = device
+        self.multx_in = multx_in
         self.requires_grad = True
         self.grid_init = self.generate_grid_init()
+        self.grid_init_hyper = self.generate_grid_init_hyper()
         self.grid_bound = self.generate_grid_bound()
+
+    def generate_grid_init_hyper(self):
+        xmax = torch.max(self.x_domain)
+
+        x = torch.linspace(0, xmax, self.multx_in * len(self.x_domain))
+        y = self.y_domain
+        x_grid, y_grid = torch.meshgrid(x, y, indexing="ij")
+
+        x_grid = x_grid.reshape(-1, 1)
+        y_grid = y_grid.reshape(-1, 1)
+        t0 = torch.zeros_like(x_grid)
+
+        grid_init = torch.cat((x_grid, y_grid, t0), dim=1)
+
+        return grid_init
 
     def generate_grid_init(self):
         x = self.x_domain
@@ -136,6 +153,18 @@ class Grid:
 
         return (x_grid, y_grid, t0)
 
+    def get_initial_points_hyper(self):
+        x_grid = self.grid_init_hyper[:, 0].unsqueeze(1).to(self.device)
+        x_grid.requires_grad_(True)
+
+        y_grid = self.grid_init_hyper[:, 1].unsqueeze(1).to(self.device)
+        y_grid.requires_grad_(True)
+
+        t0 = self.grid_init_hyper[:, 2].unsqueeze(1).to(self.device)
+        t0.requires_grad_(True)
+
+        return (x_grid, y_grid, t0)
+
     def get_boundary_points(self):
         down = tuple(self.grid_bound[0][:, i].unsqueeze(1).requires_grad_().to(
             self.device) for i in range(self.grid_bound[0].shape[1]))
@@ -181,40 +210,6 @@ class Grid:
 
         return (x_all, y_all, t_all)
 
-
-class RBF(nn.Module):
-    def __init__(self, in_features, out_features, basis_func):
-        super(RBF, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.centres = nn.Parameter(torch.Tensor(out_features, in_features))
-        self.log_sigmas = nn.Parameter(torch.Tensor(out_features))
-        self.basis_func = basis_func
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        nn.init.normal_(self.centres, 0, 1)
-        nn.init.constant_(self.log_sigmas, 0)
-
-    def forward(self, input):
-        size = (input.size(0), self.out_features, self.in_features)
-        x = input.unsqueeze(1).expand(size)
-        c = self.centres.unsqueeze(0).expand(size)
-        distances = (x - c).pow(2).sum(-1).pow(0.5) / \
-            torch.exp(self.log_sigmas).unsqueeze(0)
-        return self.basis_func(distances)
-
-def inverse_multiquadric(alpha):
-    phi = torch.ones_like(alpha) / (torch.ones_like(alpha) + alpha.pow(2)).pow(0.5)
-    return phi
-
-def gaussian(alpha):
-    phi = torch.exp(-1*alpha.pow(2))
-    return phi
-
-def matern52(alpha):
-    phi = (torch.ones_like(alpha) + 5 ** 0.5 * alpha + (5 / 3) * alpha.pow(2)) * torch.exp(-5 ** 0.5 * alpha)
-    return phi
 
 def calculate_fft(signal: np.ndarray, dx: float, x: np.ndarray):
     window = np.hanning(signal.size)
@@ -425,26 +420,28 @@ class Loss:
 
         return loss, V, T
 
-
     def initial_loss(self, pinn):
-        init_points = self.points['initial_points']
+        init_points = self.points['initial_points_hyper']
         x, y, t = init_points
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        loss = (output[:,1] - 1/100 * init[:,1]/self.w0).pow(2).mean()
+
+        lossx = self.adaptive[1].item() * (output[:,0].unsqueeze(1) - init[:,0].unsqueeze(1)/self.w0).pow(2).mean()
+        lossy = self.adaptive[2].item() * (output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)/self.w0).pow(2).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         
-        v = torch.cat([vx, vy], dim=1)
+        lossvx = (vx * self.par['w0']/self.par['t_ast'] - init[:,2].unsqueeze(1)).pow(2).mean()
+        lossvy = (vy * self.par['w0']/self.par['t_ast'] - init[:,3].unsqueeze(1)).pow(2).mean()
+        lossv = self.adaptive[3].item() * (lossvx + lossvy)
 
-        loss = (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
-        loss *= self.adaptive[1].item()
+        inloss = lossx + lossy + lossv
 
-        return loss
+        return inloss, (lossx, lossy, lossv)
 
     def bound_N(self, pinn):
             _, _, _, left, right, _ = self.points['boundary_points']
@@ -460,23 +457,13 @@ class Loss:
 
             return loss
 
-
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
-        lambda_o = np.array(self.penalty)
-        mean = np.array(mean)
-        
-        lambda_n = max_grad / (lambda_o * (np.abs(mean)))
-
-        self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
-
-
     def verbose(self, pinn):
         res_loss, V, T = self.res_loss(pinn)
         enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
-        init_loss = self.initial_loss(pinn)
-        loss = res_loss + init_loss
+        in_loss, in_losses = self.initial_loss(pinn)
+        loss = res_loss + in_loss
 
-        return loss, res_loss, init_loss, (init_loss, V, T, (V+T).mean(), enloss.detach())
+        return loss, res_loss, in_loss, (in_losses, V, T, (V+T).mean(), enloss.detach())
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -492,6 +479,8 @@ def calculate_norm(pinn: PINN):
 
 def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
     for i in range(len(norm)):
+        if norm[i] == 0:
+            continue
         loss_fn.adaptive[i] = alpha * loss_fn.adaptive[i] + (1-alpha) * total/norm[i]
     
 def train_model(
@@ -515,16 +504,18 @@ def train_model(
 
         loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
 
-        if epoch % 600 == 0:
+        if epoch % 50 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(nn_approximator)
             optimizer.zero_grad()
 
-            init_loss.backward(retain_graph=True)
-            norm_in = calculate_norm(nn_approximator)
-            optimizer.zero_grad()
-
-            norms = (norm_res, norm_in)
+            norms = []
+            for lossinit in losses[0]:
+                lossinit.backward(retain_graph=True)
+                norms.append(calculate_norm(nn_approximator))
+                optimizer.zero_grad()
+            
+            norms.insert(0, norm_res)
             update_adaptive(loss_fn, norms, loss.detach(), 0.9)
 
         loss.backward(retain_graph=False)
@@ -535,7 +526,7 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
-            'init': losses[0].item(),
+            'init': init_loss.item(),
             'enloss': losses[4].item()
         }, epoch)
 

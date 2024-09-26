@@ -45,7 +45,7 @@ t_tild, w_ad, V0 = obtain_analytical_free(my_beam, w0, t, n_time, 2)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, multhyperx, lr, epochs = get_params(par.pinn_par)
 
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
@@ -54,11 +54,12 @@ t_domain = torch.linspace(0, T, n_time)
 
 steps = get_step((x_domain, y_domain, t_domain))
 
-grid = Grid(x_domain, y_domain, t_domain, device)
+grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
 
 points = {
     'res_points': grid.get_interior_points(),
     'initial_points': grid.get_initial_points(),
+    'initial_points_hyper': grid.get_initial_points_hyper(),
     'boundary_points': grid.get_boundary_points(),
     'all_points': grid.get_all_points()
 }
@@ -93,7 +94,7 @@ pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, magnpos, device).to(device
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
-in_penalty = torch.tensor([1., 1.])
+in_penalty = torch.tensor([1., 1., 1., 1.])
 loss_fn = Loss(
         points,
         n_space,
