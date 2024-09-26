@@ -544,7 +544,7 @@ def train_model(
 
     mu = 0.9
     alpha = 0.9
-    T = 10  
+    T = 0.4  
 
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
