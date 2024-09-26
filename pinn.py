@@ -268,6 +268,7 @@ class PINN(nn.Module):
         self.outlayerx.weight.data *= 0 
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
         self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
+        self.mult = nn.Parameter(torch.tensor(10.))
         """
         weightslast = torch.from_numpy(magnFFT).float()
         weightslast[2:] *= 0
@@ -332,7 +333,7 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
-        out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
+        out = self.mult * out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
         return out
 
@@ -542,7 +543,8 @@ def train_model(
             'res': loss_fn.adaptive[0].item(),
             'initx': loss_fn.adaptive[1].item(),
             'inity': loss_fn.adaptive[2].item(),
-            'initv': loss_fn.adaptive[3].item()
+            'initv': loss_fn.adaptive[3].item(),
+            'mult': nn_approximator.mult.item()
         }, epoch)
 
         if epoch % 500 == 0:
