@@ -470,6 +470,8 @@ def calculate_norm(pinn: PINN):
 
 def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
     for i in range(len(norm)):
+        if norm[i] == 0:
+            continue
         loss_fn.lambdas[i] = alpha * loss_fn.lambdas[i] + (1-alpha) * total/norm[i]
 
 def update_weights_t(weights_t: torch.Tensor, eps: float, loss_time: torch.Tensor):
@@ -513,8 +515,6 @@ def train_model(
                 optimizer.zero_grad()
             
             norms.insert(0, norm_res)
-            print(len(norms))
-            print(norms)
             update_adaptive(loss_fn, norms, loss.detach(), 0.9)
 
         loss.backward(retain_graph=False)
