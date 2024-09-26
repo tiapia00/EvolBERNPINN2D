@@ -558,7 +558,7 @@ def train_model(
             else:
                 lossesReLo = [losses0, losses_im1, torch.cat([losses[0].unsqueeze(0), torch.stack(losses[1])])]
                 loss_fn.lambdas = updateReLo(loss_fn.lambdas.detach(), lossesReLo, mu = mu, alpha = alpha, T = T)
-            losses_im1 = torch.stack([losses[0], torch.stack(losses[1])])
+            losses_im1 = torch.cat([losses[0].unsqueeze(0), torch.stack(losses[1])])
 
         loss.backward(retain_graph=False)
 
