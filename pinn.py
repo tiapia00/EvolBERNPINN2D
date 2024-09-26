@@ -464,7 +464,7 @@ class Loss:
 
         init = initial_conditions(space, pinn.w0)
 
-        lossx = self.lambdas[1] * (output[:,0].unsqueeze(1) - init[:,0].unsqueeze(1)/self.w0).pow(2).mean()
+        lossx = self.lambdas[1] * (output[:,0].unsqueeze(1) - 1/100 * init[:,0].unsqueeze(1)/self.w0).pow(2).mean()
         lossy = self.lambdas[2] * (output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)/self.w0).pow(2).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
