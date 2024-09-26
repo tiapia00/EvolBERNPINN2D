@@ -551,7 +551,6 @@ def train_model(
         loss, losses = loss_fn(nn_approximator)
         if epoch == 0:
             losses0 = torch.cat([losses[0].unsqueeze(0), torch.stack(losses[1])])
-            print(losses0.shape)
         else:
             if epoch == 1:
                 lossesReLo = [losses0, losses0, torch.cat([losses[0].unsqueeze(0), torch.stack(losses[1])])]
@@ -571,13 +570,13 @@ def train_model(
             'global': loss.item(),
             'residual': losses[0].item(),
             'init': torch.sum(torch.stack(losses[1])).item(),
-            'enloss': losses[5].item()
+            'enloss': losses[6].item()
         }, epoch)
 
         writer.add_scalars('Energy', {
-            'V+T': losses[4].item(),
-            'V': losses[2].mean().item(),
-            'T': losses[3].mean().item()
+            'V+T': losses[5].item(),
+            'V': losses[3].mean().item(),
+            'T': losses[4].mean().item()
         }, epoch)
 
         writer.add_scalars('Adaptive', {
