@@ -401,8 +401,8 @@ class Loss:
 
         tgrid = torch.unique(t, sorted=True)
 
-        V = torch.zeros(tgrid.shape[0])
-        T = torch.zeros_like(V)
+        V = torch.zeros(tgrid.shape[0], requires_grad=False)
+        T = torch.zeros_like(V, requires_grad=False)
         loss = 0
         loss_time = torch.zeros(self.weights_t.shape[0], requires_grad=False)
         tidx_par = torch.zeros(0, device=self.device, dtype=torch.int32, requires_grad=False)
