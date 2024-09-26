@@ -137,19 +137,20 @@ pinn_trained.eval()
 
 tin = inpoints[:,-1].unsqueeze(1)
 z = pinn_trained(spacein, tin)
+scaling = w0/torch.max(z).item()
 v = calculate_speed(z, tin, par)
 z = torch.cat([par['w0'] * z, v], dim=1)
 
-
-plot_initial_conditions(z, cond0, spacein, dir_model)
+plot_initial_conditions(scaling * z, cond0, spacein, dir_model)
 
 allpoints = torch.cat(points["all_points"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
 sol = obtainsolt_u(pinn_trained, space, t, nsamples)
-plot_sol(par['w0']*sol, spacein, t, dir_model)
-plot_average_displ(par['w0']*sol, t, dir_model)
+sol *= scaling
+plot_sol(sol, spacein, t, dir_model)
+plot_average_displ(sol, t, dir_model)
 
 import os
 import shutil
