@@ -540,7 +540,9 @@ def train_model(
 
         writer.add_scalars('Adaptive', {
             'res': loss_fn.adaptive[0].item(),
-            'init': loss_fn.adaptive[1].item()
+            'initx': loss_fn.adaptive[1].item(),
+            'inity': loss_fn.adaptive[2].item(),
+            'initv': loss_fn.adaptive[3].item()
         }, epoch)
 
         if epoch % 500 == 0:
