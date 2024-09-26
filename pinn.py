@@ -48,10 +48,10 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.tensor:
+def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0*torch.sin(torch.pi*i*x)
+    uy0 = w0*(torch.sin(torch.pi * x) + torch.sin(2 * torch.pi* x))
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -236,15 +236,17 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = 2*torch.ones(2, n_mode_spacey, device=device) 
+        self.By = torch.ones(2, n_mode_spacey, device=device) 
+        self.By[0, self.By.shape[1] // 2:] *= 2
         self.bx = torch.randn(1, n_mode_spacex, device=device)
         self.By[1,:] = torch.zeros(n_mode_spacey, device=device)
         self.by = torch.randn(1, n_mode_spacey, device=device)
         #self.By[0,:] = torch.ones([1, n_mode_spacey], device=device) * torch.arange(n_mode_spacey, device=device)
         
-        self.Btx = torch.randn((1, n_mode_spacex), device=device)
+        self.Btx = torch.ones((1, n_mode_spacex), device=device)
+        self.By[0, self.Btx.shape[1] // 2:] *= 2
         self.btx = torch.randn(1, n_mode_spacex, device=device)
-        self.Bty = 2*torch.ones(1, n_mode_spacey, device=device) 
+        self.Bty = torch.ones(1, n_mode_spacey, device=device) 
         self.bty = torch.randn(1, n_mode_spacey, device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
