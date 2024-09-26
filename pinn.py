@@ -332,9 +332,7 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
-        outNN = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
-
-        out = (1-t.detach()) * initial_conditions(space, 1)[:,:2] + t.detach() * outNN
+        out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
         return out
 
@@ -443,7 +441,7 @@ class Loss:
         lossvy = (vy * self.par['w0']/self.par['t_ast'] - init[:,3].unsqueeze(1)).pow(2).mean()
         lossv = self.adaptive[3].item() * (lossvx + lossvy)
 
-        inloss = lossv
+        inloss = lossx + lossy + lossv
 
         return inloss, (lossx, lossy, lossv)
 
