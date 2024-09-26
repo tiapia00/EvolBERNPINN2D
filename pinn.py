@@ -590,7 +590,7 @@ def train_model(
         if epoch % 500 == 0:
             t = loss_fn.points['all_points'][-1].unsqueeze(1)
             t = torch.unique(t, sorted=True)
-            plot_energy(t.detach().cpu().numpy(), losses[2].detach().cpu().numpy(), losses[3].detach().cpu().numpy(), epoch, modeldir) 
+            plot_energy(t.detach().cpu().numpy(), losses[3].detach().cpu().numpy(), losses[4].detach().cpu().numpy(), epoch, modeldir) 
 
         pbar.update(1)
 
