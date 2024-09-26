@@ -47,7 +47,7 @@ print(V0)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, multhyperx, lr, epochs = get_params(par.pinn_par)
 
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
@@ -59,11 +59,12 @@ gammas = my_beam.gamma * Lx
 
 steps = get_step((x_domain, y_domain, t_domain))
 
-grid = Grid(x_domain, y_domain, t_domain, device)
+grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
 
 points = {
     'res_points': grid.get_interior_points(),
     'initial_points': grid.get_initial_points(),
+    'initial_points_hyper': grid.get_initial_points_hyper(),
     'boundary_points': grid.get_boundary_points(),
     'all_points': grid.get_all_points()
 }
@@ -79,7 +80,7 @@ pinn = PINN(dim_hidden, w0, n_hidden).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
-adap_in = np.array([1., 1.])
+adap_in = np.array([1., 1., 1., 1.])
 loss_fn = Loss(
         points,
         n_space,

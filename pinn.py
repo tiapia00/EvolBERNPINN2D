@@ -59,14 +59,31 @@ def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.te
 
 
 class Grid:
-    def __init__(self, x_domain, y_domain, t_domain, device):
+    def __init__(self, x_domain, multx_in, y_domain, t_domain, device):
         self.x_domain = x_domain
         self.y_domain = y_domain
         self.t_domain = t_domain
         self.device = device
+        self.multx_in = multx_in
         self.requires_grad = True
         self.grid_init = self.generate_grid_init()
+        self.grid_init_hyper = self.generate_grid_init_hyper()
         self.grid_bound = self.generate_grid_bound()
+
+    def generate_grid_init_hyper(self):
+        xmax = torch.max(self.x_domain)
+
+        x = torch.linspace(0, xmax, self.multx_in * len(self.x_domain))
+        y = self.y_domain
+        x_grid, y_grid = torch.meshgrid(x, y, indexing="ij")
+
+        x_grid = x_grid.reshape(-1, 1)
+        y_grid = y_grid.reshape(-1, 1)
+        t0 = torch.zeros_like(x_grid)
+
+        grid_init = torch.cat((x_grid, y_grid, t0), dim=1)
+
+        return grid_init
 
     def generate_grid_init(self):
         x = self.x_domain
@@ -133,6 +150,18 @@ class Grid:
         y_grid.requires_grad_(True)
 
         t0 = self.grid_init[:, 2].unsqueeze(1).to(self.device)
+        t0.requires_grad_(True)
+
+        return (x_grid, y_grid, t0)
+
+    def get_initial_points_hyper(self):
+        x_grid = self.grid_init_hyper[:, 0].unsqueeze(1).to(self.device)
+        x_grid.requires_grad_(True)
+
+        y_grid = self.grid_init_hyper[:, 1].unsqueeze(1).to(self.device)
+        y_grid.requires_grad_(True)
+
+        t0 = self.grid_init_hyper[:, 2].unsqueeze(1).to(self.device)
         t0.requires_grad_(True)
 
         return (x_grid, y_grid, t0)
@@ -316,7 +345,7 @@ class Loss:
         self.adim = adim
         self.par = par
         self.b = b
-        self.adaptive = adapt_in
+        self.lambdas = adapt_in
         self.weights_t = torch.ones(part_time, device=device)
 
     def res_loss(self, pinn):
@@ -388,36 +417,40 @@ class Loss:
                 tidx_par = torch.zeros(0, device=self.device, dtype=torch.int32, requires_grad=False)
 
         loss *= 1/self.weights_t.shape[0]
-        loss *= self.adaptive[0]
+        loss *= self.lambdas[0].item()
 
         return loss, V, T, loss_time
 
     def initial_loss(self, pinn):
-        init_points = self.points['initial_points']
+        init_points = self.points['initial_points_hyper']
         x, y, t = init_points
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        loss = self.adim[1] * torch.abs(self.par['w0'] * output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)).mean()
+
+        lossx = self.lambdas[1].item() * torch.abs(output[:,0].unsqueeze(1) - init[:,0].unsqueeze(1)/self.w0).mean()
+        lossy = self.lambdas[2].item() * torch.abs(output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)/self.w0).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         
-        v = torch.cat([vx, vy], dim=1)
+        lossvx = (vx * self.par['w0']/self.par['t_ast'] - init[:,2].unsqueeze(1)).pow(2).mean()
+        lossvy = (vy * self.par['w0']/self.par['t_ast'] - init[:,3].unsqueeze(1)).pow(2).mean()
+        lossv = self.lambdas[3].item() * (lossvx + lossvy)
 
-        loss += (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
+        inloss = lossx + lossy + lossv
 
-        return loss
+        return inloss, (lossx, lossy, lossv)
 
     def verbose(self, pinn):
         res_loss, V, T, loss_time = self.res_loss(pinn)
         enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
-        init_loss = self.initial_loss(pinn)
-        loss = res_loss + init_loss
+        in_loss, in_losses = self.initial_loss(pinn)
+        loss = res_loss + in_loss
 
-        return loss, res_loss, init_loss, (init_loss, V, T, (V+T).mean(), enloss, loss_time.detach())
+        return loss, res_loss, in_loss, (in_losses, V, T, (V+T).mean(), enloss.detach(), loss_time.detach())
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -434,7 +467,7 @@ def calculate_norm(pinn: PINN):
 
 def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
     for i in range(len(norm)):
-        loss_fn.adaptive[i] = alpha * loss_fn.adaptive[i] + (1-alpha) * total/norm[i]
+        loss_fn.lambdas[i] = alpha * loss_fn.lambdas[i] + (1-alpha) * total/norm[i]
 
 def update_weights_t(weights_t: torch.Tensor, eps: float, loss_time: torch.Tensor):
     for i in torch.arange(weights_t.shape[0]-1):
@@ -465,16 +498,18 @@ def train_model(
 
         loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
 
-        if epoch % 500 == 0:
+        if epoch % 100 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(nn_approximator)
             optimizer.zero_grad()
 
-            init_loss.backward(retain_graph=True)
-            norm_in = calculate_norm(nn_approximator)
-            optimizer.zero_grad()
-
-            norms = (norm_res, norm_in)
+            norms = []
+            for lossinit in losses[0]:
+                lossinit.backward(retain_graph=True)
+                norms.append(calculate_norm(nn_approximator))
+                optimizer.zero_grad()
+            
+            norms.insert(0, norm_res)
             update_adaptive(loss_fn, norms, loss.detach(), 0.9)
 
         loss.backward(retain_graph=False)
@@ -485,7 +520,7 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
-            'init': losses[0].item(),
+            'init': init_loss.item(),
             'enloss': losses[4].item(),
             'weights_time': torch.mean(loss_fn.weights_t).detach().item()
         }, epoch)
@@ -497,8 +532,10 @@ def train_model(
         }, epoch)
 
         writer.add_scalars('Adaptive', {
-            'res': loss_fn.adaptive[0],
-            'init': loss_fn.adaptive[1]
+            'res': loss_fn.lambdas[0],
+            'initx': loss_fn.lambdas[1],
+            'inity': loss_fn.lambdas[2],
+            'initv': loss_fn.lambdas[3]
         }, epoch)
 
         if epoch % 500 == 0:
