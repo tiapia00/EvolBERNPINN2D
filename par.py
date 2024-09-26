@@ -5,10 +5,10 @@ class Parameters:
         self.t_end = 1 
         self.n_space = 50
         self.n_time = 40 
-        self.dim_hidden = (1, 5) 
+        self.dim_hidden = (1, 50) 
         self.multux = 1
         self.multuy = 1 
-        self.multhyperx = 2
+        self.multhyperx = 1 
         self.n_hidden : int = 3 
         self.w0 = 1 
         self.pinn_par = {
