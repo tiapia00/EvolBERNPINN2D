@@ -17,14 +17,14 @@ class Parameters:
             'w0': self.w0,
             'dim_hidden': self.dim_hidden,
             'n_hidden_space': self.n_hidden,
-            'lr': 1e-4,
-            'epochs': 5000 
+            'lr': 1e-3,
+            'epochs': 10000 
         }
         self.beam_par = {
             'x_end': self.x_end,
             't_end': self.t_end,
             'h': self.y_end,
-            'n_space': 100,
+            'n_space': 1000,
             'n_time': self.n_time,
             'w0': self.w0
         }
