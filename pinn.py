@@ -263,7 +263,6 @@ class PINN(nn.Module):
         super().__init__()
         self.hiddendim = hiddendim
         self.nhidden = nhidden
-        self.act = act
         self.w0 = w0
 
         self.U =  nn.Linear(3, hiddendim)
