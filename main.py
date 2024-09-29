@@ -41,8 +41,9 @@ par = Parameters()
 Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
+modes = 2
 
-t_tild, w, V0 = obtain_analytical_free(my_beam, w0, t, 500, 2)
+t_tild, w, V0 = obtain_analytical_free(my_beam, w0, t, 500, modes)
 
 fig = plt.figure()
 ax = plt.axes()
@@ -109,7 +110,9 @@ def extractcompfft(yf: np.ndarray, freq: np.ndarray):
 magnpos, freqpos = extractcompfft(yf, freq)
 magnpos *= 1./np.max(magnpos)
 
-pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, magnpos, device).to(device)
+pinns = []
+for i in range(modes):
+    pinns.append(PINN(dim_hidden, w0, n_hidden, multux, multuy, i+1, device).to(device))
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
@@ -132,13 +135,13 @@ if retrain_PINN:
     dir_model = pass_folder('model')
     dir_logs = pass_folder('model/logs')
 
-    pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
+    pinns_trained = train_model(pinns, loss_fn=loss_fn, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs, modeldir=dir_model)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
 
-    torch.save(pinn_trained.state_dict(), model_path)
+    #torch.save(pinns_trained.state_dict(), model_path)
 
 else:
     pinn_trained = PINN(dim_hidden, w0, n_hidden, multux, multuy, magnpos, device).to(device)
@@ -155,7 +158,7 @@ print(pinn_trained)
 pinn_trained.eval()
 
 tin = inpoints[:,-1].unsqueeze(1)
-z = pinn_trained(spacein, tin)
+z = getoutglobal(pinns_trained, spacein, tin)
 scaling = w0/torch.max(z).item()
 v = calculate_speed(z, tin, par)
 z = torch.cat([par['w0'] * z, v], dim=1)

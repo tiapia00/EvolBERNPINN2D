@@ -224,7 +224,7 @@ class PINN(nn.Module):
                  n_hidden: int,
                  multux: int,
                  multuy: int,
-                 magnFFT: np.ndarray,
+                 mode: int,
                  device,
                  ):
 
@@ -235,8 +235,7 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = torch.ones(2, n_mode_spacey, device=device) 
-        self.By[0, self.By.shape[1] // 2:] *= 2
+        self.By = mode * torch.ones(2, n_mode_spacey, device=device) 
         self.bx = torch.randn(1, n_mode_spacex, device=device)
         self.By[1,:] = torch.zeros(n_mode_spacey, device=device)
         self.by = torch.randn(1, n_mode_spacey, device=device)
@@ -244,8 +243,7 @@ class PINN(nn.Module):
         
         self.Btx = torch.ones((1, n_mode_spacex), device=device)
         self.btx = torch.randn(1, n_mode_spacex, device=device)
-        self.Bty = torch.ones(1, n_mode_spacey, device=device) 
-        self.Bty[0,self.Btx.shape[1] // 2:] *= 2
+        self.Bty = mode**2 * torch.ones(1, n_mode_spacey, device=device) 
         self.bty = torch.randn(1, n_mode_spacey, device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
@@ -339,6 +337,14 @@ class PINN(nn.Module):
         return out
 
 
+def getoutglobal(pinns: list, space: torch.Tensor, time: torch.Tensor):
+    output = 0
+    for pinn in pinns:
+        output += pinn(space, time)
+    
+    return output
+
+
 class Loss:
     def __init__(
         self,
@@ -365,10 +371,10 @@ class Loss:
         self.b = b
         self.adaptive = in_adaptive
 
-    def res_loss(self, pinn):
+    def res_loss(self, pinns):
         x, y, t = self.points['all_points']
         space = torch.cat([x, y], dim=1)
-        output = pinn(space, t)
+        output = getoutglobal(pinns, space, t)
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -424,13 +430,13 @@ class Loss:
 
         return loss, V, T
 
-    def initial_loss(self, pinn):
+    def initial_loss(self, pinns):
         init_points = self.points['initial_points_hyper']
         x, y, t = init_points
         space = torch.cat([x, y], dim=1)
-        output = pinn(space, t)
+        output = getoutglobal(pinns, space, t)
 
-        init = initial_conditions(space, pinn.w0)
+        init = initial_conditions(space, self.w0)
 
         lossx = self.adaptive[1].item() * (output[:,0].unsqueeze(1) - init[:,0].unsqueeze(1)/self.w0).pow(2).mean()
         lossy = self.adaptive[2].item() * (output[:,1].unsqueeze(1) - init[:,1].unsqueeze(1)/self.w0).pow(2).mean()
@@ -447,13 +453,13 @@ class Loss:
 
         return inloss, (lossx, lossy, lossv)
 
-    def bound_N(self, pinn):
+    def bound_N(self, pinns):
             _, _, _, left, right, _ = self.points['boundary_points']
             
             neumann = torch.cat([left, right], dim=0)
 
-            output = pinn(neumann[:,:2], neumann[:,-1].unsqueeze(1))
-            outputleft = pinn(left[:,:2], left[:,-1].unsqueeze(1))
+            output = getoutglobal(pinns, neumann[:,:2], neumann[:,-1].unsqueeze(1))
+            outputleft = getoutglobal(pinns, left[:,:2], left[:,-1].unsqueeze(1))
             tractions = torch.sum(output[:,2:], dim=1)
             extforce = torch.ones(tractions)
             loss = tractions.pow(2).mean()
@@ -461,23 +467,24 @@ class Loss:
 
             return loss
 
-    def verbose(self, pinn):
-        res_loss, V, T = self.res_loss(pinn)
+    def verbose(self, pinns):
+        res_loss, V, T = self.res_loss(pinns)
         enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
-        in_loss, in_losses = self.initial_loss(pinn)
-        loss = res_loss + in_loss + enloss
+        in_loss, in_losses = self.initial_loss(pinns)
+        loss = res_loss + in_loss
 
         return loss, res_loss, in_loss, enloss, (in_losses, V, T, (V+T).mean(), enloss.detach())
 
-    def __call__(self, pinn):
-        return self.verbose(pinn)
+    def __call__(self, pinns):
+        return self.verbose(pinns)
 
-def calculate_norm(pinn: PINN):
+def calculate_norm(pinns: PINN):
     total_norm = 0
-    for param in pinn.parameters():
-        if param.grad is not None:  # Ensure the parameter has gradients
-            param_norm = param.grad.data.norm(2)  # Compute the L2 norm for the parameter's gradient
-            total_norm += param_norm.item() ** 2  # Sum the squares of the norms
+    for pinn in pinns:
+        for param in pinn.parameters():
+            if param.grad is not None:  # Ensure the parameter has gradients
+                param_norm = param.grad.data.norm(2)  # Compute the L2 norm for the parameter's gradient
+                total_norm += param_norm.item() ** 2  # Sum the squares of the norms
     
     return total_norm
 
@@ -488,7 +495,7 @@ def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
         loss_fn.adaptive[i] = alpha * loss_fn.adaptive[i] + (1-alpha) * total/norm[i]
     
 def train_model(
-    nn_approximator: PINN,
+    pinns: list,
     loss_fn: Callable,
     learning_rate: int,
     max_epochs: int,
@@ -500,27 +507,33 @@ def train_model(
 
     from plots import plot_energy
 
-    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
+    # Combine all parameters from the networks into a single optimizer
+    combined_parameters = []
+    for pinn in pinns:
+        combined_parameters += list(pinn.parameters())
+
+    # Create a shared optimizer for all networks
+    optimizer = optim.Adam(combined_parameters, lr=learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        loss, res_loss, init_loss, en_loss, losses = loss_fn(nn_approximator)
+        loss, res_loss, init_loss, en_loss, losses = loss_fn(pinns)
 
         if epoch % 50 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
-            norm_res = calculate_norm(nn_approximator)
+            norm_res = calculate_norm(pinns)
             optimizer.zero_grad()
 
             en_loss.backward(retain_graph=True)
-            norm_en = calculate_norm(nn_approximator)
+            norm_en = calculate_norm(pinns)
             optimizer.zero_grad()
 
             norms = []
             for lossinit in losses[0]:
                 lossinit.backward(retain_graph=True)
-                norms.append(calculate_norm(nn_approximator))
+                norms.append(calculate_norm(pinns))
                 optimizer.zero_grad()
             
             norms.insert(0, norm_res)
@@ -564,7 +577,7 @@ def train_model(
 
     writer.close()
 
-    return nn_approximator
+    return pinns 
 
 def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
     nx, ny, nt = nsamples
