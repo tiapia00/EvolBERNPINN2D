@@ -311,7 +311,7 @@ class PINN(nn.Module):
 
         for layer in self.layers:
             out = layer(out)
-            out = self.act(out) * U + (1-self.act(out)) * V
+            out = out * U + (1-out) * V
 
         outNNx = self.outlayerx(out)
         outNNy = self.outlayery(out)
