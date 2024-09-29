@@ -277,11 +277,13 @@ class PINN(nn.Module):
         init.normal_(self.U.bias, mean=0., std=0.1)
         init.normal_(self.V.bias, mean=0., std=0.1)
 
+        """
         for param in self.U.parameters():
             param.requires_grad = False
 
         for param in self.V.parameters():
             param.requires_grad = False
+        """
 
         self.initlayer = nn.Linear(3, 2*hiddendim, bias=False)
         #nn.init.xavier_normal_(self.initlayer.weight)
