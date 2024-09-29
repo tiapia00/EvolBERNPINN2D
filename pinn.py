@@ -232,7 +232,13 @@ class PINN(nn.Module):
         for _ in range(nhidden):
             self.layers.append(nn.Linear(hiddendim, hiddendim))
         
-        self.outlayer = nn.Linear(hiddendim, 2)
+        self.outlayerx = nn.Linear(hiddendim, 1)
+        self.outlayerx.weight.data *= 0
+
+        for param in self.outlayerx.parameters():
+            param.requires_grad = False
+
+        self.outlayery = nn.Linear(hiddendim, 1)
 
 
     def forward(self, space, t):
@@ -252,14 +258,10 @@ class PINN(nn.Module):
             input = layer(input)
             input = self.act(input) * U + (1-self.act(input)) * V
 
-        outNN = self.outlayer(input)
+        outx = self.outlayerx(input)
+        outy = self.outlayery(input)
 
-        act_global = torch.tanh(t.repeat(1, 2)) * outNN
-
-        init = 1/self.w0*initial_conditions(space, self.w0)[:,:2]
-        act_init = torch.tanh(1 - t.repeat(1, 2)) * init
-
-        out = act_global + act_init
+        out = torch.cat([outx, outy], dim=1)
 
         return out
 
@@ -373,7 +375,7 @@ class Loss:
 
         sig = sig.reshape(self.n_space**2*self.n_time, 4)
         tractionleft = sig[:,-1][neumannidx]
-        prescribed = torch.ones_like(tractionleft)
+        prescribed = torch.zeros_like(tractionleft)
         # MPa
 
         loss_N = (tractionleft - prescribed).pow(2).mean()
@@ -410,7 +412,11 @@ class Loss:
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
-        initial_speed = initial_conditions(space, pinn.w0)[:,2:]
+        init = initial_conditions(space, pinn.w0)
+        lossx = (output[:,0] - init[:,0]/self.w0).pow(2).mean()
+        lossy = (output[:,1] - init[:,1]/self.w0).pow(2).mean()
+
+        loss = lossx + lossy
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -418,7 +424,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        loss = (v*self.par['w0']/self.par['t_ast'] - initial_speed).pow(2).mean()
+        loss += (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean()
 
         return loss
 
