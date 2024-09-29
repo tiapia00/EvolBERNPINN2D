@@ -201,8 +201,8 @@ class PINN(nn.Module):
 
         self.V = nn.Linear(3, hiddendim)
 
-        init.normal_(self.U.weight, mean=2.0, std=0.5)
-        init.normal_(self.V.weight, mean=2.0, std=0.5)
+        init.normal_(self.U.weight, mean=2.0, std=1)
+        init.normal_(self.V.weight, mean=2.0, std=1)
 
         self.initlayer = nn.Linear(3, 2*hiddendim)
         nn.init.xavier_normal_(self.initlayer.weight)
