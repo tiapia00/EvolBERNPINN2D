@@ -19,7 +19,7 @@ class Parameters:
             'dim_hidden': self.dim_hidden,
             'n_hidden_space': self.n_hidden,
             'multhyperx': self.multhyperx,
-            'lr': 1e-4,
+            'lr': 1e-3,
             'epochs': 4000 
         }
         self.beam_par = {
