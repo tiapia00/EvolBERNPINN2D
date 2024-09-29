@@ -271,8 +271,8 @@ class PINN(nn.Module):
 
         self.V = nn.Linear(3, hiddendim)
 
-        init.normal_(self.U.weight, mean=2.0, std=0.1)
-        init.normal_(self.V.weight, mean=2.0, std=0.1)
+        init.normal_(self.U.weight, mean=1.0, std=0.1)
+        init.normal_(self.V.weight, mean=1.0, std=0.1)
 
         init.normal_(self.U.bias, mean=0., std=0.1)
         init.normal_(self.V.bias, mean=0., std=0.1)
