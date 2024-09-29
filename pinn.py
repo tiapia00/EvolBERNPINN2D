@@ -258,7 +258,6 @@ class PINN(nn.Module):
                  hiddendim: int,
                  w0: float, 
                  nhidden: int,
-                 act=nn.Tanh(),
                  ):
 
         super().__init__()
