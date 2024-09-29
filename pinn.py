@@ -579,12 +579,12 @@ def train_model(
 
     return pinns 
 
-def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
+def obtainsolt_u(pinns_trained: list, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
     nx, ny, nt = nsamples
     sol = torch.zeros(nx, ny, nt, 2)
     spaceidx = torch.zeros(nx, ny, nt, 2)
     tsv = torch.unique(t, sorted=True)
-    output = pinn(space, t)
+    output = getoutglobal(pinns_trained, space, t)
 
     for i in range(len(tsv)):
         idxt = torch.nonzero(t.squeeze() == tsv[i])

@@ -169,7 +169,7 @@ allpoints = torch.cat(points["all_points"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
-sol = obtainsolt_u(pinn_trained, space, t, nsamples)
+sol = obtainsolt_u(pinns_trained, space, t, nsamples)
 sol *= scaling
 plot_sol(sol, spacein, t, dir_model)
 plot_average_displ(sol, t, dir_model)
