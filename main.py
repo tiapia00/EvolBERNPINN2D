@@ -90,7 +90,7 @@ loss_fn = Loss(
         steps,
         adim,
         par,
-        20,
+        10,
         adap_in,
         device
     )
