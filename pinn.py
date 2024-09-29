@@ -49,7 +49,7 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.tensor:
+def initial_conditions(space: torch.Tensor, w0: float, i: float = 1) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
     uy0 = w0 * torch.sin(torch.pi*i*x)
@@ -242,9 +242,8 @@ class PINN(nn.Module):
 
         self.V = nn.Linear(3, hiddendim)
 
-        init.normal_(self.U.weight, mean=2.0, std=0.1)
-        init.normal_(self.V.weight, mean=2.0, std=0.1)
-
+        init.normal_(self.U.weight, mean=1.0, std=0.1)
+        init.normal_(self.V.weight, mean=1.0, std=0.1)
 
         for param in self.U.parameters():
             param.requires_grad = False
