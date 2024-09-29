@@ -289,7 +289,7 @@ class PINN(nn.Module):
         #nn.init.xavier_normal_(self.initlayer.weight)
 
         self.layers = nn.ModuleList([])
-        for _ in range(nhidden - 1):
+        for _ in range(nhidden):
             self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim, bias=False))
             #nn.init.xavier_normal_(self.layers[-1].weight)
         
