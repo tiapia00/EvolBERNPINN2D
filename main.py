@@ -41,9 +41,11 @@ Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
-t_tild, w_ad, V0 = obtain_analytical_free(my_beam, w0, t, n_time, 2)
+t_tild, w, V = obtain_analytical_free(my_beam, w0, t, 2000, 2)
 print(t_tild)
-print(V0)
+plt.figure()
+plt.plot(np.linspace(0, t, 2000), V)
+#plt.show()
 
 lam, mu = par.to_matpar_PINN()
 

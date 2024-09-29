@@ -26,7 +26,7 @@ def obtain_analytical_free(my_beam: Beam, w0: float, tf: float,
     my_beam.update_phi(phi)
     my_In_Cond = In_Cond(my_beam)
 
-    w0 = w0*my_beam.phi[:, 0]
+    w0 = w0*(my_beam.phi[:, 0] + my_beam.phi[:,1])
     wdot_0 = np.zeros(len(w0))
 
     my_In_Cond.pass_init_cond(w0, wdot_0)
@@ -46,11 +46,12 @@ def calculateen0(my_beam: Beam) -> float:
     x = my_beam.xi
 
     EJ = my_beam.E*my_beam.J
-    w = my_beam.w[:, 0]
+    w = my_beam.w
+    V = np.zeros(w.shape[1])
 
-    dw_dxx = df_num(x, df_num(x, w))
-
-    V = 1/2*EJ*integrate.simpson(y=dw_dxx**2, x=x)
+    for i in range(w.shape[1]):
+        dw_dxx = df_num(x, df_num(x, w[:,i]))
+        V[i] = 1/2*EJ*integrate.simpson(y=dw_dxx**2, x=x)
 
     return V
 
