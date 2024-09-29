@@ -465,9 +465,9 @@ class Loss:
         res_loss, V, T = self.res_loss(pinn)
         enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
         in_loss, in_losses = self.initial_loss(pinn)
-        loss = res_loss + in_loss
+        loss = res_loss + in_loss + enloss
 
-        return loss, res_loss, in_loss, (in_losses, V, T, (V+T).mean(), enloss.detach())
+        return loss, res_loss, in_loss, enloss, (in_losses, V, T, (V+T).mean(), enloss.detach())
 
     def __call__(self, pinn):
         return self.verbose(pinn)
@@ -506,11 +506,15 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
+        loss, res_loss, init_loss, en_loss, losses = loss_fn(nn_approximator)
 
         if epoch % 50 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(nn_approximator)
+            optimizer.zero_grad()
+
+            en_loss.backward(retain_graph=True)
+            norm_en = calculate_norm(nn_approximator)
             optimizer.zero_grad()
 
             norms = []
@@ -520,6 +524,7 @@ def train_model(
                 optimizer.zero_grad()
             
             norms.insert(0, norm_res)
+            norms.insert(1, norm_en)
             update_adaptive(loss_fn, norms, loss.detach(), 0.9)
 
         loss.backward(retain_graph=False)
