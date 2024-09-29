@@ -210,7 +210,6 @@ class Grid:
 
         return (x_all, y_all, t_all)
 
-
 def calculate_fft(signal: np.ndarray, dx: float, x: np.ndarray):
     window = np.hanning(signal.size)
     signal = window * signal
