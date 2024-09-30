@@ -125,6 +125,7 @@ def plot_energy(t: np.ndarray, V: np.ndarray, T: np.ndarray, epoch: int, path: s
     plt.figure()
     plt.plot(t, V, label='Potential energy')
     plt.plot(t, T, label='Kinetic energy')
+    plt.plot(t, V+T, label='Mechanical energy')
     
     plt.legend()
     file = f'{path}/energy_{epoch}'
