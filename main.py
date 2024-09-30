@@ -153,9 +153,8 @@ else:
     pinn_trained.load_state_dict(torch.load(filename, map_location=device))
     print(f'{filename} loaded.\n')
 
-print(pinn_trained)
-
-pinn_trained.eval()
+for pinn_trained in pinns_trained:
+    pinn_trained.eval()
 
 tin = inpoints[:,-1].unsqueeze(1)
 z = getoutglobal(pinns_trained, spacein, tin)
