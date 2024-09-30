@@ -231,7 +231,6 @@ class PINN(nn.Module):
                  multuy: int,
                  magnFFT: np.ndarray,
                  device,
-                 act=nn.LeakyReLU(negative_slope=0.01),
                  ):
 
         super().__init__()
