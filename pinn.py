@@ -274,14 +274,6 @@ class PINN(nn.Module):
         """
         self._initialize_weights()
 
-    @staticmethod
-    def apply_filter(alpha):
-        return (torch.tanh(alpha))
-
-    @staticmethod
-    def apply_compl_filter(alpha):
-        return (1-torch.tanh(alpha))
-
     def fourier_features(self, input, B, b):
         x_proj = input @ B + b
         return torch.cat([torch.sin(np.pi * x_proj),
@@ -520,7 +512,7 @@ def train_model(
 
         loss, res_loss, init_loss, en_loss, losses = loss_fn(pinns)
 
-        if epoch % 50 == 0 and epoch != 0:
+        if epoch % 200 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(pinns)
             optimizer.zero_grad()
