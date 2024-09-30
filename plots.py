@@ -75,15 +75,15 @@ def plot_rms_space_mid(sol: torch.Tensor, t: torch.Tensor, steps: tuple, path: s
     dx, dy, dt = steps
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 8))
     t = torch.unique(t, sorted=True)
-    intux = 1/2 * integrate.simpson(sol[:,sol.shape[1] // 2,:,0]**2, dx=dx.item(), axis=0)
-    intuy = 1/2 * integrate.simpson(sol[:,sol.shape[1] // 2,:,1]**2, dx=dx.item(), axis=0)
+    intux = (integrate.simpson(sol[:,sol.shape[1] // 2,:,0]**2, dx=dx.item(), axis=0))**(1/2)
+    intuy = (integrate.simpson(sol[:,sol.shape[1] // 2,:,1]**2, dx=dx.item(), axis=0))**(1/2)
     ax[0].plot(t.detach().cpu().numpy(), intux)
     ax[0].set_xlabel(r'$\hat{t}$')
-    ax[0].set_ylabel(r'$\overline{u}_x$')
+    ax[0].set_ylabel(r'$RMS_u$')
 
     ax[1].plot(t.detach().cpu().numpy(), intuy)
     ax[1].set_xlabel(r'$\hat{t}$')
-    ax[1].set_ylabel(r'$\overline{u}_y$')
+    ax[1].set_ylabel(r'$RMS_w$')
 
     file = f'{path}/rms_mid.png'
     plt.tight_layout()
