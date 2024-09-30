@@ -85,6 +85,7 @@ def plot_rms_space_mid(sol: torch.Tensor, t: torch.Tensor, steps: tuple, path: s
     ax[1].set_ylabel(r'$\overline{u}_y$')
 
     file = f'{path}/rms_mid.png'
+    plt.tight_layout()
     plt.savefig(file)
 
 

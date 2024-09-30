@@ -45,6 +45,7 @@ modes = 2
 
 t_tild, w, V0 = obtain_analytical_free(my_beam, w0, t, 500, 1)
 
+"""
 fig = plt.figure()
 ax = plt.axes()
 
@@ -62,6 +63,7 @@ ani = animation.FuncAnimation(
     fig, drawframe, frames=w.shape[1], blit=False, repeat=True)
 
 plt.show()
+"""
 
 lam, mu = par.to_matpar_PINN()
 
