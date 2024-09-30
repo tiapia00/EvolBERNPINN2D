@@ -588,8 +588,6 @@ def obtainsolt_u(pinns_trained: list, space: torch.Tensor, t: torch.Tensor, nsam
     if not check:
         raise ValueError('Extracted space tensors not matching')
     
-    sol = sol.reshape(nx*ny, nt, 2)
-
     return sol.detach().cpu().numpy()
 
 def df_num_torch(dx: float, y: torch.tensor):

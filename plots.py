@@ -70,20 +70,21 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tens
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(f'{path}/init.png')
 
-def plot_average_displ(sol: torch.Tensor, t: torch.Tensor, path: str):
+def plot_rms_space_mid(sol: torch.Tensor, t: torch.Tensor, steps: tuple, path: str):
+    dx, dy, dt = steps
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 8))
     t = torch.unique(t, sorted=True)
-    meanux = np.mean(sol[:,:,0], axis=0)
-    meanuy = np.mean(sol[:,:,1], axis=0)
-    ax[0].plot(t.detach().cpu().numpy(), meanux)
+    intux = 1/2 * torch.trapz(sol[:,sol.shape[1] // 2,:,0]**2, dx=dx, dim=0)
+    intuy = 1/2 * torch.trapz(sol[:,sol.shape[1] // 2,:,1]**2, dx=dx, dim=0)
+    ax[0].plot(t.detach().cpu().numpy(), intux)
     ax[0].set_xlabel(r'$\hat{t}$')
     ax[0].set_ylabel(r'$\overline{u}_x$')
 
-    ax[1].plot(t.detach().cpu().numpy(), meanuy)
+    ax[1].plot(t.detach().cpu().numpy(), intuy)
     ax[1].set_xlabel(r'$\hat{t}$')
     ax[1].set_ylabel(r'$\overline{u}_y$')
 
-    file = f'{path}/displ_comp.png'
+    file = f'{path}/rms_mid.png'
     plt.savefig(file)
 
 
