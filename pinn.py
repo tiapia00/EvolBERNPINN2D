@@ -271,11 +271,11 @@ class PINN(nn.Module):
 
         self.V = nn.Linear(3, hiddendim)
 
-        init.normal_(self.U.weight, mean=1.0, std=0.01)
-        init.normal_(self.V.weight, mean=1.0, std=0.01)
+        init.normal_(self.U.weight, mean=1.0, std=0.1)
+        init.normal_(self.V.weight, mean=1.0, std=0.1)
 
         init.normal_(self.U.bias, mean=0., std=0.1)
-        init.normal_(self.V.bias, mean=0. + np.pi/2, std=0.1)
+        init.normal_(self.V.bias, mean=0., std=0.1)
 
         for param in self.U.parameters():
             param.requires_grad = False
