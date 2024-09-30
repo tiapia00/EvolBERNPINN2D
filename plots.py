@@ -5,6 +5,7 @@ import torch
 from matplotlib.animation import FuncAnimation
 from pinn import PINN
 import numpy as np
+import scipy.integrate as integrate
 
 
 def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tensor, path: str):
@@ -74,8 +75,8 @@ def plot_rms_space_mid(sol: torch.Tensor, t: torch.Tensor, steps: tuple, path: s
     dx, dy, dt = steps
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 8))
     t = torch.unique(t, sorted=True)
-    intux = 1/2 * torch.trapz(sol[:,sol.shape[1] // 2,:,0]**2, dx=dx, dim=0)
-    intuy = 1/2 * torch.trapz(sol[:,sol.shape[1] // 2,:,1]**2, dx=dx, dim=0)
+    intux = 1/2 * integrate.simpson(sol[:,sol.shape[1] // 2,:,0]**2, dx=dx.item(), axis=0)
+    intuy = 1/2 * integrate.simpson(sol[:,sol.shape[1] // 2,:,1]**2, dx=dx.item(), axis=0)
     ax[0].plot(t.detach().cpu().numpy(), intux)
     ax[0].set_xlabel(r'$\hat{t}$')
     ax[0].set_ylabel(r'$\overline{u}_x$')
