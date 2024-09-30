@@ -43,7 +43,7 @@ E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 modes = 2
 
-t_tild, w, V0 = obtain_analytical_free(my_beam, w0, t, 500, modes)
+t_tild, w, V0 = obtain_analytical_free(my_beam, w0, t, 500, 1)
 
 fig = plt.figure()
 ax = plt.axes()
