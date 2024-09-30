@@ -267,7 +267,6 @@ class PINN(nn.Module):
         self.outlayerx.weight.data *= 0 
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
         self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
-        self.mult = nn.Parameter(torch.tensor(10.))
         """
         weightslast = torch.from_numpy(magnFFT).float()
         weightslast[2:] *= 0
@@ -292,7 +291,7 @@ class PINN(nn.Module):
         # Initialize all layers with Xavier initialization
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_normal_(layer.weight)  # Glorot uniform initialization
+                nn.init.normal_(layer.weight)  # Glorot uniform initialization
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
@@ -332,7 +331,7 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
-        out = self.mult * out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
+        out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
         return out
 
