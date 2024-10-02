@@ -461,9 +461,9 @@ class Loss:
 
     def verbose(self, pinns):
         res_loss, V, T = self.res_loss(pinns)
-        enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
+        enloss = self.adaptive[4] * ((V[0] + T[0]) - (V + T)).pow(2).mean()
         in_loss, in_losses = self.initial_loss(pinns)
-        loss = res_loss + in_loss
+        loss = res_loss + in_loss + enloss
 
         return loss, res_loss, in_loss, enloss, (in_losses, V, T, (V+T).mean(), enloss.detach())
 
