@@ -116,7 +116,8 @@ pinns = []
 for i in range(modes):
     if i==1:
         pinns.append(PINN(dim_hidden*2, w0, n_hidden, multux, multuy, i+1, device).to(device))
-    pinns.append(PINN(dim_hidden, w0, n_hidden, multux, multuy, i+1, device).to(device))
+    else:
+        pinns.append(PINN(dim_hidden, w0, n_hidden, multux, multuy, i+1, device).to(device))
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
