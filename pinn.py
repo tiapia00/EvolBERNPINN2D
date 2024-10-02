@@ -259,7 +259,7 @@ class PINN(nn.Module):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy, bias=False))
             self.hid_space_layers_y[-1].weight.data *= 0
             self.hid_space_layers_y[-1].weight.data = torch.diag(torch.randn(hiddimy))
-            self.hid_space_layers_y.append(nn.ELU())
+            #self.hid_space_layers_y.append(nn.ELU())
 
         self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex, bias=False)
         self.layerymodes = nn.Linear(hiddimy, 2*n_mode_spacey, bias=False)
@@ -461,7 +461,7 @@ class Loss:
 
     def verbose(self, pinns):
         res_loss, V, T = self.res_loss(pinns)
-        enloss = self.adaptive[4] * ((V[0] + T[0]) - (V + T)).pow(2).mean()
+        enloss = self.adaptive[4].item() * ((V[0] + T[0]) - (V + T)).pow(2).mean()
         in_loss, in_losses = self.initial_loss(pinns)
         loss = res_loss + in_loss + enloss
 
