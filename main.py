@@ -112,12 +112,7 @@ def extractcompfft(yf: np.ndarray, freq: np.ndarray):
 magnpos, freqpos = extractcompfft(yf, freq)
 magnpos *= 1./np.max(magnpos)
 
-pinns = []
-for i in range(modes):
-    if i==1:
-        pinns.append(PINN(dim_hidden*2, w0, n_hidden, multux, multuy, i+1, device).to(device))
-    else:
-        pinns.append(PINN(dim_hidden, w0, n_hidden, multux, multuy, i+1, device).to(device))
+pinn = (PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device))
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
@@ -140,7 +135,7 @@ if retrain_PINN:
     dir_model = pass_folder('model')
     dir_logs = pass_folder('model/logs')
 
-    pinns_trained = train_model(pinns, loss_fn=loss_fn, learning_rate=lr,
+    pinns_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs, modeldir=dir_model)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
@@ -162,7 +157,7 @@ for pinn_trained in pinns_trained:
     pinn_trained.eval()
 
 tin = inpoints[:,-1].unsqueeze(1)
-z = getoutglobal(pinns_trained, spacein, tin)
+z = pinn(spacein, tin)
 scaling = w0/torch.max(z).item()
 v = calculate_speed(z, tin, par)
 z = torch.cat([par['w0'] * z, v], dim=1)

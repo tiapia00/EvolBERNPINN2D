@@ -224,7 +224,8 @@ class PINN(nn.Module):
                  n_hidden: int,
                  multux: int,
                  multuy: int,
-                 mode: int,
+                 modesx: list,
+                 modesy: list,
                  device,
                  ):
 
@@ -234,17 +235,24 @@ class PINN(nn.Module):
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
 
-        self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = mode * torch.ones(2, n_mode_spacey, device=device) 
-        self.bx = torch.randn(1, n_mode_spacex, device=device)
-        self.By[1,:] = torch.zeros(n_mode_spacey, device=device)
-        self.by = torch.randn(1, n_mode_spacey, device=device)
+        self.Bx = []
+        for mode in modesx:
+            self.Bx.append(torch.randn([2, n_mode_spacex], device=device))
+        self.By = []
+        for mode in modesy:
+            self.By.append(mode*torch.ones(2, n_mode_spacey, device=device)) 
+        for i in range(len(self.By)):
+            self.By[i][1,:] = torch.zeros(n_mode_spacey, device=device)
         #self.By[0,:] = torch.ones([1, n_mode_spacey], device=device) * torch.arange(n_mode_spacey, device=device)
         
-        self.Btx = torch.ones((1, n_mode_spacex), device=device)
-        self.btx = torch.randn(1, n_mode_spacex, device=device)
-        self.Bty = mode**2 * torch.ones(1, n_mode_spacey, device=device) 
-        self.bty = torch.randn(1, n_mode_spacey, device=device)
+        self.Btx = []
+        for mode in modesx:
+            self.Btx.append(torch.ones((1, n_mode_spacex), device=device))
+        self.Bty = []
+        for mode in modesy:
+            self.Bty.append(mode**2 * torch.ones(1, n_mode_spacey, device=device)) 
+        for i in range(len(self.Bty)):
+            self.Bty[i][1,:] = torch.zeros(n_mode_spacey, device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -275,10 +283,13 @@ class PINN(nn.Module):
         """
         self._initialize_weights()
 
-    def fourier_features(self, input, B, b):
-        x_proj = input @ B + b
-        return torch.cat([torch.sin(np.pi * x_proj),
-                torch.cos(np.pi * x_proj)], dim=1)
+    def fourier_features(self, input: torch.Tensor, B: list):
+        out = []
+        for mat in B:
+            x_proj = input @ mat
+            out.append(torch.cat([torch.sin(np.pi * x_proj),
+                torch.cos(np.pi * x_proj)], dim=1))
+        return out
 
     def _initialize_weights(self):
         # Initialize all layers with Xavier initialization
@@ -289,32 +300,34 @@ class PINN(nn.Module):
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
     def forward(self, space, t):
-        fourier_space_x = self.fourier_features(space, self.Bx, self.bx)
-        fourier_space_y = self.fourier_features(space, self.By, self.by)
-        fourier_tx = self.fourier_features(t, self.Btx, self.btx)
-        fourier_ty = self.fourier_features(t, self.Bty, self.bty)
+        fourier_space_x = self.fourier_features(space, self.Bx)
+        fourier_space_y = self.fourier_features(space, self.By)
+        fourier_tx = self.fourier_features(t, self.Btx)
+        fourier_ty = self.fourier_features(t, self.Bty)
 
-        x_in = fourier_space_x
-        y_in = fourier_space_y
-        tx = fourier_tx
-        ty = fourier_ty
+        xs_in = fourier_space_x
+        ys_in = fourier_space_y
+        txs_in = fourier_tx
+        tys_in = fourier_ty
 
-        for layer in self.hid_space_layers_x:
-            x_in = layer(x_in)
-            tx = layer(tx)
+        for i in range(len(xs_in)):
+            x_in = xs_in[i]
+            tx = txs_in[i]
+            for layer in self.hid_space_layers_x:
+               x_in = layer(x_in) 
+               tx = layer(tx)
         
-        for layer in self.hid_space_layers_y:
-            y_in = layer(y_in)
-            ty = layer(ty)
+        for i in range(len(xs_in)):
+            y_in = ys_in[i]
+            ty = tys_in[i]
+            for layer in self.hid_space_layers_y:
+               y_in = layer(y_in) 
+               ty = layer(ty)
         
         xout = self.layerxmodes(x_in)
         tx = self.layerxmodes(tx)
-        xout = xout.view(xout.shape[0], xout.shape[1] // 2, 2).sum(dim=2)
-        tx = tx.view(tx.shape[0], tx.shape[1] // 2, 2).sum(dim=2)
         yout = self.layerymodes(y_in)
         ty = self.layerymodes(ty)
-        yout = yout.view(yout.shape[0], yout.shape[1] // 2, 2).sum(dim=2)
-        ty = ty.view(ty.shape[0], ty.shape[1] // 2, 2).sum(dim=2)
 
         xout = xout * tx
         yout = yout * ty
@@ -327,14 +340,6 @@ class PINN(nn.Module):
         out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
         return out
-
-
-def getoutglobal(pinns: list, space: torch.Tensor, time: torch.Tensor):
-    output = 0
-    for pinn in pinns:
-        output += pinn(space, time)
-    
-    return output
 
 
 class Loss:
@@ -363,10 +368,10 @@ class Loss:
         self.b = b
         self.adaptive = in_adaptive
 
-    def res_loss(self, pinns):
+    def res_loss(self, pinn):
         x, y, t = self.points['all_points']
         space = torch.cat([x, y], dim=1)
-        output = getoutglobal(pinns, space, t)
+        output = pinn(space, t)
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -422,11 +427,11 @@ class Loss:
 
         return loss, V, T
 
-    def initial_loss(self, pinns):
+    def initial_loss(self, pinn):
         init_points = self.points['initial_points_hyper']
         x, y, t = init_points
         space = torch.cat([x, y], dim=1)
-        output = getoutglobal(pinns, space, t)
+        output = pinn(space, t)
 
         init = initial_conditions(space, self.w0)
 
@@ -445,13 +450,13 @@ class Loss:
 
         return inloss, (lossx, lossy, lossv)
 
-    def bound_N(self, pinns):
+    def bound_N(self, pinn):
             _, _, _, left, right, _ = self.points['boundary_points']
             
             neumann = torch.cat([left, right], dim=0)
 
-            output = getoutglobal(pinns, neumann[:,:2], neumann[:,-1].unsqueeze(1))
-            outputleft = getoutglobal(pinns, left[:,:2], left[:,-1].unsqueeze(1))
+            output = pinn(neumann[:,:2], neumann[:,-1].unsqueeze(1))
+            outputleft = pinn(left[:,:2], left[:,-1].unsqueeze(1))
             tractions = torch.sum(output[:,2:], dim=1)
             extforce = torch.ones(tractions)
             loss = tractions.pow(2).mean()
@@ -571,12 +576,12 @@ def train_model(
 
     return pinns 
 
-def obtainsolt_u(pinns_trained: list, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
+def obtainsolt_u(pinn_trained: list, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
     nx, ny, nt = nsamples
     sol = torch.zeros(nx, ny, nt, 2)
     spaceidx = torch.zeros(nx, ny, nt, 2)
     tsv = torch.unique(t, sorted=True)
-    output = getoutglobal(pinns_trained, space, t)
+    output = pinn_trained(space, t)
 
     for i in range(len(tsv)):
         idxt = torch.nonzero(t.squeeze() == tsv[i])
