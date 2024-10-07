@@ -112,7 +112,10 @@ def extractcompfft(yf: np.ndarray, freq: np.ndarray):
 magnpos, freqpos = extractcompfft(yf, freq)
 magnpos *= 1./np.max(magnpos)
 
-pinn = (PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device))
+modesx = [0]
+modesy = [1, 2]
+
+pinn = (PINN(dim_hidden, w0, n_hidden, multux, multuy, modesx, modesy, device).to(device))
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 

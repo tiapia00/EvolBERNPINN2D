@@ -251,31 +251,25 @@ class PINN(nn.Module):
         self.Bty = []
         for mode in modesy:
             self.Bty.append(mode**2 * torch.ones(1, n_mode_spacey, device=device)) 
-        for i in range(len(self.Bty)):
-            self.Bty[i][1,:] = torch.zeros(n_mode_spacey, device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
-        self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
+        self.hid_space_layers_x.append(nn.Linear(2 * n_mode_spacex, hiddimx))
         for _ in range(n_hidden - 1):
             self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx, bias=False))
 
         self.hid_space_layers_y = nn.ModuleList()
         hiddimy = multuy * 2 * n_mode_spacey
-        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
+        self.hid_space_layers_y.append(nn.Linear(2 * n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy, bias=False))
             self.hid_space_layers_y[-1].weight.data *= 0
             self.hid_space_layers_y[-1].weight.data = torch.diag(torch.randn(hiddimy))
             #self.hid_space_layers_y.append(nn.ELU())
 
-        self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex, bias=False)
-        self.layerymodes = nn.Linear(hiddimy, 2*n_mode_spacey, bias=False)
-
-        self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
+        self.outlayerx = nn.Linear(2 * len(modesx)**2 * n_mode_spacex, 1, bias=False)
         self.outlayerx.weight.data *= 0 
-        self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
-        self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
+        self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1, bias=False)
         """
         weightslast = torch.from_numpy(magnFFT).float()
         weightslast[2:] *= 0
@@ -310,32 +304,43 @@ class PINN(nn.Module):
         txs_in = fourier_tx
         tys_in = fourier_ty
 
+        txs_out = []
+        x_out = []
         for i in range(len(xs_in)):
             x_in = xs_in[i]
             tx = txs_in[i]
             for layer in self.hid_space_layers_x:
                x_in = layer(x_in) 
                tx = layer(tx)
+            x_out.append(x_in)
+            txs_out.append(tx)
         
-        for i in range(len(xs_in)):
+        stackedx = []
+        for i in range(len(x_out)):
+            for j in range (len(txs_out)):
+                stackedx.append(x_out[i] * txs_out[j])
+        stackedx = torch.cat(stackedx, dim=1)
+        
+        tys_out = []
+        y_out = []
+        for i in range(len(ys_in)):
             y_in = ys_in[i]
             ty = tys_in[i]
             for layer in self.hid_space_layers_y:
                y_in = layer(y_in) 
                ty = layer(ty)
+            y_out.append(y_in)
+            tys_out.append(ty)
         
-        xout = self.layerxmodes(x_in)
-        tx = self.layerxmodes(tx)
-        yout = self.layerymodes(y_in)
-        ty = self.layerymodes(ty)
-
-        xout = xout * tx
-        yout = yout * ty
-
-        xout = self.outlayerx(xout)
-        yout = self.outlayery(yout)
-
-        out = torch.cat([xout, yout], dim=1)
+        stackedy = []
+        for i in range(len(y_out)):
+            for j in range (len(tys_out)):
+                stackedy.append(y_out[i] * tys_out[j])
+        stackedy = torch.cat(stackedy, dim=1)
+        
+        outx = self.outlayerx(stackedx)
+        outy = self.outlayery(stackedy)
+        out = torch.cat([outx, outy], dim=1)
 
         out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
@@ -464,10 +469,10 @@ class Loss:
 
             return loss
 
-    def verbose(self, pinns):
-        res_loss, V, T = self.res_loss(pinns)
+    def verbose(self, pinn):
+        res_loss, V, T = self.res_loss(pinn)
         enloss = self.adaptive[4].item() * ((V[0] + T[0]) - (V + T)).pow(2).mean()
-        in_loss, in_losses = self.initial_loss(pinns)
+        in_loss, in_losses = self.initial_loss(pinn)
         loss = res_loss + in_loss + enloss
 
         return loss, res_loss, in_loss, enloss, (in_losses, V, T, (V+T).mean(), enloss.detach())
@@ -475,13 +480,12 @@ class Loss:
     def __call__(self, pinns):
         return self.verbose(pinns)
 
-def calculate_norm(pinns: PINN):
+def calculate_norm(pinn: PINN):
     total_norm = 0
-    for pinn in pinns:
-        for param in pinn.parameters():
-            if param.grad is not None:  # Ensure the parameter has gradients
-                param_norm = param.grad.data.norm(2)  # Compute the L2 norm for the parameter's gradient
-                total_norm += param_norm.item() ** 2  # Sum the squares of the norms
+    for param in pinn.parameters():
+        if param.grad is not None:  # Ensure the parameter has gradients
+            param_norm = param.grad.data.norm(2)  # Compute the L2 norm for the parameter's gradient
+            total_norm += param_norm.item() ** 2  # Sum the squares of the norms
     
     return total_norm
 
@@ -492,7 +496,7 @@ def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
         loss_fn.adaptive[i] = alpha * loss_fn.adaptive[i] + (1-alpha) * total/norm[i]
     
 def train_model(
-    pinns: list,
+    pinn: PINN,
     loss_fn: Callable,
     learning_rate: int,
     max_epochs: int,
@@ -504,33 +508,27 @@ def train_model(
 
     from plots import plot_energy
 
-    # Combine all parameters from the networks into a single optimizer
-    combined_parameters = []
-    for pinn in pinns:
-        combined_parameters += list(pinn.parameters())
-
-    # Create a shared optimizer for all networks
-    optimizer = optim.Adam(combined_parameters, lr=learning_rate)
+    optimizer = optim.Adam(pinn.parameters(), lr=learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        loss, res_loss, init_loss, en_loss, losses = loss_fn(pinns)
+        loss, res_loss, init_loss, en_loss, losses = loss_fn(pinn)
 
         if epoch % 1000 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
-            norm_res = calculate_norm(pinns)
+            norm_res = calculate_norm(pinn)
             optimizer.zero_grad()
 
             en_loss.backward(retain_graph=True)
-            norm_en = calculate_norm(pinns)
+            norm_en = calculate_norm(pinn)
             optimizer.zero_grad()
 
             norms = []
             for lossinit in losses[0]:
                 lossinit.backward(retain_graph=True)
-                norms.append(calculate_norm(pinns))
+                norms.append(calculate_norm(pinn))
                 optimizer.zero_grad()
             
             norms.insert(0, norm_res)
@@ -574,7 +572,7 @@ def train_model(
 
     writer.close()
 
-    return pinns 
+    return pinn 
 
 def obtainsolt_u(pinn_trained: list, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
     nx, ny, nt = nsamples
