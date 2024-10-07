@@ -138,7 +138,7 @@ if retrain_PINN:
     dir_model = pass_folder('model')
     dir_logs = pass_folder('model/logs')
 
-    pinns_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
+    pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs, modeldir=dir_model)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
@@ -170,7 +170,7 @@ allpoints = torch.cat(points["all_points"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
-sol = obtainsolt_u(pinns_trained, space, t, nsamples)
+sol = obtainsolt_u(pinn_trained, space, t, nsamples)
 sol *= scaling
 plot_sol(sol.reshape(n_space*n_space, n_time, 2), spacein, t, dir_model)
 plot_rms_space_mid(sol, t, steps, dir_model)
