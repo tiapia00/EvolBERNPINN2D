@@ -37,22 +37,27 @@ def obtain_analytical_free(my_beam: Beam, w0: float, tf: float,
     my_beam.calculate_solution_free(A, B, t_lin)
     w = my_beam.w
 
-    V0 = calculateen0(my_beam)
+    V, Ek = calculateen(my_beam)
+    
+    return t_lin, t_ad, w, V, Ek
 
-    return t_ad, w, V0
 
-
-def calculateen0(my_beam: Beam) -> float:
+def calculateen(my_beam: Beam) -> float:
     x = my_beam.xi
 
-    EJ = my_beam.E*my_beam.J
-    w = my_beam.w[:, 0]
+    EJ = my_beam.E * my_beam.J
+    w = my_beam.w
 
-    dw_dxx = df_num(x, df_num(x, w))
+    dw_dxx = []
+    for column in w.T:
+        dw_dxx.append(df_num(x, df_num(x, column)))
+    dw_dxx = np.stack(dw_dxx, axis=-1)
 
-    V = 1/2*EJ*integrate.simpson(y=dw_dxx**2, x=x)
+    V = 1/2*EJ*integrate.simpson(y=dw_dxx**2, x=x, axis=0)
 
-    return V
+    Ek = V[0] - V 
+
+    return V, Ek
 
 
 def df_num(x: np.ndarray, y: np.ndarray):

@@ -6,7 +6,7 @@ from read_write import get_last_modified_file, pass_folder, delete_old_files, ge
 from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
-import matplotlib.animation as animation
+from scipy.interpolate import make_interp_spline
 
 torch.set_default_dtype(torch.float32)
 
@@ -43,8 +43,6 @@ E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 modes = 2
 
-t_tild, w, V0 = obtain_analytical_free(my_beam, w0, t, 500, 1)
-
 """
 fig = plt.figure()
 ax = plt.axes()
@@ -68,6 +66,8 @@ plt.show()
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, multhyperx, lr, epochs = get_params(par.pinn_par)
+
+t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 2000, 1)
 
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
@@ -174,6 +174,24 @@ sol = obtainsolt_u(pinn_trained, space, t, nsamples)
 sol *= scaling
 plot_sol(sol.reshape(n_space*n_space, n_time, 2), spacein, t, dir_model)
 plot_rms_space_mid(sol, t, steps, dir_model)
+
+tad = torch.unique(t).squeeze().detach().cpu().numpy()
+V_beam = make_interp_spline(t_beam, V_an)
+Ek_beam = make_interp_spline(t_beam, Ek_an)
+_, V, T = loss_fn.res_loss(pinn)
+V = V.detach().cpu().numpy()
+T = T.detach().cpu().numpy()
+scaled_V_beam = V_beam(tad * t_tild)
+scaled_V_beam *= np.max(V)/np.max(scaled_V_beam)
+scaled_Ek_beam = Ek_beam(tad * t_tild)
+scaled_Ek_beam *= np.max(T)/np.max(scaled_Ek_beam) 
+
+Verror = ((V - scaled_V_beam)**2).mean()
+Ekerror = ((T - scaled_Ek_beam)**2).mean()
+
+f = open(f'{dir_model}/en_comp.txt', 'w')
+f.write(f"Potential L2 error: {Verror}\n"
+        f"Kinetic L2 error: {Ekerror}")
 
 import os
 import shutil

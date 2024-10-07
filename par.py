@@ -24,7 +24,7 @@ class Parameters:
             'multuy': self.multuy,
             'multhyperx': self.multhyperx,
             'lr': 1e-4,
-            'epochs': 4000 
+            'epochs': 1 
         }
         self.beam_par = {
             'x_end': self.x_end,
