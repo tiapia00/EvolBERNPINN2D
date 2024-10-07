@@ -360,6 +360,9 @@ class Loss:
         par: dict,
         in_adaptive: torch.Tensor,
         device: torch.device,
+        interpVbeam,
+        interpEkbeam,
+        t_tild: float,
         verbose: bool = False
     ):
         self.points = points
@@ -372,6 +375,9 @@ class Loss:
         self.par = par
         self.b = b
         self.adaptive = in_adaptive
+        self.interpVbeam = interpVbeam
+        self.interpEkbeam = interpEkbeam
+        self.t_tild = t_tild
 
     def res_loss(self, pinn):
         x, y, t = self.points['all_points']
@@ -430,7 +436,15 @@ class Loss:
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
 
-        return loss, V, T
+        Vbeam = self.interpVbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
+        Ekbeam = self.interpEkbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
+        Vbeam *= np.max(V.detach().cpu().numpy())/np.max(Vbeam)
+        Ekbeam *= np.max(T.detach().cpu().numpy())/np.max(Ekbeam)
+
+        errV = ((V.detach().cpu().numpy() - Vbeam)**2).mean()
+        errT = ((T.detach().cpu().numpy() - Ekbeam)**2).mean()
+         
+        return loss, V, T, errV, errT
 
     def initial_loss(self, pinn):
         init_points = self.points['initial_points_hyper']
@@ -470,12 +484,12 @@ class Loss:
             return loss
 
     def verbose(self, pinn):
-        res_loss, V, T = self.res_loss(pinn)
+        res_loss, V, T, errV, errT = self.res_loss(pinn)
         enloss = self.adaptive[4].item() * ((V[0] + T[0]) - (V + T)).pow(2).mean()
         in_loss, in_losses = self.initial_loss(pinn)
         loss = res_loss + in_loss
 
-        return loss, res_loss, in_loss, enloss, (in_losses, V, T, (V+T).mean(), enloss.detach())
+        return loss, res_loss, in_loss, enloss, (in_losses, V, T, (V+T).mean(), enloss.detach(), errV, errT)
 
     def __call__(self, pinns):
         return self.verbose(pinns)
@@ -544,7 +558,9 @@ def train_model(
             'global': loss.item(),
             'residual': res_loss.item(),
             'init': init_loss.item(),
-            'enloss': losses[4].item()
+            'enloss': losses[4].item(),
+            'V-V_an': losses[5],
+            'T-T_an': losses[6]
         }, epoch)
 
         writer.add_scalars('Energy', {
