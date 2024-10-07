@@ -516,7 +516,7 @@ def train_model(
 
         loss, res_loss, init_loss, en_loss, losses = loss_fn(pinn)
 
-        if epoch % 1000 == 0 and epoch != 0:
+        if epoch % 400 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(pinn)
             optimizer.zero_grad()
