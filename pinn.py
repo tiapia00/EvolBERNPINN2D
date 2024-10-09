@@ -267,13 +267,13 @@ class PINN(nn.Module):
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
-        self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
+        self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx, bias=False))
         for _ in range(n_hidden):
             self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
 
         self.hid_space_layers_y = nn.ModuleList()
         hiddimy = multuy * 2 * n_mode_spacey
-        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
+        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy, bias=False))
         for _ in range(n_hidden):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
 
@@ -307,7 +307,7 @@ class PINN(nn.Module):
         # Initialize all layers with Xavier initialization
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
-                nn.init.orthogonal_(layer.weight)  # Glorot uniform initialization
+                nn.init.xavier_uniform_(layer.weight)  # Glorot uniform initialization
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
