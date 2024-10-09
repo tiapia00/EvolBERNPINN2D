@@ -268,14 +268,15 @@ class PINN(nn.Module):
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
         self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
-        for _ in range(n_hidden - 1):
+        for _ in range(n_hidden):
             self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
 
         self.hid_space_layers_y = nn.ModuleList()
         hiddimy = multuy * 2 * n_mode_spacey
         self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
-        for _ in range(n_hidden - 1):
+        for _ in range(n_hidden):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
+            self.hid_space_layers_y.append(nn.Tanh())
 
         self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex)
         self.layerymodes = nn.Linear(hiddimy, 2*n_mode_spacey)
@@ -565,7 +566,7 @@ def train_model(
                 optimizer.zero_grad()
             
             norms.insert(0, norm_res)
-            update_adaptive(loss_fn, norms, loss.detach(), 1)
+            update_adaptive(loss_fn, norms, loss.detach(), 0.8)
 
         loss.backward(retain_graph=False)
         optimizer.step()
