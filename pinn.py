@@ -394,6 +394,8 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         
+        loss *= self.penalty[0].item()
+        
         H = torch.zeros(self.n_space, self.n_space, self.n_time, 2, 2, device=self.device)
         dxyux = dxyux.reshape(self.n_space, self.n_space, self.n_time, 2)
         dxyuy = dxyuy.reshape(self.n_space, self.n_space, self.n_time, 2)
@@ -489,8 +491,8 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        loss = (output[:,0] - init[:,0]).pow(2).mean()
-        loss += 3 * (output[:,1] - init[:,1]).pow(2).mean()
+        losspos = (output[:,0] - init[:,0]).pow(2).mean()
+        losspos += self.penalty[1].item() * (output[:,1] - init[:,1]).pow(2).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -498,27 +500,21 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        loss += (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
+        lossv = self.penalty[2].item() * (v*self.par['w0']/self.par['t_ast'] - init[:,2:]).pow(2).mean(dim=0).sum()
 
-        return loss
+        loss = lossv + losspos
 
-    def update_penalty(self, max_grad: float, mean: list, alpha: float = 0.4):
-        lambda_o = np.array(self.penalty)
-        mean = np.array(mean)
-        
-        lambda_n = max_grad / (lambda_o * (np.abs(mean)))
-
-        self.penalty = (1-alpha) * lambda_o + alpha * lambda_n
-
+        return loss, (losspos, lossv)
 
     def verbose(self, pinn):
         res_loss, V, T, Wext_eff, Wext_an, lossN = self.res_loss(pinn)
         enloss = ((V[0] + T[0] + Wext_eff[0]) - (Wext_eff + V + T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
-        init_loss = self.initial_loss(pinn)
+        init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
 
-        dict = {
+        losses = {
+            "in_losses": init_losses,
             "in_loss": init_loss,
             "bound_loss": boundloss,
             "V": V,
@@ -527,11 +523,26 @@ class Loss:
             "enloss": enloss.detach(),
         }
 
-        return loss, res_loss, dict
+        return loss, res_loss, losses 
 
     def __call__(self, pinn):
         return self.verbose(pinn)
 
+
+def calculate_norm(pinn: PINN):
+    total_norm = 0
+    for param in pinn.parameters():
+        if param.grad is not None:  # Ensure the parameter has gradients
+            param_norm = param.grad.data.norm(2)  # Compute the L2 norm for the parameter's gradient
+            total_norm += param_norm.item() ** 2  # Sum the squares of the norms
+    
+    return total_norm
+
+def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
+    for i in range(len(norm)):
+        if norm[i] == 0:
+            continue
+        loss_fn.penalty[i] = alpha * loss_fn.penalty[i] + (1-alpha) * total/norm[i]
 
 def train_model(
     nn_approximator: PINN,
@@ -553,10 +564,25 @@ def train_model(
         optimizer.zero_grad()
 
         loss, res_loss, losses = loss_fn(nn_approximator)
-        loss.backward(retain_graph=False)
-        optimizer.step()
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
+
+        if epoch % 200 == 0:
+            res_loss.backward(retain_graph=True)
+            norm_res = calculate_norm(nn_approximator)
+            optimizer.zero_grad()
+
+            norms = []
+            for lossinit in losses["in_losses"]:
+                lossinit.backward(retain_graph=True)
+                norms.append(calculate_norm(nn_approximator))
+                optimizer.zero_grad()
+            
+            norms.insert(0, norm_res)
+            update_adaptive(loss_fn, norms, loss.detach(), 0.9)
+
+        loss.backward(retain_graph=False)
+        optimizer.step()
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
@@ -570,6 +596,13 @@ def train_model(
             'V': losses["V"].mean().detach().item(),
             'T': losses["T"].mean().detach().item(),
         }, epoch)
+
+        writer.add_scalars('Adaptive', {
+            'res': loss_fn.penalty[0].item(),
+            'initpos': loss_fn.penalty[1].item(),
+            'initv': loss_fn.penalty[2].item()
+        }, epoch)
+
 
         if epoch % 500 == 0:
             t = loss_fn.points['all_points'][-1].unsqueeze(1)
