@@ -434,7 +434,6 @@ class Loss:
         # MPa
 
         lossN = (tractionleft - prescribed).pow(2).mean()
-        loss += lossN
         prescribed = prescribed.reshape(self.n_space, self.n_time - 1)
         tractionleft = tractionleft.reshape(self.n_space, self.n_time - 1)
 
