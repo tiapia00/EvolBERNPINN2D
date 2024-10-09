@@ -250,7 +250,6 @@ class PINN(nn.Module):
                  multux: int,
                  multuy: int,
                  device,
-                 act=nn.Tanh(),
                  ):
 
         super().__init__()
@@ -483,7 +482,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        lossv = self.penalty[2].item() * (v * self.par['w0'] - init[:,2:]).pow(2).mean(dim=0).sum()
+        lossv = self.penalty[2].item() * (v * self.par['w0']/self.par['t_ast']- init[:,2:]).pow(2).mean(dim=0).sum()
 
         loss = lossv + losspos
 
