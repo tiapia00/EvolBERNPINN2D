@@ -509,7 +509,7 @@ class Loss:
         enloss = ((V[0] + T[0] + Wext_eff[0]) - (Wext_eff + V + T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
-        loss = res_loss + init_loss
+        loss = init_loss
 
         losses = {
             "in_losses": init_losses,
