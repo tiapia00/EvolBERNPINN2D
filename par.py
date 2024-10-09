@@ -8,6 +8,7 @@ class Parameters:
         self.dim_hidden = (1, 10) 
         self.multux = 1
         self.multuy = 1 
+        self.multhyperx = 2
         self.n_hidden : int = 1 
         self.w0 = 1 
         self.pinn_par = {
@@ -21,6 +22,7 @@ class Parameters:
             'n_hidden_space': self.n_hidden,
             'multux': self.multux,
             'multuy': self.multuy,
+            'multhyperx': self.multhyperx,
             'lr': 1e-3,
             'epochs': 1000 
         }

@@ -58,14 +58,31 @@ def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.te
 
 
 class Grid:
-    def __init__(self, x_domain, y_domain, t_domain, device):
+    def __init__(self, x_domain, multx_in, y_domain, t_domain, device):
         self.x_domain = x_domain
         self.y_domain = y_domain
         self.t_domain = t_domain
         self.device = device
+        self.multx_in = multx_in
         self.requires_grad = True
         self.grid_init = self.generate_grid_init()
+        self.grid_init_hyper = self.generate_grid_init_hyper()
         self.grid_bound = self.generate_grid_bound()
+
+    def generate_grid_init_hyper(self):
+        xmax = torch.max(self.x_domain)
+
+        x = torch.linspace(0, xmax, self.multx_in * len(self.x_domain))
+        y = self.y_domain
+        x_grid, y_grid = torch.meshgrid(x, y, indexing="ij")
+
+        x_grid = x_grid.reshape(-1, 1)
+        y_grid = y_grid.reshape(-1, 1)
+        t0 = torch.zeros_like(x_grid)
+
+        grid_init = torch.cat((x_grid, y_grid, t0), dim=1)
+
+        return grid_init
 
     def generate_grid_init(self):
         x = self.x_domain
@@ -133,6 +150,18 @@ class Grid:
         y_grid.requires_grad_(True)
 
         t0 = self.grid_init[:, 2].unsqueeze(1).to(self.device)
+        t0.requires_grad_(True)
+
+        return (x_grid, y_grid, t0)
+
+    def get_initial_points_hyper(self):
+        x_grid = self.grid_init_hyper[:, 0].unsqueeze(1).to(self.device)
+        x_grid.requires_grad_(True)
+
+        y_grid = self.grid_init_hyper[:, 1].unsqueeze(1).to(self.device)
+        y_grid.requires_grad_(True)
+
+        t0 = self.grid_init_hyper[:, 2].unsqueeze(1).to(self.device)
         t0.requires_grad_(True)
 
         return (x_grid, y_grid, t0)
@@ -439,7 +468,7 @@ class Loss:
         return loss
 
     def initial_loss(self, pinn):
-        init_points = self.points['initial_points']
+        init_points = self.points['initial_points_hyper']
         x, y, t = init_points
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
