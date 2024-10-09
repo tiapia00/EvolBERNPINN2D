@@ -259,7 +259,7 @@ class PINN(nn.Module):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy, bias=False))
             self.hid_space_layers_y[-1].weight.data *= 0
             self.hid_space_layers_y[-1].weight.data = torch.diag(torch.randn(hiddimy))
-            #self.hid_space_layers_y.append(nn.ELU())
+            self.hid_space_layers_y.append(nn.ELU())
 
         self.outlayerx = nn.Linear(2 * len(modesx)**2 * n_mode_spacex, 1, bias=False)
         self.outlayerx.weight.data *= 0 
