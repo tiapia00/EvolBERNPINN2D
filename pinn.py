@@ -490,7 +490,7 @@ class Loss:
         enloss = self.adaptive[4].item() * ((V[0] + T[0]) - (V + T)).pow(2).mean()
         bound_loss = self.bound_N_loss(pinn)
         in_loss, in_losses = self.initial_loss(pinn)
-        loss = res_loss + in_loss + enloss
+        loss = res_loss + in_loss
 
         dict = {
             "in_losses": in_losses,
@@ -544,7 +544,7 @@ def train_model(
 
         loss, res_loss, init_loss, en_loss, dict = loss_fn(pinn)
 
-        if epoch % 500 == 0 and epoch != 0:
+        if epoch % 200 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(pinn)
             optimizer.zero_grad()
@@ -561,7 +561,7 @@ def train_model(
             
             norms.insert(0, norm_res)
             norms.insert(1, norm_en)
-            update_adaptive(loss_fn, norms, loss.detach(), 0.9)
+            update_adaptive(loss_fn, norms, loss.detach(), 0.75)
 
         loss.backward(retain_graph=False)
         optimizer.step()
