@@ -464,7 +464,7 @@ class Loss:
 
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         ekk = torch.sum(eps[:,[0,-1]])
-        sigmayy = self.par['w0']/self.par['Lx'] * (2 * self.par['mu'] * eps[:,-1] + self.par['lam'] * ekk)
+        sigmayy = self.par['w0']/self.par['Lx'] * (2 * self.adim[0] * eps[:,-1] + ekk)
 
         loss = sigmayy.pow(2).mean()
 
