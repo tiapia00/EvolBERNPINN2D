@@ -130,13 +130,18 @@ class Grid:
         y1 = torch.full_like(
             t_grid, self.y_domain[1])
 
-        down = torch.cat((x0, y_grid, t_grid), dim=1)
+        down = torch.cat((x0, y_grid, t_grid), dim=1).to(self.device)
+        down.requires_grad_(True)
 
-        up = torch.cat((x1, y_grid, t_grid), dim=1)
+        up = torch.cat((x1, y_grid, t_grid), dim=1).to(self.device)
+        up.requires_grad_(True)
 
-        left = torch.cat((x_grid, y0, t_grid), dim=1)
+        left = torch.cat((x_grid, y0, t_grid), dim=1).to(self.device)
+        left.requires_grad_(True)
 
-        right = torch.cat((x_grid, y1, t_grid), dim=1)
+        right = torch.cat((x_grid, y1, t_grid), dim=1).to(self.device)
+        right.requires_grad_(True)
+
         bound_points = torch.cat((down, up, left, right), dim=0)
 
         return (down, up, left, right, bound_points)
@@ -164,17 +169,6 @@ class Grid:
         t0.requires_grad_(True)
 
         return (x_grid, y_grid, t0)
-
-    def get_boundary_points(self):
-        down = tuple(self.grid_bound[0][:, i].unsqueeze(1).requires_grad_().to(
-            self.device) for i in range(self.grid_bound[0].shape[1]))
-        up = tuple(self.grid_bound[1][:, i].unsqueeze(1).requires_grad_().to(
-            self.device) for i in range(self.grid_bound[1].shape[1]))
-        left = tuple(self.grid_bound[2][:, i].unsqueeze(1).requires_grad_().to(
-            self.device) for i in range(self.grid_bound[2].shape[1]))
-        right = tuple(self.grid_bound[3][:, i].unsqueeze(1).requires_grad_().to(
-            self.device) for i in range(self.grid_bound[3].shape[1]))
-        return (down, up, left, right)
 
     def get_interior_points(self):
         x_raw = self.x_domain[1:-1]
@@ -469,27 +463,47 @@ class Loss:
 
         return inloss, (lossx, lossy, lossv)
 
-    def bound_N(self, pinn):
-            _, _, _, left, right, _ = self.points['boundary_points']
-            
-            neumann = torch.cat([left, right], dim=0)
+    def bound_N_loss(self, pinn):
+        _, _, left, right, _ = self.points['boundary_points']
+        
+        neumann = torch.cat([left, right], dim=0)
+        space = neumann[:,:2]
+        time = neumann[:,1].unsqueeze(1)
 
-            output = pinn(neumann[:,:2], neumann[:,-1].unsqueeze(1))
-            outputleft = pinn(left[:,:2], left[:,-1].unsqueeze(1))
-            tractions = torch.sum(output[:,2:], dim=1)
-            extforce = torch.ones(tractions)
-            loss = tractions.pow(2).mean()
-            #TODO: I should obtain stresses at first
+        output = pinn(space, time)
 
-            return loss
+        dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+
+        eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
+        ekk = torch.sum(eps[:,[0,-1]])
+        sigmayy = self.par['w0']/self.par['Lx'] * (2 * self.par['mu'] * eps[:,-1] + self.par['lam'] * ekk)
+
+        loss = sigmayy.pow(2).mean()
+
+        return loss
 
     def verbose(self, pinn):
         res_loss, V, T, errV, errT = self.res_loss(pinn)
         enloss = self.adaptive[4].item() * ((V[0] + T[0]) - (V + T)).pow(2).mean()
+        bound_loss = self.bound_N_loss(pinn)
         in_loss, in_losses = self.initial_loss(pinn)
         loss = res_loss + in_loss + enloss
 
-        return loss, res_loss, in_loss, enloss, (in_losses, V, T, (V+T).mean(), enloss.detach(), errV, errT)
+        dict = {
+            "in_losses": in_losses,
+            "bound_loss": bound_loss,
+            "V": V,
+            "T": T,
+            "V+T": (V+T).mean(),
+            "enloss": enloss.detach(),
+            "errV": errV,
+            "errT": errT
+        }
+
+        return loss, res_loss, in_loss, enloss, dict
 
     def __call__(self, pinns):
         return self.verbose(pinns)
@@ -528,7 +542,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        loss, res_loss, init_loss, en_loss, losses = loss_fn(pinn)
+        loss, res_loss, init_loss, en_loss, dict = loss_fn(pinn)
 
         if epoch % 500 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
@@ -540,7 +554,7 @@ def train_model(
             optimizer.zero_grad()
 
             norms = []
-            for lossinit in losses[0]:
+            for lossinit in dict["in_losses"]:
                 lossinit.backward(retain_graph=True)
                 norms.append(calculate_norm(pinn))
                 optimizer.zero_grad()
@@ -557,29 +571,30 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
+            'boundary': dict["bound_loss"].item(),
             'init': init_loss.item(),
-            'enloss': losses[4].item(),
-            'V-V_an': losses[5],
-            'T-T_an': losses[6]
+            'enloss': dict["enloss"].item(),
+            'V-V_an': dict["errV"],
+            'T-T_an': dict["errT"]
         }, epoch)
 
         writer.add_scalars('Energy', {
-            'V+T': losses[3].item(),
-            'V': losses[1].mean().item(),
-            'T': losses[2].mean().item()
+            'V+T': dict["V+T"].item(),
+            'V': dict["V"].mean().item(),
+            'T': dict["T"].mean().item()
         }, epoch)
 
         writer.add_scalars('Adaptive', {
             'res': loss_fn.adaptive[0].item(),
             'initx': loss_fn.adaptive[1].item(),
             'inity': loss_fn.adaptive[2].item(),
-            'initv': loss_fn.adaptive[3].item(),
+            'initv': loss_fn.adaptive[3].item()
         }, epoch)
 
         if epoch % 500 == 0:
             t = loss_fn.points['all_points'][-1].unsqueeze(1)
             t = torch.unique(t, sorted=True)
-            plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(), epoch, modeldir) 
+            plot_energy(t.detach().cpu().numpy(), dict["V"].detach().cpu().numpy(), dict["T"].detach().cpu().numpy(), epoch, modeldir) 
 
         pbar.update(1)
 
