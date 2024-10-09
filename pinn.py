@@ -487,7 +487,7 @@ class Loss:
         res_loss, V, T, errV, errT = self.res_loss(pinn)
         enloss = self.adaptive[4].item() * ((V[0] + T[0]) - (V + T)).pow(2).mean()
         in_loss, in_losses = self.initial_loss(pinn)
-        loss = res_loss + in_loss
+        loss = res_loss + in_loss + enloss
 
         return loss, res_loss, in_loss, enloss, (in_losses, V, T, (V+T).mean(), enloss.detach(), errV, errT)
 
