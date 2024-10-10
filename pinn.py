@@ -74,7 +74,8 @@ class Grid:
         xmax = torch.max(self.x_domain)
 
         x = torch.linspace(0, xmax, self.multx_in * len(self.x_domain))
-        x_grid, y_grid = torch.meshgrid(x, self.y_domain, indexing="ij")
+        y = torch.linspace(0, torch.max(self.y_domain), int(self.y_domain.shape[0]/2))
+        x_grid, y_grid = torch.meshgrid(x, y, indexing="ij")
 
         x_grid = x_grid.reshape(-1, 1)
         y_grid = y_grid.reshape(-1, 1)
@@ -305,14 +306,6 @@ class PINN(nn.Module):
 
         for param in self.outlayerx.parameters():
             param.requires_grad_(False)
-
-    @staticmethod
-    def apply_filter(alpha):
-        return (torch.tanh(alpha))
-
-    @staticmethod
-    def apply_compl_filter(alpha):
-        return (1-torch.tanh(alpha))
 
     def fourier_features(self, input, B):
         x_proj = input @ B
