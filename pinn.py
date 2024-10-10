@@ -553,7 +553,7 @@ def train_model(
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
-        if epoch % 400 == 0 and epoch != 0:
+        if epoch % 200 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(nn_approximator)
             optimizer.zero_grad()
@@ -565,7 +565,7 @@ def train_model(
                 optimizer.zero_grad()
             
             norms.insert(0, norm_res)
-            update_adaptive(loss_fn, norms, loss.detach(), 0.8)
+            update_adaptive(loss_fn, norms, loss.detach(), 0.9)
 
         loss.backward(retain_graph=False)
         optimizer.step()
