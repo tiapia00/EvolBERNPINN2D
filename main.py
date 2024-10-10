@@ -46,7 +46,7 @@ t_tild, w_ad, V0 = obtain_analytical_free(my_beam, w0, t, n_time)
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, multhyperx, lr, epochs = get_params(par.pinn_par)
-scaley = 2
+scaley = 2 
 
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx

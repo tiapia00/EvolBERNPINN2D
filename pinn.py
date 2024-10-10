@@ -74,8 +74,7 @@ class Grid:
         xmax = torch.max(self.x_domain)
 
         x = torch.linspace(0, xmax, self.multx_in * len(self.x_domain))
-        y = torch.linspace(0, torch.max(self.y_domain), math.floor(self.x_domain.shape[0]/2))
-        x_grid, y_grid = torch.meshgrid(x, y, indexing="ij")
+        x_grid, y_grid = torch.meshgrid(x, self.y_domain, indexing="ij")
 
         x_grid = x_grid.reshape(-1, 1)
         y_grid = y_grid.reshape(-1, 1)
@@ -295,8 +294,8 @@ class PINN(nn.Module):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
             self.hid_space_layers_y.append(act)
 
-        self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex)
-        self.layerymodes = nn.Linear(hiddimy, 2*n_mode_spacey)
+        self.layerxmodes = nn.Linear(hiddimx, n_mode_spacex)
+        self.layerymodes = nn.Linear(hiddimy, n_mode_spacey)
 
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
         self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
@@ -349,12 +348,8 @@ class PINN(nn.Module):
         
         xout = self.layerxmodes(x_in)
         tx = self.layerxmodes(tx)
-        xout = xout.view(xout.shape[0], xout.shape[1] // 2, 2).sum(dim=2)
-        tx = tx.view(tx.shape[0], tx.shape[1] // 2, 2).sum(dim=2)
         yout = self.layerymodes(y_in)
         ty = self.layerymodes(ty)
-        yout = yout.view(yout.shape[0], yout.shape[1] // 2, 2).sum(dim=2)
-        ty = ty.view(ty.shape[0], ty.shape[1] // 2, 2).sum(dim=2)
 
         xout = xout * tx
         yout = yout * ty
@@ -364,7 +359,7 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
-        out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
+        out = out * space[:,0].unsqueeze(1).detach() * (1 - space[:,0].unsqueeze(1).detach())
 
         return out
 
