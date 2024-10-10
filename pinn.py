@@ -3,6 +3,7 @@ from tqdm import tqdm
 from typing import Callable
 import numpy as np
 import torch
+import math
 from torch import nn
 import torch.optim as optim
 
@@ -73,7 +74,7 @@ class Grid:
         xmax = torch.max(self.x_domain)
 
         x = torch.linspace(0, xmax, self.multx_in * len(self.x_domain))
-        y = self.y_domain
+        y = torch.linspace(0, torch.max(self.y_domain), math.floor(self.x_domain.shape[0]/2))
         x_grid, y_grid = torch.meshgrid(x, y, indexing="ij")
 
         x_grid = x_grid.reshape(-1, 1)
@@ -187,7 +188,22 @@ class Grid:
 
         return (x, y, t)
 
-    def get_all_points(self):
+    def get_all_points_training(self, scaley):
+        y = torch.linspace(0, torch.max(self.y_domain), math.floor(self.y_domain.shape[0]/scaley))
+
+        x_all, y_all, t_all = torch.meshgrid(self.x_domain, y,
+                                             self.t_domain, indexing='ij')
+        x_all = x_all.reshape(-1,1).to(self.device)
+        y_all = y_all.reshape(-1,1).to(self.device)
+        t_all = t_all.reshape(-1,1).to(self.device)
+
+        x_all.requires_grad_(True)
+        y_all.requires_grad_(True)
+        t_all.requires_grad_(True)
+
+        return (x_all, y_all, t_all)
+
+    def get_all_points_eval(self):
         x_all, y_all, t_all = torch.meshgrid(self.x_domain, self.y_domain,
                                              self.t_domain, indexing='ij')
         x_all = x_all.reshape(-1,1).to(self.device)
@@ -374,6 +390,7 @@ class Loss:
         w0: float,
         steps_int: tuple,
         in_penalty: np.ndarray,
+        scaley: int,
         adim: tuple,
         par: dict,
         device: torch.device,
@@ -389,9 +406,10 @@ class Loss:
         self.adim = adim
         self.par = par
         self.b = b
+        self.scaley = scaley
 
     def res_loss(self, pinn):
-        x, y, t = self.points['all_points']
+        x, y, t = self.points['all_points_training']
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
@@ -441,8 +459,8 @@ class Loss:
         T = torch.zeros_like(V)
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx].reshape(self.n_space, self.n_space)
-            dTt = dT[tidx].reshape(self.n_space, self.n_space)
+            dVt = dV[tidx].reshape(self.n_space, int(self.n_space/self.scaley))
+            dTt = dT[tidx].reshape(self.n_space, int(self.n_space/self.scaley))
 
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
@@ -592,7 +610,7 @@ def train_model(
 
 
         if epoch % 500 == 0:
-            t = loss_fn.points['all_points'][-1].unsqueeze(1)
+            t = loss_fn.points['all_points_training'][-1].unsqueeze(1)
             t = torch.unique(t, sorted=True)
             plot_energy(t.detach().cpu().numpy(), losses["V"].detach().cpu().numpy(), losses["T"].detach().cpu().numpy(), epoch, modeldir) 
 

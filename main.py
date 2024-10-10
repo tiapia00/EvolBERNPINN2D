@@ -46,6 +46,7 @@ t_tild, w_ad, V0 = obtain_analytical_free(my_beam, w0, t, n_time)
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, multhyperx, lr, epochs = get_params(par.pinn_par)
+scaley = 2
 
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
@@ -61,7 +62,8 @@ points = {
     'initial_points': grid.get_initial_points(),
     'boundary_points': grid.generate_grid_bound(),
     'initial_points_hyper': grid.get_initial_points_hyper(),
-    'all_points': grid.get_all_points()
+    'all_points_training': grid.get_all_points_training(scaley=2),
+    'all_points_eval': grid.get_all_points_eval(),
 }
 
 adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
@@ -105,6 +107,7 @@ loss_fn = Loss(
         w0,
         steps,
         in_penalty,
+        scaley,
         adim,
         par,
         device
