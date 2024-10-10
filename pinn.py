@@ -266,7 +266,7 @@ class PINN(nn.Module):
                  multux: int,
                  multuy: int,
                  device,
-                 act = nn.Tanh()
+                 act = nn.Sigmoid()
                  ):
 
         super().__init__()
@@ -501,10 +501,10 @@ class Loss:
 
     def verbose(self, pinn):
         res_loss, V, T = self.res_loss(pinn)
-        enloss = ((V[0] + T[0]) - (V + T)).pow(2).mean()
+        enloss = self.penalty[3].item() * ((V[0] + T[0]) - (V + T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
-        loss = res_loss + init_loss
+        loss = res_loss + init_loss + enloss
 
         losses = {
             "in_losses": init_losses,
@@ -513,7 +513,7 @@ class Loss:
             "V": V,
             "T": T,
             "V+T": (V+T).mean(),
-            "enloss": enloss.detach(),
+            "enloss": enloss,
         }
 
         return loss, res_loss, losses 
@@ -570,6 +570,10 @@ def train_model(
                 lossinit.backward(retain_graph=True)
                 norms.append(calculate_norm(nn_approximator))
                 optimizer.zero_grad()
+            
+            losses['enloss'].backward(retain_graph=True)
+            norms.append(calculate_norm(nn_approximator))
+            optimizer.zero_grad()
             
             norms.insert(0, norm_res)
             update_adaptive(loss_fn, norms, loss.detach(), 0.9)
