@@ -68,7 +68,7 @@ points = {
 
 adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
 par = {"Lx": Lx,
-        "w0": 10,
+        "w0": w0,
         "lam": lam,
         "mu":mu,
         "rho": rho,
@@ -145,10 +145,9 @@ z = pinn_trained(spacein, tin)
 v = calculate_speed(z, tin, par)
 z = torch.cat([z, v], dim=1)
 
-
 plot_initial_conditions(z, cond0, spacein, dir_model)
 
-allpoints = torch.cat(points["all_points"], dim=1)
+allpoints = torch.cat(points["all_points_eval"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
