@@ -281,14 +281,14 @@ class PINN(nn.Module):
         self.layerymodes = nn.Linear(hiddimy, 2*n_mode_spacey)
 
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
+        self._initialize_weights()
+
+        self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
+
         self.outlayerx.weight.data *= 0
 
         for param in self.outlayerx.parameters():
             param.requires_grad_(False)
-
-        self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
-
-        self._initialize_weights()
 
     @staticmethod
     def apply_filter(alpha):
