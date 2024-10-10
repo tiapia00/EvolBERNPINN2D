@@ -350,17 +350,6 @@ class PINN(nn.Module):
 
         return out
 
-def material_model(eps: torch.Tensor, par: dict,  device):
-    tr_eps = eps.diagonal(offset=0, dim1=-1, dim2=-2).sum(-1) 
-    lam = par['lam']
-    mu = par['mu']
-    Lx = par['Lx']
-    w0 = par['w0']
-    sig = 2 * mu/(Lx*lam) * eps + w0/Lx*torch.einsum('ijk,lm->ijklm', tr_eps, torch.eye(eps.size()[-1], device=device)) 
-    psi = torch.einsum('ijklm,ijklm->ijk', eps, sig)
-
-    return sig, psi
-
 
 class Loss:
     def __init__(
@@ -389,7 +378,7 @@ class Loss:
         self.b = b
 
     def res_loss(self, pinn):
-        x, y, t = self.points['all_points']
+        x, y, t = self.points['res_points']
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
@@ -439,8 +428,8 @@ class Loss:
         T = torch.zeros_like(V)
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx].reshape(self.n_space, self.n_space)
-            dTt = dT[tidx].reshape(self.n_space, self.n_space)
+            dVt = dV[tidx].reshape(self.n_space - 2, self.n_space - 2)
+            dTt = dT[tidx].reshape(self.n_space - 2, self.n_space - 2)
 
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
@@ -590,7 +579,7 @@ def train_model(
 
         if epoch % 500 == 0:
             t = loss_fn.points['all_points'][-1].unsqueeze(1)
-            t = torch.unique(t, sorted=True)
+            t = torch.unique(t, sorted=True)[1:]
             plot_energy(t.detach().cpu().numpy(), losses["V"].detach().cpu().numpy(), losses["T"].detach().cpu().numpy(), epoch, modeldir) 
 
         pbar.update(1)
