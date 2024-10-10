@@ -284,13 +284,13 @@ class PINN(nn.Module):
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
-        self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx, bias=False))
+        self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
         for _ in range(n_hidden):
             self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
 
         self.hid_space_layers_y = nn.ModuleList()
         hiddimy = multuy * 2 * n_mode_spacey
-        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy, bias=False))
+        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
         for _ in range(n_hidden):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
             self.hid_space_layers_y.append(act)
@@ -298,8 +298,8 @@ class PINN(nn.Module):
         self.layerxmodes = nn.Linear(hiddimx, n_mode_spacex)
         self.layerymodes = nn.Linear(hiddimy, n_mode_spacey)
 
-        self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
-        self.outlayery = nn.Linear(n_mode_spacey, 1, bias=False)
+        self.outlayerx = nn.Linear(n_mode_spacex, 1)
+        self.outlayery = nn.Linear(n_mode_spacey, 1)
         self._initialize_weights()
 
         self.outlayerx.weight.data *= 0
