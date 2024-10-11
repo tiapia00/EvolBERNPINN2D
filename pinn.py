@@ -266,7 +266,7 @@ class PINN(nn.Module):
                  multux: int,
                  multuy: int,
                  device,
-                 act = nn.LeakyReLU()
+                 act = nn.Tanh()
                  ):
 
         super().__init__()
@@ -276,11 +276,11 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = 1.4 * torch.randn((2, n_mode_spacey), device=device)
+        self.By = 1.3 * torch.randn((2, n_mode_spacey), device=device)
         self.By[1,:] *= 0
         
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = 1.5 * torch.randn((1, n_mode_spacey), device=device)
+        self.Bty = 1.3 * torch.randn((1, n_mode_spacey), device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -316,7 +316,7 @@ class PINN(nn.Module):
         # Initialize all layers with Xavier initialization
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_normal_(layer.weight)  # Glorot uniform initialization
+                nn.init.orthogonal_(layer.weight)  # Glorot uniform initialization
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
@@ -355,18 +355,6 @@ class PINN(nn.Module):
         out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
         return out
-
-def material_model(eps: torch.Tensor, par: dict,  device):
-    tr_eps = eps.diagonal(offset=0, dim1=-1, dim2=-2).sum(-1) 
-    lam = par['lam']
-    mu = par['mu']
-    Lx = par['Lx']
-    w0 = par['w0']
-    sig = 2 * mu/(Lx*lam) * eps + w0/Lx*torch.einsum('ijk,lm->ijklm', tr_eps, torch.eye(eps.size()[-1], device=device)) 
-    psi = torch.einsum('ijklm,ijklm->ijk', eps, sig)
-
-    return sig, psi
-
 
 class Loss:
     def __init__(
