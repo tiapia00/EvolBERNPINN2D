@@ -246,24 +246,6 @@ class PINN(nn.Module):
         self.Bty = mode**2 * torch.ones(1, n_mode_spacey, device=device) 
         self.bty = torch.randn(1, n_mode_spacey, device=device)
 
-        self.hid_space_layers_x = nn.ModuleList()
-        hiddimx = multux * 2 * n_mode_spacex
-        self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
-        for _ in range(n_hidden - 1):
-            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx, bias=False))
-
-        self.hid_space_layers_y = nn.ModuleList()
-        hiddimy = multuy * 2 * n_mode_spacey
-        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
-        for _ in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy, bias=False))
-            self.hid_space_layers_y[-1].weight.data *= 0
-            self.hid_space_layers_y[-1].weight.data = torch.diag(torch.randn(hiddimy))
-            #self.hid_space_layers_y.append(nn.ELU())
-
-        self.layerxmodes = nn.Linear(hiddimx, 2*n_mode_spacex, bias=False)
-        self.layerymodes = nn.Linear(hiddimy, 2*n_mode_spacey, bias=False)
-
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
         self.outlayerx.weight.data *= 0 
         self.outlayerx = nn.Linear(n_mode_spacex, 1, bias=False)
@@ -294,25 +276,13 @@ class PINN(nn.Module):
         fourier_tx = self.fourier_features(t, self.Btx, self.btx)
         fourier_ty = self.fourier_features(t, self.Bty, self.bty)
 
-        x_in = fourier_space_x
-        y_in = fourier_space_y
+        xout = fourier_space_x
+        yout = fourier_space_y
         tx = fourier_tx
         ty = fourier_ty
 
-        for layer in self.hid_space_layers_x:
-            x_in = layer(x_in)
-            tx = layer(tx)
-        
-        for layer in self.hid_space_layers_y:
-            y_in = layer(y_in)
-            ty = layer(ty)
-        
-        xout = self.layerxmodes(x_in)
-        tx = self.layerxmodes(tx)
         xout = xout.view(xout.shape[0], xout.shape[1] // 2, 2).sum(dim=2)
         tx = tx.view(tx.shape[0], tx.shape[1] // 2, 2).sum(dim=2)
-        yout = self.layerymodes(y_in)
-        ty = self.layerymodes(ty)
         yout = yout.view(yout.shape[0], yout.shape[1] // 2, 2).sum(dim=2)
         ty = ty.view(ty.shape[0], ty.shape[1] // 2, 2).sum(dim=2)
 
