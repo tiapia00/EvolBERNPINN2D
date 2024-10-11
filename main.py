@@ -116,7 +116,7 @@ magnpos, freqpos = extractcompfft(yf, freq)
 magnpos *= 1./np.max(magnpos)
 
 modesx = [0]
-modesy = [1, 2]
+modesy = [1]
 
 pinn = (PINN(dim_hidden, w0, n_hidden, multux, multuy, modesx, modesy, device).to(device))
 
