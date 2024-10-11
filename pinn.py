@@ -266,7 +266,7 @@ class PINN(nn.Module):
                  multux: int,
                  multuy: int,
                  device,
-                 act = nn.ELU()
+                 act = nn.LeakyReLU()
                  ):
 
         super().__init__()

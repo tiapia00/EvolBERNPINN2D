@@ -8,8 +8,8 @@ class Parameters:
         self.dim_hidden = (1, 40) 
         self.multux = 1
         self.multuy = 1 
-        self.multhyperx = 3 
-        self.n_hidden : int = 3 
+        self.multhyperx = 1 
+        self.n_hidden : int = 1 
         self.w0 = 1 
         self.pinn_par = {
             'x_end': self.x_end,
