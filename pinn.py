@@ -321,25 +321,13 @@ class PINN(nn.Module):
         tx = fourier_tx
         ty = fourier_ty
 
-        for layer in self.hid_space_layers_x:
-            x_in = layer(x_in)
-            tx = layer(tx)
-        
-        for layer in self.hid_space_layers_y:
-            y_in = layer(y_in)
-            ty = layer(ty)
-        
-        xout = self.layerxmodes(x_in)
-        tx = self.layerxmodes(tx)
-        xout = xout.view(xout.shape[0], xout.shape[1] // 2, 2).sum(dim=2)
+        x_in = x_in.view(x_in.shape[0], x_in.shape[1] // 2, 2).sum(dim=2)
         tx = tx.view(tx.shape[0], tx.shape[1] // 2, 2).sum(dim=2)
-        yout = self.layerymodes(y_in)
-        ty = self.layerymodes(ty)
-        yout = yout.view(yout.shape[0], yout.shape[1] // 2, 2).sum(dim=2)
+        y_in = y_in.view(y_in.shape[0], y_in.shape[1] // 2, 2).sum(dim=2)
         ty = ty.view(ty.shape[0], ty.shape[1] // 2, 2).sum(dim=2)
 
-        xout = xout * tx
-        yout = yout * ty
+        xout = x_in * tx
+        yout = y_in * ty
 
         xout = self.outlayerx(xout)
         yout = self.outlayery(yout)
@@ -347,7 +335,6 @@ class PINN(nn.Module):
         out = torch.cat([xout, yout], dim=1)
 
         out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
-        out = out * self.w0/torch.max(out)
 
         return out
 
