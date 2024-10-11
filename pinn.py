@@ -347,6 +347,7 @@ class PINN(nn.Module):
         out = torch.cat([xout, yout], dim=1)
 
         out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
+        out = out * self.w0/torch.max(out)
 
         return out
 
