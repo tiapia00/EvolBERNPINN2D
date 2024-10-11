@@ -352,7 +352,10 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
-        out = out * space[:,0].unsqueeze(1).detach() * (1 - space[:,0].unsqueeze(1).detach())
+        out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
+        init = initial_conditions(space, self.w0)
+
+        out = t * out + init
 
         return out
 
