@@ -3,12 +3,12 @@ class Parameters:
         self.x_end = 500 
         self.y_end = 0.5
         self.t_end = 0.8
-        self.n_space = 41 
-        self.n_time = 43 
-        self.dim_hidden = (1, 1) 
+        self.n_space = 40 
+        self.n_time = 50 
+        self.dim_hidden = (1, 10) 
         self.multux = 1
-        self.multuy = 3
-        self.n_hidden : int = 2 
+        self.multuy = 1 
+        self.n_hidden : int = 0 
         self.w0 = 1 
         self.pinn_par = {
             'x_end': self.x_end,
