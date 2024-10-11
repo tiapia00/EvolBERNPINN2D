@@ -453,7 +453,7 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        losspos = self.penalty[1].item() * (output[:,1] - init[:,1]).pow(2).mean()
+        losspos = self.penalty[1].item() * (output[:,1] - init[:,1]/self.par['w0']).pow(2).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -461,9 +461,9 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        lossv = self.penalty[2].item() * (v * self.par['w0']/self.par['t_ast']- init[:,2:]).pow(2).mean(dim=0).sum()
+        lossv = self.penalty[2].item() * (v * self.par['w0'] - init[:,2:]).pow(2).mean(dim=0).sum()
 
-        loss = losspos
+        loss = losspos + lossv
 
         return loss, (losspos, lossv)
 
