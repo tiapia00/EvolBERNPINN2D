@@ -205,6 +205,7 @@ class PINN(nn.Module):
         self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacex, hiddimy))
         for _ in range(n_hidden):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
+            self.hid_space_layers_y.append(act)
 
         self.layerxmodes = nn.Linear(hiddimx, n_mode_spacex)
         self.layerymodes = nn.Linear(hiddimy, n_mode_spacey)
