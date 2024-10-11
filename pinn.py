@@ -442,7 +442,7 @@ def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
     for i in range(len(norm)):
         if norm[i] == 0:
             continue
-        loss_fn.adaptive[i] = alpha * loss_fn.adaptive[i] + (1-alpha) * total/norm[i]
+        loss_fn.penalty[i] = alpha * loss_fn.penalty[i] + (1-alpha) * total/norm[i]
 
 def train_model(
     pinn: PINN,
