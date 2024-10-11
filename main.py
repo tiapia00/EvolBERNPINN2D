@@ -142,7 +142,6 @@ z = pinn_trained(spacein, tin)
 v = calculate_speed(z, tin, par)
 z = torch.cat([z, v], dim=1)
 
-
 plot_initial_conditions(z, cond0, spacein, dir_model)
 
 allpoints = torch.cat(points["all_points"], dim=1)
