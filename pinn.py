@@ -346,8 +346,8 @@ class Loss:
         Vbeam *= np.max(V.detach().cpu().numpy())/np.max(Vbeam)
         Ekbeam *= np.max(T.detach().cpu().numpy())/np.max(Ekbeam)
 
-        errV = ((V.detach().cpu().numpy() - Vbeam)**2).mean()
-        errT = ((T.detach().cpu().numpy() - Ekbeam)**2).mean()
+        errV = (((V.detach().cpu().numpy() - Vbeam)/Vbeam)**2).mean()
+        errT = (((T.detach().cpu().numpy() - Ekbeam))/Ekbeam**2).mean()
 
         return loss, V, T, errV, errT
 
