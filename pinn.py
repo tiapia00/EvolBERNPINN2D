@@ -352,7 +352,7 @@ class Loss:
         self.weights_t = torch.ones(part_time, device=device)
 
     def res_loss(self, pinn):
-        x, y, t = self.points['all_points']
+        x, y, t = self.points['res_points']
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
@@ -403,8 +403,8 @@ class Loss:
         tidx_par = torch.zeros(0, device=self.device, dtype=torch.int32, requires_grad=False)
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx].reshape(self.n_space, self.n_space)
-            dTt = dT[tidx].reshape(self.n_space, self.n_space)
+            dVt = dV[tidx].reshape(self.n_space - 2, self.n_space - 2)
+            dTt = dT[tidx].reshape(self.n_space - 2, self.n_space - 2)
             tidx_par = torch.cat([tidx_par, tidx], dim=0)
 
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
@@ -503,7 +503,7 @@ def train_model(
 
         loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
 
-        if epoch % 50 == 0 and epoch != 0:
+        if epoch % 200 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(nn_approximator)
             optimizer.zero_grad()
@@ -545,7 +545,7 @@ def train_model(
 
         if epoch % 500 == 0:
             t = loss_fn.points['all_points'][-1].unsqueeze(1)
-            t = torch.unique(t, sorted=True)
+            t = torch.unique(t, sorted=True)[1:]
             plot_energy(t.detach().cpu().numpy(), losses[1].detach().cpu().numpy(), losses[2].detach().cpu().numpy(), epoch, modeldir) 
 
         update_weights_t(loss_fn.weights_t, 2, losses[-1])
