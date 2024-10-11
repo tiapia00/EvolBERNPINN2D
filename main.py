@@ -66,8 +66,7 @@ points = {
     'all_points': grid.get_all_points()
 }
 
-#adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
-adim = (1, 1, 1)
+adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
 par = {"Lx": Lx,
         "w0": w0,
         "lam": lam,
