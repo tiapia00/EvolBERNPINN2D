@@ -276,11 +276,11 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = 1.3 * torch.randn((2, n_mode_spacey), device=device)
+        self.By = torch.randn((2, n_mode_spacey), device=device)
         self.By[1,:] *= 0
         
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = 1.3 * torch.randn((1, n_mode_spacey), device=device)
+        self.Bty = torch.randn((1, n_mode_spacey), device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -316,7 +316,7 @@ class PINN(nn.Module):
         # Initialize all layers with Xavier initialization
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
-                nn.init.orthogonal_(layer.weight)  # Glorot uniform initialization
+                nn.init.uniform_(layer.weight)  # Glorot uniform initialization
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
