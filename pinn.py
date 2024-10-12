@@ -7,6 +7,42 @@ import math
 from torch import nn
 import torch.optim as optim
 
+def latin_hypercube_sampling(n_samples, n_dimensions, low, high):
+    """
+    Perform Latin Hypercube Sampling using PyTorch.
+
+    Args:
+        n_samples (int): Number of samples to generate.
+        n_dimensions (int): Number of dimensions.
+        low (float or list of floats): Lower bound of the sampling range.
+        high (float or list of floats): Upper bound of the sampling range.
+
+    Returns:
+        torch.Tensor: A tensor of shape (n_samples, n_dimensions) containing the sampled points.
+    """
+    # Ensure low and high are lists if single values are provided
+    if isinstance(low, (int, float)):
+        low = [low] * n_dimensions
+    if isinstance(high, (int, float)):
+        high = [high] * n_dimensions
+
+    # Convert to tensors
+    low = torch.tensor(low)
+    high = torch.tensor(high)
+
+    # Create an array to hold the samples
+    samples = torch.zeros((n_samples, n_dimensions))
+
+    # Generate samples
+    for d in range(n_dimensions):
+        # Create stratified sampling intervals
+        intervals = torch.linspace(0, 1, n_samples + 1)[:-1] + torch.rand(n_samples) * (1 / n_samples)
+        intervals = intervals[torch.randperm(n_samples)]  # Shuffle intervals
+        
+        # Map intervals to the range [low, high]
+        samples[:, d] = low[d] + intervals * (high[d] - low[d])
+
+    return samples
 
 def simps(y, dx, dim=0):
     device = y.device
@@ -259,9 +295,10 @@ def calculate_fft(signal: np.ndarray, dx: float, x: np.ndarray):
     return yf, freq
 
 class RBF(nn.Module):
-    def __init__(self, in_features: int, out_features: int, device, sigma = 0.1):
+    def __init__(self, in_features: int, out_features: int, device, sigma = 0.01):
         super().__init__()
-        self.centers = torch.randn(out_features, in_features).to(device)
+        self.centers = latin_hypercube_sampling(out_features, in_features, 0, 1).to(device)
+        print(self.centers)
         self.sigma = sigma
     
     def forward(self, x):
@@ -301,8 +338,9 @@ class PINN(nn.Module):
             self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
 
         self.inity = nn.Linear(2, n_mode_spacey)
-        nn.init.normal_(self.inity.weight)
-        self.layersy = RBF(n_mode_spacey, 1, device)
+        self.layersy = RBF(3, n_mode_spacey, device)
+        self.outy = nn.Linear(n_mode_spacey, 1)
+        nn.init.normal_(self.outy.weight)
 
         self.layerxmodes = nn.Linear(hiddimx, n_mode_spacex)
         self.outlayerx = nn.Linear(n_mode_spacex, 1)
@@ -328,7 +366,6 @@ class PINN(nn.Module):
     def forward(self, space, t):
         fourier_space_x = self.fourier_features(space, self.Bx)
         fourier_tx = self.fourier_features(t, self.Btx)
-        ytrans = self.inity(torch.cat([space[:,0].unsqueeze(1), t], dim=1))
 
         x_in = fourier_space_x
         tx = fourier_tx
@@ -337,7 +374,8 @@ class PINN(nn.Module):
             x_in = layer(x_in)
             tx = layer(tx)
         
-        ytrans = self.layersy(ytrans)
+        ytrans = self.layersy(torch.cat([space, t], dim=1))
+        yout = self.outy(ytrans)
         
         xout = self.layerxmodes(x_in)
         tx = self.layerxmodes(tx)
@@ -346,7 +384,7 @@ class PINN(nn.Module):
 
         xout = self.outlayerx(xout)
 
-        out = torch.cat([xout, ytrans], dim=1)
+        out = torch.cat([xout, yout], dim=1)
 
         out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
