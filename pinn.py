@@ -258,6 +258,22 @@ def calculate_fft(signal: np.ndarray, dx: float, x: np.ndarray):
     freq = np.fft.fftfreq(x.size, d=dx)
     return yf, freq
 
+class RBF(nn.Module):
+    def __init__(self, in_features: int, out_features: int, device, sigma = 0.1):
+        super().__init__()
+        self.centers = torch.randn(out_features, in_features).to(device)
+        self.sigma = sigma
+    
+    def forward(self, x):
+        dists = torch.cdist(x, self.centers)
+        
+        activations = gaussian(dists, self.sigma)
+        return activations
+
+def gaussian(alpha, beta):
+    phi = torch.exp(-beta * alpha.pow(2))
+    return phi
+
 class PINN(nn.Module):
     def __init__(self,
                  dim_hidden: tuple,
@@ -276,11 +292,7 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = 1.3 * torch.randn((2, n_mode_spacey), device=device)
-        self.By[1,:] *= 0
-        
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = 1.3 * torch.randn((1, n_mode_spacey), device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -288,19 +300,12 @@ class PINN(nn.Module):
         for _ in range(n_hidden):
             self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
 
-        self.hid_space_layers_y = nn.ModuleList()
-        hiddimy = multuy * 2 * n_mode_spacey
-        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
-        for _ in range(n_hidden):
-            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
-            self.hid_space_layers_y.append(act)
+        self.inity = nn.Linear(2, n_mode_spacey)
+        nn.init.normal_(self.inity.weight)
+        self.layersy = RBF(n_mode_spacey, 1, device)
 
         self.layerxmodes = nn.Linear(hiddimx, n_mode_spacex)
-        self.layerymodes = nn.Linear(hiddimy, n_mode_spacey)
-
         self.outlayerx = nn.Linear(n_mode_spacex, 1)
-        self.outlayery = nn.Linear(n_mode_spacey, 1)
-        self._initialize_weights()
 
         self.outlayerx.weight.data *= 0
 
@@ -322,35 +327,26 @@ class PINN(nn.Module):
 
     def forward(self, space, t):
         fourier_space_x = self.fourier_features(space, self.Bx)
-        fourier_space_y = self.fourier_features(space, self.By)
         fourier_tx = self.fourier_features(t, self.Btx)
-        fourier_ty = self.fourier_features(t, self.Bty)
+        ytrans = self.inity(torch.cat([space[:,0].unsqueeze(1), t], dim=1))
 
         x_in = fourier_space_x
-        y_in = fourier_space_y
         tx = fourier_tx
-        ty = fourier_ty
 
         for layer in self.hid_space_layers_x:
             x_in = layer(x_in)
             tx = layer(tx)
         
-        for layer in self.hid_space_layers_y:
-            y_in = layer(y_in)
-            ty = layer(ty)
+        ytrans = self.layersy(ytrans)
         
         xout = self.layerxmodes(x_in)
         tx = self.layerxmodes(tx)
-        yout = self.layerymodes(y_in)
-        ty = self.layerymodes(ty)
 
         xout = xout * tx
-        yout = yout * ty
 
         xout = self.outlayerx(xout)
-        yout = self.outlayery(yout)
 
-        out = torch.cat([xout, yout], dim=1)
+        out = torch.cat([xout, ytrans], dim=1)
 
         out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
