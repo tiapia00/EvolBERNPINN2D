@@ -295,6 +295,40 @@ def calculate_fft(signal: np.ndarray, dx: float, x: np.ndarray):
     return yf, freq
 
 class RBF(nn.Module):
+    def __init__(self, in_features, num_centers, out_features):
+        super(RBF, self).__init__()
+        
+        self.num_centers = num_centers
+        
+        self.centers = nn.Parameter(torch.randn(num_centers, in_features))
+        
+        self.log_sigmas = nn.Parameter(torch.zeros(num_centers))
+        
+        self.linear = nn.Linear(num_centers, out_features)
+    
+    def gaussian_rbf(self, x):
+        # Calculate pairwise distance between input x and centers
+        # x shape: (batch_size, in_features)
+        # centers shape: (num_centers, in_features)
+        x = x.unsqueeze(1)  # Shape: (batch_size, 1, in_features)
+        centers = self.centers.unsqueeze(0)  # Shape: (1, num_centers, in_features)
+        
+        # Calculate the squared Euclidean distance
+        dist_sq = torch.sum((x - centers) ** 2, dim=2)  # Shape: (batch_size, num_centers)
+        
+        # Apply the Gaussian RBF function
+        sigmas_sq = torch.exp(self.log_sigmas) ** 2  # Convert log_sigma to variance
+        return torch.exp(-dist_sq / (2 * sigmas_sq))
+    
+    def forward(self, x):
+        # Apply the Gaussian RBF to get activations
+        rbf_out = self.gaussian_rbf(x)  # Shape: (batch_size, num_centers)
+        
+        # Pass the RBF outputs through the linear layer
+        output = self.linear(rbf_out)  # Shape: (batch_size, out_features)
+        return output
+
+class RBF(nn.Module):
     def __init__(self, in_features: int, out_features: int, device, sigma = 0.01):
         super().__init__()
         self.centers = latin_hypercube_sampling(out_features, in_features, 0, 1).to(device)
