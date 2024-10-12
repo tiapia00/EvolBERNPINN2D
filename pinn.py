@@ -298,7 +298,6 @@ class RBF(nn.Module):
     def __init__(self, in_features: int, out_features: int, device, sigma = 0.01):
         super().__init__()
         self.centers = latin_hypercube_sampling(out_features, in_features, 0, 1).to(device)
-        print(self.centers)
         self.sigma = sigma
     
     def forward(self, x):
