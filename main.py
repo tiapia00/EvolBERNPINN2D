@@ -1,12 +1,14 @@
 from plots import *
 from beam import Beam
+import numpy as np
 import os
 import torch
-from read_write import get_last_modified_file, pass_folder, delete_old_files, get_current_time
+from utils import *
 from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
 from scipy.interpolate import make_interp_spline
+import scipy.fft as fft
 
 torch.set_default_dtype(torch.float32)
 
@@ -44,6 +46,7 @@ my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
 t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 2000, 1)
 
+interpdisplbeam = make_interp_spline(t_beam, w[w.shape[0]//2,:])
 interpVbeam = make_interp_spline(t_beam, V_an)
 interpTbeam = make_interp_spline(t_beam, Ek_an)
 
@@ -83,23 +86,8 @@ spacein = inpoints[:,:2]
 cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
-yf, freq = calculate_fft(condx.detach().cpu().numpy(), steps[0].item(), x_domain.cpu().numpy())
-
-def extractcompfft(yf: np.ndarray, freq: np.ndarray):
-    lastpos = np.where(freq > 0)[0][-1]
-    freqpos = freq[:lastpos]
-    magnpos = np.abs(yf[:lastpos])
-    magnpos[1:-1] *= 2
-
-    return magnpos, freqpos
-
-magnpos, freqpos = extractcompfft(yf, freq)
-if np.max(magnpos) != 0:
-    magnpos *= 1./np.max(magnpos)
 
 pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
-
-#En0 = calc_initial_energy(pinn, n_space, points, device)
 
 in_penalty = torch.tensor([1., 3., 1., 1.])
 in_penalty.requires_grad_(False)
@@ -158,6 +146,19 @@ space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
 sol = obtainsolt_u(pinn_trained, space, t, nsamples)
+
+sol1D = sol[sol.shape[1]//2,sol.shape[1]//2,:,1]
+nfft = sol1D.shape[0]
+window = np.hanning(nfft)
+fftpredicted = fft.rfft(window * sol1D)
+beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+fftan = fft.rfft(window * beamdispl)
+errfreq = np.abs(fftpredicted - fftan)
+
+with open(f'{dir_model}/freqerr.txt', 'w') as file:
+    file.write(f"errfreq = {errfreq}\n")
+
+sol = sol.reshape(n_space**2, n_time, 2)
 plot_sol(sol, spacein, t, dir_model)
 plot_average_displ(sol, t, dir_model)
 

@@ -2,7 +2,6 @@ import os
 import datetime
 import pytz
 
-
 def pass_folder(root: str):
     date = get_current_time(fmt='%m-%d')
     time = get_current_time(fmt='%H%M')
@@ -14,21 +13,6 @@ def pass_folder(root: str):
         print(f"Folder '{direct}' already exists.")
     return direct
 
-
-def delete_old_subfolders(root_folder):
-    threshold_date = datetime.now() - timedelta(days=7)
-
-    for root, dirs, files in os.walk(root_folder, topdown=False):
-        for dir_name in dirs:
-            dir_path = os.path.join(root, dir_name)
-            modified_time = datetime.fromtimestamp(os.path.getmtime(dir_path))
-
-            if modified_time < threshold_date:
-                print(f"Deleting {dir_path} (last modified {modified_time}).")
-                # Delete the directory and its contents
-                shutil.rmtree(dir_path)
-
-
 def create_folder_date(directory, folder_name):
     folder_path = os.path.join(directory, folder_name)
     if not os.path.exists(folder_path):
@@ -36,7 +20,6 @@ def create_folder_date(directory, folder_name):
         print(f"Folder '{folder_name}' created.")
     else:
         print(f"Folder '{folder_name}' already exists.")
-
 
 def get_last_modified_file(folder_path, file_extension):
     try:
@@ -66,14 +49,12 @@ def get_last_modified_file(folder_path, file_extension):
         print(f"Error: {e}")
         return None
 
-
 def get_current_time(timezone_name='Europe/Paris', fmt='%Y-%m-%d %H:%M:%S'):
     current_time_utc = datetime.datetime.utcnow()
     target_timezone = pytz.timezone(timezone_name)
     current_time_local = current_time_utc.astimezone(target_timezone)
     time_str = current_time_local.strftime(fmt)
     return time_str
-
 
 def delete_old_files(folder_path):
     cutoff_date = datetime.datetime.now() - datetime.timedelta(days=3)
