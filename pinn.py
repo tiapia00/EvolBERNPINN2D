@@ -487,7 +487,7 @@ class Loss:
 
         lossv = self.penalty[2].item() * (v * self.par['w0']/self.par['t_ast']- init[:,2:]).pow(2).mean(dim=0).sum()
 
-        loss = losspos + lossv
+        loss = losspos
 
         return loss, (losspos, lossv)
 
