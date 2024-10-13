@@ -513,7 +513,7 @@ class Loss:
         enloss = self.penalty[3].item() * ((V[0] + T[0]) - (V + T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
-        loss = res_loss + init_loss
+        loss = res_loss + init_loss + enloss
 
         losses = {
             "in_losses": init_losses,
@@ -555,7 +555,6 @@ def train_model(
     max_epochs: int,
     path_logs: str,
     modeldir: str,
-    lambda_reg: float = 0.01
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
@@ -612,7 +611,8 @@ def train_model(
         writer.add_scalars('Adaptive', {
             'res': loss_fn.penalty[0].item(),
             'initpos': loss_fn.penalty[1].item(),
-            'initv': loss_fn.penalty[2].item()
+            'initv': loss_fn.penalty[2].item(),
+            'enloss': loss_fn.penalty[3].item()
         }, epoch)
 
         if epoch % 500 == 0:
