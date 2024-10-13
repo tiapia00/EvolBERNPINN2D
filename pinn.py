@@ -590,8 +590,10 @@ def train_model(
             norms.insert(0, norm_res)
             update_adaptive(loss_fn, norms, loss.detach(), 0.85)
 
+        """
         l1_norm = sum(p.abs().sum() for p in nn_approximator.parameters())
         loss += lambda_reg * l1_norm
+        """
         loss.backward(retain_graph=False)
         optimizer.step()
 
