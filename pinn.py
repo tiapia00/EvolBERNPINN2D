@@ -352,11 +352,6 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
-        out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
-        init = initial_conditions(space, self.w0)[:,:2]
-
-        out = out * t + init
-
         return out
 
 
@@ -507,7 +502,7 @@ class Loss:
 
         lossv = self.penalty[2].item() * (v * self.par['w0']/self.par['t_ast']- init[:,2:]).pow(2).mean(dim=0).sum()
 
-        loss = lossv
+        loss = losspos + lossv
 
         return loss, (losspos, lossv)
 
