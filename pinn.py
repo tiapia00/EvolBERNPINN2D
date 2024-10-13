@@ -352,7 +352,7 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
-        out = out * (1 - space[:,0].unsqueeze(1)) * (space[:,0].unsqueeze(1))
+        out = out * (1 - space[:,0].unsqueeze(1).detach())* (space[:,0].unsqueeze(1).detach())
 
         return out
 
@@ -583,10 +583,12 @@ def train_model(
                 norms.append(calculate_norm(nn_approximator))
                 optimizer.zero_grad()
             
+            """
             losses['enloss'].backward(retain_graph=True)
             norms.append(calculate_norm(nn_approximator))
             optimizer.zero_grad()
-            
+            """
+
             norms.insert(0, norm_res)
             update_adaptive(loss_fn, norms, loss.detach(), 0.85)
 
