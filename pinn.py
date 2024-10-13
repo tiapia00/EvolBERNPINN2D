@@ -355,6 +355,8 @@ class PINN(nn.Module):
         out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
         return out
+
+
 class Loss:
     def __init__(
         self,
@@ -366,6 +368,7 @@ class Loss:
         steps_int: tuple,
         adim: tuple,
         par: dict,
+        scaley: int,
         in_adaptive: torch.Tensor,
         device: torch.device,
         interpVbeam,
@@ -380,6 +383,7 @@ class Loss:
         self.steps = steps_int
         self.device = device
         self.adim = adim
+        self.scaley = scaley
         self.par = par
         self.b = b
         self.penalty = in_adaptive
@@ -388,7 +392,7 @@ class Loss:
         self.t_tild = t_tild
 
     def res_loss(self, pinn):
-        x, y, t = self.points['all_points_eval']
+        x, y, t = self.points['all_points_training']
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
@@ -396,11 +400,13 @@ class Loss:
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
+        """        
         ax = torch.autograd.grad(vx, t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
+        """
         ay = torch.autograd.grad(vy, t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
-        
+
         dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
@@ -443,8 +449,8 @@ class Loss:
         T = torch.zeros_like(V)
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx].reshape(self.n_space, int(self.n_space))
-            dTt = dT[tidx].reshape(self.n_space, int(self.n_space))
+            dVt = dV[tidx].reshape(self.n_space, int(self.n_space/self.scaley))
+            dTt = dT[tidx].reshape(self.n_space, int(self.n_space/self.scaley))
 
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
@@ -498,7 +504,7 @@ class Loss:
 
         lossv = self.penalty[2].item() * (v * self.par['w0']/self.par['t_ast']- init[:,2:]).pow(2).mean(dim=0).sum()
 
-        loss = losspos
+        loss = losspos + lossv
 
         return loss, (losspos, lossv)
 

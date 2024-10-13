@@ -112,6 +112,7 @@ loss_fn = Loss(
         steps,
         adim,
         par,
+        scaley,
         in_penalty,
         device,
         interpVbeam,
