@@ -352,7 +352,7 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
-        out = out * (1 - space[:,0].unsqueeze(1).detach())* (space[:,0].unsqueeze(1).detach())
+        out = out * (1 - space[:,0].unsqueeze(1))* (space[:,0].unsqueeze(1))
 
         return out
 
@@ -555,7 +555,6 @@ def train_model(
     max_epochs: int,
     path_logs: str,
     modeldir: str,
-    lambda_reg: float = 0.01
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
