@@ -153,7 +153,7 @@ window = np.hanning(nfft)
 fftpredicted = fft.rfft(window * sol1D)
 beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 fftan = fft.rfft(window * beamdispl)
-errfreq = np.abs(fftpredicted - fftan)
+errfreq = np.mean(np.abs(fftpredicted - fftan))
 
 with open(f'{dir_model}/freqerr.txt', 'w') as file:
     file.write(f"errfreq = {errfreq}\n")
