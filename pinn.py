@@ -352,6 +352,8 @@ class PINN(nn.Module):
 
         out = torch.cat([xout, yout], dim=1)
 
+        out = out * (1 - space[:,0].unsqueeze(1)) * (space[:,0].unsqueeze(1))
+
         return out
 
 
