@@ -6,7 +6,7 @@ import torch
 import math
 from torch import nn
 import torch.optim as optim
-
+from scipy.integrate import simpson
 
 def simps(y, dx, dim=0):
     device = y.device
@@ -355,7 +355,6 @@ class PINN(nn.Module):
         out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
         return out
-
 class Loss:
     def __init__(
         self,
@@ -365,11 +364,13 @@ class Loss:
         b: float,
         w0: float,
         steps_int: tuple,
-        in_penalty: np.ndarray,
-        scaley: int,
         adim: tuple,
         par: dict,
+        in_adaptive: torch.Tensor,
         device: torch.device,
+        interpVbeam,
+        interpEkbeam,
+        t_tild: float,
         verbose: bool = False
     ):
         self.points = points
@@ -377,15 +378,17 @@ class Loss:
         self.n_space = n_space
         self.n_time = n_time
         self.steps = steps_int
-        self.penalty = in_penalty
         self.device = device
         self.adim = adim
         self.par = par
         self.b = b
-        self.scaley = scaley
+        self.penalty = in_adaptive
+        self.interpVbeam = interpVbeam
+        self.interpEkbeam = interpEkbeam
+        self.t_tild = t_tild
 
     def res_loss(self, pinn):
-        x, y, t = self.points['all_points_training']
+        x, y, t = self.points['all_points_eval']
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
@@ -440,13 +443,21 @@ class Loss:
         T = torch.zeros_like(V)
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx].reshape(self.n_space, int(self.n_space/self.scaley))
-            dTt = dT[tidx].reshape(self.n_space, int(self.n_space/self.scaley))
+            dVt = dV[tidx].reshape(self.n_space, int(self.n_space))
+            dTt = dT[tidx].reshape(self.n_space, int(self.n_space))
 
             V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
 
-        return loss, V, T
+        Vbeam = self.interpVbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
+        Ekbeam = self.interpEkbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
+        Vbeam *= np.max(V.detach().cpu().numpy())/np.max(Vbeam)
+        Ekbeam *= np.max(T.detach().cpu().numpy())/np.max(Ekbeam)
+
+        errV = simpson((V.detach().cpu().numpy() - Vbeam)**2, dx=self.steps[2])
+        errT = simpson((T.detach().cpu().numpy() - Ekbeam)**2, dx=self.steps[2])
+         
+        return loss, V, T, errV, errT
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -492,7 +503,7 @@ class Loss:
         return loss, (losspos, lossv)
 
     def verbose(self, pinn):
-        res_loss, V, T = self.res_loss(pinn)
+        res_loss, V, T, errV, errT = self.res_loss(pinn)
         enloss = self.penalty[3].item() * ((V[0] + T[0]) - (V + T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
@@ -506,6 +517,8 @@ class Loss:
             "T": T,
             "V+T": (V+T).mean(),
             "enloss": enloss,
+            "errV": errV,
+            "errT": errT
         }
 
         return loss, res_loss, losses 
@@ -577,8 +590,11 @@ def train_model(
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
-            'init': losses["in_loss"].item(),
-            'neu': losses["bound_loss"].item()
+            'boundary': losses["bound_loss"].item(),
+            'init': losses['in_loss'].item(),
+            'enlosses': losses["enloss"].item(),
+            'V-V_an': losses["errV"],
+            'T-T_an': losses["errT"]
         }, epoch)
 
         writer.add_scalars('Energy', {

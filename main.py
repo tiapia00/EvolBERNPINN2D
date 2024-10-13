@@ -6,6 +6,7 @@ from read_write import get_last_modified_file, pass_folder, delete_old_files, ge
 from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
+from scipy.interpolate import make_interp_spline
 
 torch.set_default_dtype(torch.float32)
 
@@ -41,7 +42,10 @@ Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
-t_tild, w_ad, V0 = obtain_analytical_free(my_beam, w0, t, n_time)
+t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 2000, 1)
+
+interpVbeam = make_interp_spline(t_beam, V_an)
+interpTbeam = make_interp_spline(t_beam, Ek_an)
 
 lam, mu = par.to_matpar_PINN()
 
@@ -97,7 +101,7 @@ pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 
-in_penalty = torch.tensor([1., 1., 1., 1.])
+in_penalty = torch.tensor([1., 3., 1., 1.])
 in_penalty.requires_grad_(False)
 loss_fn = Loss(
         points,
@@ -106,13 +110,14 @@ loss_fn = Loss(
         h/3,
         w0,
         steps,
-        in_penalty,
-        scaley,
         adim,
         par,
-        device
+        in_penalty,
+        device,
+        interpVbeam,
+        interpTbeam,
+        t_tild
     )
-
 
 if retrain_PINN:
     dir_model = pass_folder('model')
