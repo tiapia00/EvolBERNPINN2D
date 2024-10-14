@@ -508,12 +508,15 @@ class Loss:
 
         return loss, (losspos, lossv)
 
-    def verbose(self, pinn):
+    def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT = self.res_loss(pinn)
         enloss = self.penalty[3].item() * ((V[0] + T[0]) - (V + T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
+
+        if inc_enloss:
+            loss += enloss
 
         losses = {
             "in_losses": init_losses,
@@ -529,8 +532,8 @@ class Loss:
 
         return loss, res_loss, losses 
 
-    def __call__(self, pinn):
-        return self.verbose(pinn)
+    def __call__(self, pinn, inc_enloss = False):
+        return self.verbose(pinn, inc_enloss)
 
 
 def calculate_norm(pinn: PINN):
@@ -567,7 +570,10 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        loss, res_loss, losses = loss_fn(nn_approximator)
+        if epoch > 2000:
+            loss, res_loss, losses = loss_fn(nn_approximator, True)
+        else:
+            loss, res_loss, losses = loss_fn(nn_approximator)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
