@@ -588,11 +588,9 @@ def train_model(
                 norms.append(calculate_norm(nn_approximator))
                 optimizer.zero_grad()
             
-            """
             losses['enloss'].backward(retain_graph=True)
             norms.append(calculate_norm(nn_approximator))
             optimizer.zero_grad()
-            """
 
             norms.insert(0, norm_res)
             update_adaptive(loss_fn, norms, loss.detach(), 0.85)
