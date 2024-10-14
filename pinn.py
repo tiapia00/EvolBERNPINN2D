@@ -570,7 +570,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        if epoch > 2000:
+        if epoch > 1000:
             loss, res_loss, losses = loss_fn(nn_approximator, True)
         else:
             loss, res_loss, losses = loss_fn(nn_approximator)
@@ -593,7 +593,7 @@ def train_model(
             optimizer.zero_grad()
 
             norms.insert(0, norm_res)
-            update_adaptive(loss_fn, norms, loss.detach(), 0.85)
+            update_adaptive(loss_fn, norms, loss.detach(), 0.9)
 
         """
         l1_norm = sum(p.abs().sum() for p in nn_approximator.parameters())
