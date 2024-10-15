@@ -584,10 +584,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        if epoch > 400:
-            loss, res_loss, losses = loss_fn(nn_approximator, True)
-        else:
-            loss, res_loss, losses = loss_fn(nn_approximator)
+        loss, res_loss, losses = loss_fn(nn_approximator, True)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
@@ -608,7 +605,7 @@ def train_model(
 
             norms.insert(0, norm_res)
             loss.backward(retain_graph=False)
-            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9)
+            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.85)
             optimizer.step()
         else:
             loss.backward(retain_graph=False)
