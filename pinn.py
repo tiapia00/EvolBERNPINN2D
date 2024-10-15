@@ -612,7 +612,7 @@ def train_model(
 
             norms.insert(0, norm_res)
             loss.backward(retain_graph=False)
-            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.92)
+            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 1.)
             optimizer.step()
         else:
             loss.backward(retain_graph=False)
