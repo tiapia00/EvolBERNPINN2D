@@ -89,7 +89,7 @@ condx = condx[:,0]
 
 pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
 
-in_penalty = torch.tensor([1., 1., 1., 1.])
+in_penalty = torch.tensor([1., 100., 1., 1.])
 in_penalty.requires_grad_(False)
 loss_fn = Loss(
         points,
