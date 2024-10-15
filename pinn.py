@@ -551,11 +551,19 @@ def calculate_norm(pinn: PINN):
     
     return total_norm
 
-def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
+def findmaxgrad(pinn: PINN):
+    max_grad = 0
+    for param in pinn.parameters():
+        if param.grad is not None:
+            max_grad = max(max_grad, param.grad.abs().max().item())
+    
+    return max_grad 
+
+def update_adaptive(loss_fn: Loss, norm: tuple, max_grad: float, alpha: float):
     for i in range(len(norm)):
         if norm[i] == 0:
             continue
-        loss_fn.penalty[i] = alpha * loss_fn.penalty[i] + (1-alpha) * total/norm[i]
+        loss_fn.penalty[i] = alpha * loss_fn.penalty[i] + (1-alpha) * max_grad/norm[i]
 
 def train_model(
     nn_approximator: PINN,
@@ -599,14 +607,16 @@ def train_model(
             optimizer.zero_grad()
 
             norms.insert(0, norm_res)
-            update_adaptive(loss_fn, norms, loss.detach(), 0.9)
-
+            loss.backward(retain_graph=False)
+            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9)
+            optimizer.step()
+        else:
+            loss.backward(retain_graph=False)
+            optimizer.step()
         """
         l1_norm = sum(p.abs().sum() for p in nn_approximator.parameters())
         loss += lambda_reg * l1_norm
         """
-        loss.backward(retain_graph=False)
-        optimizer.step()
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
