@@ -280,7 +280,7 @@ class PINN(nn.Module):
         self.By[1,:] *= 0
         
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = 0.9 * torch.randn((1, n_mode_spacey), device=device)
+        self.Bty = torch.randn((1, n_mode_spacey), device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -320,7 +320,7 @@ class PINN(nn.Module):
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
-    def forward(self, space, t):
+    def forward(self, space, t, use_init: bool = False):
         fourier_space_x = self.fourier_features(space, self.Bx)
         fourier_space_y = self.fourier_features(space, self.By)
         fourier_tx = self.fourier_features(t, self.Btx)
@@ -353,6 +353,10 @@ class PINN(nn.Module):
         out = torch.cat([xout, yout], dim=1)
 
         out = out * (1 - space[:,0].unsqueeze(1))* (space[:,0].unsqueeze(1))
+
+        if use_init:
+            init = initial_conditions(space, self.w0)[:,:2]
+            out = t * out + init
 
         return out
 
@@ -390,11 +394,13 @@ class Loss:
         self.interpVbeam = interpVbeam
         self.interpEkbeam = interpEkbeam
         self.t_tild = t_tild
+        self.V0: float
+        self.T0: float
 
-    def res_loss(self, pinn):
+    def res_loss(self, pinn, use_init: bool = False):
         x, y, t = self.points['all_points_training']
         space = torch.cat([x, y], dim=1)
-        output = pinn(space, t)
+        output = pinn(space, t, use_init)
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -510,7 +516,7 @@ class Loss:
 
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT = self.res_loss(pinn)
-        enloss = self.penalty[3].item() * ((V[0] + T[0]) - (V + T)).pow(2).mean()
+        enloss = self.penalty[3].item() * ((self.V0 + self.T0) - (V + T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -570,7 +576,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        if epoch > 700:
+        if epoch > 200:
             loss, res_loss, losses = loss_fn(nn_approximator, True)
         else:
             loss, res_loss, losses = loss_fn(nn_approximator)

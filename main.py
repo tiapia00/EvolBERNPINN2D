@@ -108,6 +108,14 @@ loss_fn = Loss(
         t_tild
     )
 
+_, V, T, _, _ = loss_fn.res_loss(pinn, True)
+
+V0 = V[0].item()
+T0 = 0
+
+loss_fn.V0 = V0
+loss_fn.T0 = T0
+
 if retrain_PINN:
     dir_model = pass_folder('model')
     dir_logs = pass_folder('model/logs')
