@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
-from read_write import get_current_time, pass_folder
 from tqdm import tqdm
 import datetime
 import pytz
