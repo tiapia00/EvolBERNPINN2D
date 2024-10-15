@@ -516,7 +516,8 @@ class Loss:
 
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT = self.res_loss(pinn)
-        enloss = self.penalty[3].item() * ((self.V0 + self.T0) - (V+T)).pow(2).mean()
+        #enloss = self.penalty[3].item() * ((self.V0 + self.T0) - (V+T)).pow(2).mean()
+        enloss = self.penalty[3].item() * ((V+T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -588,7 +589,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        epochs_en = 1200 
+        epochs_en = 1200
         if epoch > epochs_en:
             loss, res_loss, losses = loss_fn(nn_approximator, True)
         else:
