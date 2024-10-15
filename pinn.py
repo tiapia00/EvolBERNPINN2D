@@ -266,7 +266,7 @@ class PINN(nn.Module):
                  multux: int,
                  multuy: int,
                  device,
-                 act = nn.Tanh()
+                 act = nn.GELU()
                  ):
 
         super().__init__()
