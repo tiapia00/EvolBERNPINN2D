@@ -516,7 +516,7 @@ class Loss:
 
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT = self.res_loss(pinn)
-        enloss = self.penalty[3].item() * (((self.V0 + self.T0) - (V + T)).pow(2).mean() + (V-T).pow(2).mean())
+        enloss = self.penalty[3].item() * ((self.V0 + self.T0)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -544,10 +544,14 @@ class Loss:
 
 def calculate_norm(pinn: PINN):
     total_norm = 0
+    i = 0
     for param in pinn.parameters():
         if param.grad is not None:  # Ensure the parameter has gradients
             param_norm = param.grad.data.norm(2)  # Compute the L2 norm for the parameter's gradient
             total_norm += param_norm.item() ** 2  # Sum the squares of the norms
+            i += 1
+    
+    total_norm *= 1/i
     
     return total_norm
 
@@ -584,7 +588,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        epochs_en = 8000 
+        epochs_en = 600 
         if epoch > epochs_en:
             loss, res_loss, losses = loss_fn(nn_approximator, True)
         else:
@@ -612,7 +616,7 @@ def train_model(
 
             norms.insert(0, norm_res)
             loss.backward(retain_graph=False)
-            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 1.)
+            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9)
             optimizer.step()
         else:
             loss.backward(retain_graph=False)
