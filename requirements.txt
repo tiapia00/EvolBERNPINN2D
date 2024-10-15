@@ -3,3 +3,4 @@ numpy
 scipy
 tensorboard
 pytz
+matplotlib
