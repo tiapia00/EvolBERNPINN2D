@@ -500,7 +500,7 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        losspos = self.penalty[1].item() * (output[:,1] - init[:,1]).pow(2).mean()
+        losspos = self.penalty[1].item() * torch.abs(output[:,1] - init[:,1]).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -583,7 +583,7 @@ def train_model(
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
-        if epoch % 500 == 0 and epoch != 0:
+        if epoch % 200 == 0 and epoch != 0:
             res_loss.backward(retain_graph=True)
             norm_res = calculate_norm(nn_approximator)
             optimizer.zero_grad()
