@@ -5,8 +5,28 @@ import numpy as np
 import torch
 import math
 from torch import nn
+from torch.func import functional_call, vmap, vjp, jvp, jacrev
 import torch.optim as optim
 from scipy.integrate import simpson
+
+def fnet_single(params, pinn, x, t):
+    return functional_call(pinn, params, (x.unsqueeze(0), t.unsqueeze(0))).squeeze(0)
+
+def empirical_ntk_jacobian_contraction(fnet_single, params, x1, t1, x2, t2, pinn):
+    # Compute J(x1, t1)
+    jac1 = vmap(jacrev(fnet_single), (None, None, 0, 0))(params, pinn, x1, t1)
+    jac1 = jac1.values()
+    jac1 = [j.flatten(2) for j in jac1]  # Flatten if needed
+
+    # Compute J(x2, t2)
+    jac2 = vmap(jacrev(fnet_single), (None, None, 0, 0))(params, pinn, x2, t2)
+    jac2 = jac2.values()
+    jac2 = [j.flatten(2) for j in jac2]  # Flatten if needed
+
+    # Compute J(x1) @ J(x2).T using einsum for the tensor contraction
+    result = torch.stack([torch.einsum('Naf,Mbf->NMab', j1, j2) for j1, j2 in zip(jac1, jac2)])
+    result = result.sum(0)
+    return result[:,:,1,1]
 
 def simps(y, dx, dim=0):
     device = y.device
@@ -27,9 +47,9 @@ def simps(y, dx, dim=0):
         odd_sum = torch.sum(y.index_select(dim, torch.arange(1, n-1, 2, device=device)), dim=dim)
         even_sum = torch.sum(y.index_select(dim, torch.arange(2, n-1, 2, device=device)), dim=dim)
 
-        integral += (y.index_select(dim, torch.tensor([0], device=device)) + 
+        integral += (y.index_select(dim, torch.tensor([0], device=device)).squeeze() + 
                      4 * odd_sum + 2 * even_sum + 
-                     y.index_select(dim, torch.tensor([n-1], device=device)))
+                     y.index_select(dim, torch.tensor([n-1], device=device)).squeeze())
         
         integral *= dx / 3
 
@@ -167,9 +187,10 @@ class Grid:
 
         return (x_grid, y_grid, t0)
 
-    def get_interior_points(self):
+    def get_interior_points_train(self, scaley):
         x_raw = self.x_domain[1:-1]
         y_raw = self.y_domain[1:-1]
+        y_raw = torch.linspace(0, torch.max(y_raw), x_raw.shape[0] // scaley)
         t_raw = self.t_domain[1:]
         grids = torch.meshgrid(x_raw, y_raw, t_raw, indexing="ij")
 
@@ -187,21 +208,6 @@ class Grid:
         t.requires_grad = True
 
         return (x, y, t)
-
-    def get_all_points_training(self, scaley):
-        y = torch.linspace(0, torch.max(self.y_domain), math.floor(self.y_domain.shape[0]/scaley))
-
-        x_all, y_all, t_all = torch.meshgrid(self.x_domain, y,
-                                             self.t_domain, indexing='ij')
-        x_all = x_all.reshape(-1,1).to(self.device)
-        y_all = y_all.reshape(-1,1).to(self.device)
-        t_all = t_all.reshape(-1,1).to(self.device)
-
-        x_all.requires_grad_(True)
-        y_all.requires_grad_(True)
-        t_all.requires_grad_(True)
-
-        return (x_all, y_all, t_all)
 
     def get_all_points_eval(self):
         x_all, y_all, t_all = torch.meshgrid(self.x_domain, self.y_domain,
@@ -398,7 +404,7 @@ class Loss:
         self.T0: float
 
     def res_loss(self, pinn, use_init: bool = False):
-        x, y, t = self.points['all_points_training']
+        x, y, t = self.points['res_points']
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t, use_init)
 
@@ -455,11 +461,11 @@ class Loss:
         T = torch.zeros_like(V)
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx].reshape(self.n_space, int(self.n_space/self.scaley))
-            dTt = dT[tidx].reshape(self.n_space, int(self.n_space/self.scaley))
+            dVt = dV[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
+            dTt = dT[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
 
-            V[i] = self.b*simps(simps(dVt, self.steps[1]), self.steps[0])
-            T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
+            V[i] = self.b*simps(simps(dVt, self.steps[1] // self.scaley, dim=1), self.steps[0])
+            T[i] = self.b*simps(simps(dTt, self.steps[1] // self.scaley, dim=1), self.steps[0])
 
         Vbeam = self.interpVbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
         Ekbeam = self.interpEkbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
@@ -570,9 +576,22 @@ def update_adaptive(loss_fn: Loss, norm: tuple, max_grad: float, alpha: float):
             continue
         loss_fn.penalty[i] = alpha * loss_fn.penalty[i] + (1-alpha) * max_grad/norm[i]
 
+def max_off_diagonal(mat):
+    n = mat.size(0)
+    
+    mask = torch.ones((n, n), dtype=torch.bool)
+    mask.fill_diagonal_(False)
+
+    off_diagonal_elements = mat[mask]
+    
+    max_element = off_diagonal_elements.max()
+    
+    return max_element
+
 def train_model(
     nn_approximator: PINN,
     loss_fn: Callable,
+    points: dict,
     learning_rate: int,
     max_epochs: int,
     path_logs: str,
@@ -589,11 +608,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        epochs_en = 1200
-        if epoch > epochs_en:
-            loss, res_loss, losses = loss_fn(nn_approximator, True)
-        else:
-            loss, res_loss, losses = loss_fn(nn_approximator)
+        loss, res_loss, losses = loss_fn(nn_approximator, True)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
@@ -608,19 +623,27 @@ def train_model(
                 norms.append(calculate_norm(nn_approximator))
                 optimizer.zero_grad()
             
-            if epoch >= epochs_en:
                 losses['enloss'].backward(retain_graph=True)
                 norms.append(calculate_norm(nn_approximator))
                 optimizer.zero_grad()
-            else:
-                norms.append(1)
 
             norms.insert(0, norm_res)
             loss.backward(retain_graph=False)
             update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9)
             optimizer.step()
+
         else:
             loss.backward(retain_graph=False)
+
+            params = {k: v.detach() for k, v in nn_approximator.named_parameters()}
+            idx_res = torch.randperm(points['res_points'][0].shape[0])[:10]
+            res_space = torch.cat(points['res_points'], dim=1)[idx_res,:2].detach()
+            res_t = points['res_points'][-1][idx_res, :].detach()
+            idx_init = torch.randperm(points['initial_points_hyper'][0].shape[0])[:10]
+            init_space = torch.cat(points['initial_points_hyper'], dim=1)[idx_init,:2].detach()
+            init_t = points['initial_points_hyper'][-1][idx_init,:].detach()
+            ntk = empirical_ntk_jacobian_contraction(fnet_single, params, res_space, res_t, init_space, init_t, nn_approximator)
+            trntk = torch.einsum('ii', ntk).item()
             optimizer.step()
         """
         l1_norm = sum(p.abs().sum() for p in nn_approximator.parameters())
@@ -637,6 +660,11 @@ def train_model(
             'T-T_an': losses["errT"]
         }, epoch)
 
+        writer.add_scalars('NTK', {
+            'tr': trntk,
+            'maxoff': max_off_diagonal(ntk).item()
+        }, epoch)
+
         writer.add_scalars('Energy', {
             'V+T': losses["V+T"].item(),
             'V': losses["V"].mean().detach().item(),
@@ -651,7 +679,7 @@ def train_model(
         }, epoch)
 
         if epoch % 500 == 0:
-            t = loss_fn.points['all_points_training'][-1].unsqueeze(1)
+            t = loss_fn.points['res_points'][-1].unsqueeze(1)
             t = torch.unique(t, sorted=True)
             plot_energy(t.detach().cpu().numpy(), losses["V"].detach().cpu().numpy(), losses["T"].detach().cpu().numpy(), epoch, modeldir) 
 
