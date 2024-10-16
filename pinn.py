@@ -573,7 +573,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        use_en = False 
+        use_en = True 
         loss, res_loss, losses = loss_fn(nn_approximator, use_en)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
