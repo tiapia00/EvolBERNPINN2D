@@ -107,7 +107,7 @@ loss_fn = Loss(
         t_tild
     )
 
-_, V, T, _, _ = loss_fn.res_loss(pinn, True)
+_, V, T, _, _, _ = loss_fn.res_loss(pinn, True)
 
 V0 = V[0].item()
 T0 = 0

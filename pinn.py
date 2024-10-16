@@ -442,10 +442,10 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         """
-        loss = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
-                (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
+        lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
+                (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
         
-        loss *= pinn.penalties[0].pow(2)
+        loss = pinn.penalties[0].pow(2) * lossesall.pow(2).mean()
 
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
@@ -459,13 +459,20 @@ class Loss:
 
         V = torch.zeros(tgrid.shape[0])
         T = torch.zeros_like(V)
+        slices = 10
+        losslices = []
+        losslice = 0
         for i, ts in enumerate(tgrid):
+            if (i % slices == 0 and i != 0) or i == tgrid.shape[0] - 1:
+                losslices.append(losslice)
+                losslice = 0
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
             dVt = dV[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
             dTt = dT[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
 
             V[i] = self.b*simps(simps(dVt, self.steps[1] * self.scaley, dim=1), self.steps[0])
             T[i] = self.b*simps(simps(dTt, self.steps[1] * self.scaley, dim=1), self.steps[0])
+            losslice += lossesall[tidx].pow(2).mean().item()
 
         Vbeam = self.interpVbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
         Ekbeam = self.interpEkbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
@@ -475,7 +482,7 @@ class Loss:
         errV = simpson((V.detach().cpu().numpy() - Vbeam)**2, dx=self.steps[2])/simpson(Vbeam**2, dx=self.steps[2])
         errT = simpson((T.detach().cpu().numpy() - Ekbeam)**2, dx=self.steps[2])/simpson(Ekbeam **2, dx=self.steps[2])
          
-        return loss, V, T, errV, errT
+        return loss, V, T, errV, errT, losslices
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -521,7 +528,7 @@ class Loss:
         return loss, (losspos, lossv)
 
     def verbose(self, pinn, inc_enloss: bool = False):
-        res_loss, V, T, errV, errT = self.res_loss(pinn)
+        res_loss, V, T, errV, errT, losseslices = self.res_loss(pinn)
         enloss = pinn.penalties[3].pow(2) * ((V+T)).abs().mean() 
         #enloss += pinn.penalties[4].pow(2)*((self.V0 + self.T0) - (V+T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
@@ -540,7 +547,8 @@ class Loss:
             "V+T": (V+T).mean(),
             "enloss": enloss,
             "errV": errV,
-            "errT": errT
+            "errT": errT,
+            "slices": losseslices
         }
 
         return loss, res_loss, losses 
@@ -615,6 +623,9 @@ def train_model(
             'meandiag': ntk.diag().mean(),
             'meantri': meantrintk
         }, epoch)
+
+        slices_dict = {f'slice_{i}': value for i, value in enumerate(losses["slices"])}
+        writer.add_scalars('Slices_loss', slices_dict, epoch)
 
         writer.add_scalars('Energy', {
             'V+T': losses["V+T"].item(),
