@@ -665,6 +665,7 @@ def train_model(
 
         writer.add_scalars('NTK', {
             'tr': trntk,
+            'offdiagnorm': torch.norm(ntk - trntk).item(),
             'max_diag': torch.max(ntk.diagonal()).item(),
             'maxoff': max_off_diagonal(ntk).item()
         }, epoch)
