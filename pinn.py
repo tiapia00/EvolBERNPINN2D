@@ -284,11 +284,11 @@ class PINN(nn.Module):
         self.penalties = nn.Parameter(penalties)
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = torch.randn((2, n_mode_spacey), device=device)
+        self.By = 0.5 * torch.randn((2, n_mode_spacey), device=device)
         self.By[1,:] *= 0
         
         self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = 0.7 * torch.randn((1, n_mode_spacey), device=device)
+        self.Bty = 0.5 * torch.randn((1, n_mode_spacey), device=device)
 
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -573,7 +573,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        use_en = False 
+        use_en = True 
         loss, res_loss, losses = loss_fn(nn_approximator, use_en)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
