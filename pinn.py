@@ -523,7 +523,7 @@ class Loss:
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT = self.res_loss(pinn)
         enloss = pinn.penalties[3].pow(2) * ((V+T)).pow(2).mean() 
-        enloss += pinn.penalties[4].pow(2)*((self.V0 + self.T0) - (V+T)).pow(2).mean()
+        #enloss += pinn.penalties[4].pow(2)*((self.V0 + self.T0) - (V+T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -547,11 +547,6 @@ class Loss:
 
     def __call__(self, pinn, inc_enloss = False):
         return self.verbose(pinn, inc_enloss)
-
-def get_off_diagonal_elements(M):
-    res = M.clone()
-    res.diagonal(dim1=-1, dim2=-2).zero_()
-    return res
 
 def train_model(
     nn_approximator: PINN,
@@ -578,7 +573,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        use_en = False 
+        use_en =  True
         loss, res_loss, losses = loss_fn(nn_approximator, use_en)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
