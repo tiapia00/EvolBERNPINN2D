@@ -623,12 +623,12 @@ def train_model(
                 norms.append(calculate_norm(nn_approximator))
                 optimizer.zero_grad()
             
-                if use_en:
-                    losses['enloss'].backward(retain_graph=True)
-                    norms.append(calculate_norm(nn_approximator))
-                    optimizer.zero_grad()
-                else:
-                    norms.append(1)
+            if use_en:
+                losses['enloss'].backward(retain_graph=True)
+                norms.append(calculate_norm(nn_approximator))
+                optimizer.zero_grad()
+            else:
+                norms.append(1)
 
             norms.insert(0, norm_res)
             loss.backward(retain_graph=False)
