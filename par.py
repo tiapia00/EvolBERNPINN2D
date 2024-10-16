@@ -5,7 +5,7 @@ class Parameters:
         self.t_end = 1 
         self.n_space = 40 
         self.n_time = 60
-        self.dim_hidden = (1, 10) 
+        self.dim_hidden = (1, 80) 
         self.multux = 1
         self.multuy = 1 
         self.multhyperx = 1 
