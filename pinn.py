@@ -453,7 +453,7 @@ class Loss:
         v = torch.cat([vx, vy], dim=1)
         vnorm = torch.norm(v, dim=1)
         dT = (1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2)
-        dT = dT * torch.max(dV)/torch.max(dT)
+        #dT = dT * torch.max(dV)/torch.max(dT)
 
         tgrid = torch.unique(t, sorted=True)
 
@@ -522,7 +522,8 @@ class Loss:
 
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT = self.res_loss(pinn)
-        enloss = torch.sigmoid(pinn.penalties[3]) * (((V+T)).pow(2).mean() + ((self.V0 + self.T0) - (V+T)).pow(2).mean())
+        enloss = torch.sigmoid(pinn.penalties[3]) * ((V+T)).pow(2).mean() 
+        enloss += torch.sigmoid(pinn.penalties[4])*((self.V0 + self.T0) - (V+T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
