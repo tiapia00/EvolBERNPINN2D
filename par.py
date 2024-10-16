@@ -49,7 +49,6 @@ class Parameters:
 
         return lam, mu
 
-
 def get_params(par_nn: dict) -> tuple:
     values = []
     for _, value in par_nn.items():
