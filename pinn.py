@@ -547,45 +547,10 @@ class Loss:
     def __call__(self, pinn, inc_enloss = False):
         return self.verbose(pinn, inc_enloss)
 
-
-def calculate_norm(pinn: PINN):
-    total_norm = 0
-    i = 0
-    for param in pinn.parameters():
-        if param.grad is not None:  # Ensure the parameter has gradients
-            param_norm = param.grad.data.norm(2)  # Compute the L2 norm for the parameter's gradient
-            total_norm += param_norm.item() ** 2  # Sum the squares of the norms
-            i += 1
-    
-    total_norm *= 1/i
-    
-    return total_norm
-
-def findmaxgrad(pinn: PINN):
-    max_grad = 0
-    for param in pinn.parameters():
-        if param.grad is not None:
-            max_grad = max(max_grad, param.grad.abs().max().item())
-    
-    return max_grad 
-
-def update_adaptive(loss_fn: Loss, norm: tuple, max_grad: float, alpha: float):
-    for i in range(len(norm)):
-        if norm[i] == 0:
-            continue
-        loss_fn.penalty[i] = alpha * loss_fn.penalty[i] + (1-alpha) * max_grad/norm[i]
-
-def max_off_diagonal(mat):
-    n = mat.size(0)
-    
-    mask = torch.ones((n, n), dtype=torch.bool)
-    mask.fill_diagonal_(False)
-
-    off_diagonal_elements = mat[mask]
-    
-    max_element = off_diagonal_elements.max()
-    
-    return max_element
+def get_off_diagonal_elements(M):
+    res = M.clone()
+    res.diagonal(dim1=-1, dim2=-2).zero_()
+    return res
 
 def train_model(
     nn_approximator: PINN,
@@ -631,6 +596,9 @@ def train_model(
             trntk = torch.einsum('ii', ntk).item()
 
         optimizer.step()
+        upper_sum = torch.einsum('ij->', torch.triu(ntk, diagonal=1))
+        lower_sum = torch.einsum('ij->', torch.tril(ntk, diagonal=-1))
+        meantrintk = 1/(ntk.shape[0]**2 - ntk.shape[0]) * (upper_sum + lower_sum)
         """
         l1_norm = sum(p.abs().sum() for p in nn_approximator.parameters())
         loss += lambda_reg * l1_norm
@@ -648,9 +616,8 @@ def train_model(
 
         writer.add_scalars('NTK', {
             'tr': trntk,
-            'offdiagnorm': torch.norm(ntk - trntk).item(),
-            'max_diag': torch.max(ntk.diagonal()).item(),
-            'maxoff': max_off_diagonal(ntk).item()
+            'meandiag': ntk.diag().mean(),
+            'meantri': meantrintk
         }, epoch)
 
         writer.add_scalars('Energy', {
