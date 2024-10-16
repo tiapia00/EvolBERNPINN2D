@@ -565,7 +565,7 @@ def train_model(
     exclude_params = ['penalties']
     params_to_optimize = [
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
-        {'params': [nn_approximator.penalties], 'lr':  -1e-3}
+        {'params': [nn_approximator.penalties], 'lr':  -1e-5}
     ]
     optimizer = optim.Adam(params_to_optimize)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
