@@ -631,7 +631,8 @@ def train_model(
             'res': nn_approximator.penalties[0].item(),
             'initpos': nn_approximator.penalties[1].item(),
             'initv': nn_approximator.penalties[2].item(),
-            'enloss': nn_approximator.penalties[3].item()
+            'enlosscons': nn_approximator.penalties[3].item(),
+            'enlossinit': nn_approximator.penalties[4].item()
         }, epoch)
 
         if epoch % 500 == 0:
