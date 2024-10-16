@@ -514,7 +514,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        lossv = pinn.penalties[2].pow(2) * torch.abs(v * self.par['w0']/self.par['t_ast']- init[:,2:]).mean(dim=0).sum()
+        lossv = pinn.penalties[2].pow(2) * torch.abs(v * self.par['w0'] - init[:,2:]).mean(dim=0).sum()
 
         loss = losspos + lossv
 
