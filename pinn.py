@@ -464,8 +464,8 @@ class Loss:
             dVt = dV[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
             dTt = dT[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
 
-            V[i] = self.b*simps(simps(dVt, self.steps[1] // self.scaley, dim=1), self.steps[0])
-            T[i] = self.b*simps(simps(dTt, self.steps[1] // self.scaley, dim=1), self.steps[0])
+            V[i] = self.b*simps(simps(dVt, self.steps[1] * self.scaley, dim=1), self.steps[0])
+            T[i] = self.b*simps(simps(dTt, self.steps[1] * self.scaley, dim=1), self.steps[0])
 
         Vbeam = self.interpVbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
         Ekbeam = self.interpEkbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
