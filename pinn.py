@@ -522,7 +522,7 @@ class Loss:
 
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT = self.res_loss(pinn)
-        enloss = pinn.penalties[3].pow(2) * ((V+T)).pow(2).mean() 
+        enloss = pinn.penalties[3].pow(2) * ((V+T)).abs().mean() 
         #enloss += pinn.penalties[4].pow(2)*((self.V0 + self.T0) - (V+T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
