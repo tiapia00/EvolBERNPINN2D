@@ -271,6 +271,7 @@ class PINN(nn.Module):
                  n_hidden: int,
                  multux: int,
                  multuy: int,
+                 penalties: torch.Tensor,
                  device,
                  act = nn.GELU()
                  ):
@@ -280,6 +281,7 @@ class PINN(nn.Module):
         self.w0 = w0
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
+        self.penalties = nn.Parameter(penalties)
 
         self.Bx = torch.randn([2, n_mode_spacex], device=device)
         self.By = torch.randn((2, n_mode_spacey), device=device)
@@ -365,7 +367,7 @@ class PINN(nn.Module):
             out = t * out + init
 
         return out
-
+    
 
 class Loss:
     def __init__(
@@ -379,7 +381,6 @@ class Loss:
         adim: tuple,
         par: dict,
         scaley: int,
-        in_adaptive: torch.Tensor,
         device: torch.device,
         interpVbeam,
         interpEkbeam,
@@ -396,7 +397,6 @@ class Loss:
         self.scaley = scaley
         self.par = par
         self.b = b
-        self.penalty = in_adaptive
         self.interpVbeam = interpVbeam
         self.interpEkbeam = interpEkbeam
         self.t_tild = t_tild
@@ -444,9 +444,9 @@ class Loss:
         """
         loss = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
-
-        loss *= self.penalty[0].item()
         
+        loss *= torch.sigmoid(pinn.penalties[0])
+
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
 
@@ -506,7 +506,7 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        losspos = self.penalty[1].item() * torch.abs(output[:,1] - init[:,1]).mean()
+        losspos = torch.sigmoid(pinn.penalties[1]) * torch.abs(output[:,1] - init[:,1]).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -514,7 +514,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        lossv = self.penalty[2].item() * (v * self.par['w0']/self.par['t_ast']- init[:,2:]).pow(2).mean(dim=0).sum()
+        lossv = torch.sigmoid(pinn.penalties[2]) * (v * self.par['w0']/self.par['t_ast']- init[:,2:]).pow(2).mean(dim=0).sum()
 
         loss = losspos + lossv
 
@@ -522,7 +522,7 @@ class Loss:
 
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT = self.res_loss(pinn)
-        enloss = self.penalty[3].item() * (((V+T)).pow(2).mean() + ((self.V0 + self.T0) - (V+T)).pow(2).mean())
+        enloss = torch.sigmoid(pinn.penalties[3]) * (((V+T)).pow(2).mean() + ((self.V0 + self.T0) - (V+T)).pow(2).mean())
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -601,7 +601,12 @@ def train_model(
 
     from plots import plot_energy
 
-    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
+    exclude_params = ['penalties']
+    params_to_optimize = [
+        {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
+        {'params': [nn_approximator.penalties], 'lr':  -0.001}
+    ]
+    optimizer = optim.Adam(params_to_optimize)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
@@ -612,32 +617,9 @@ def train_model(
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
-        if epoch % 500 == 0 and epoch != 0:
-            res_loss.backward(retain_graph=True)
-            norm_res = calculate_norm(nn_approximator)
-            optimizer.zero_grad()
+        loss.backward(retain_graph=False)
 
-            norms = []
-            for lossinit in losses["in_losses"]:
-                lossinit.backward(retain_graph=True)
-                norms.append(calculate_norm(nn_approximator))
-                optimizer.zero_grad()
-            
-            if use_en:
-                losses['enloss'].backward(retain_graph=True)
-                norms.append(calculate_norm(nn_approximator))
-                optimizer.zero_grad()
-            else:
-                norms.append(1)
-
-            norms.insert(0, norm_res)
-            loss.backward(retain_graph=False)
-            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9)
-            optimizer.step()
-
-        else:
-            loss.backward(retain_graph=False)
-
+        if epoch % 100 == 0:
             params = {k: v.detach() for k, v in nn_approximator.named_parameters()}
             idx_res = torch.randperm(points['res_points'][0].shape[0])[:10]
             res_space = torch.cat(points['res_points'], dim=1)[idx_res,:2].detach()
@@ -647,7 +629,8 @@ def train_model(
             init_t = points['initial_points_hyper'][-1][idx_init,:].detach()
             ntk = empirical_ntk_jacobian_contraction(fnet_single, params, res_space, res_t, init_space, init_t, nn_approximator)
             trntk = torch.einsum('ii', ntk).item()
-            optimizer.step()
+
+        optimizer.step()
         """
         l1_norm = sum(p.abs().sum() for p in nn_approximator.parameters())
         loss += lambda_reg * l1_norm
@@ -677,10 +660,10 @@ def train_model(
         }, epoch)
 
         writer.add_scalars('Adaptive', {
-            'res': loss_fn.penalty[0].item(),
-            'initpos': loss_fn.penalty[1].item(),
-            'initv': loss_fn.penalty[2].item(),
-            'enloss': loss_fn.penalty[3].item()
+            'res': nn_approximator.penalties[0].item(),
+            'initpos': nn_approximator.penalties[1].item(),
+            'initv': nn_approximator.penalties[2].item(),
+            'enloss': nn_approximator.penalties[3].item()
         }, epoch)
 
         if epoch % 500 == 0:

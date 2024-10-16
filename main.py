@@ -87,9 +87,9 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 
-pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
 
 in_penalty = torch.tensor([1., 1., 1., 1.])
+pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, in_penalty, device).to(device)
 in_penalty.requires_grad_(False)
 loss_fn = Loss(
         points,
@@ -101,7 +101,6 @@ loss_fn = Loss(
         adim,
         par,
         scaley,
-        in_penalty,
         device,
         interpVbeam,
         interpTbeam,
