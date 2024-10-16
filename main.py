@@ -88,7 +88,7 @@ condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 
 
-in_penalty = torch.tensor([1., 20., 1., 1000., 1.])
+in_penalty = torch.tensor([1., 20., 1., 20., 1.])
 pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, in_penalty, device).to(device)
 in_penalty.requires_grad_(False)
 loss_fn = Loss(
