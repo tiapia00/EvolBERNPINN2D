@@ -105,7 +105,8 @@ loss_fn = Loss(
         device,
         interpVbeam,
         interpTbeam,
-        t_tild
+        t_tild,
+        lr
     )
 
 if retrain_PINN:

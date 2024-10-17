@@ -7,7 +7,6 @@ import math
 from torch import nn
 from torch.func import functional_call, vmap, vjp, jvp, jacrev
 import torch.optim as optim
-from scipy.integrate import simpson
 from scipy.stats import skew, kurtosis
 
 def fnet_single(params, pinn, x, t):
@@ -514,7 +513,7 @@ class Loss:
         """
         lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
-        lossesall = get_gate(t, self.gamma) * lossesall
+        lossesall = get_gate(t, self.gamma).squeeze() * torch.abs(lossesall)
         
         thr = lossesall.mean().detach()
         idxover = torch.argwhere(lossesall > thr).squeeze()
