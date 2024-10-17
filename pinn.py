@@ -8,6 +8,7 @@ from torch import nn
 from torch.func import functional_call, vmap, vjp, jvp, jacrev
 import torch.optim as optim
 from scipy.integrate import simpson
+from scipy.stats import skew, kurtosis
 
 def fnet_single(params, pinn, x, t):
     return functional_call(pinn, params, (x.unsqueeze(0), t.unsqueeze(0))).squeeze(0)
@@ -442,10 +443,13 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         """
-        loss = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
-                (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
+        lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
+                (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
+        
+        loss_skew = skew(lossesall.detach().cpu().numpy()) 
+        loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
 
-        loss *= self.penalty[0].item()
+        loss = self.penalty[0].item() * lossesall.pow(2).mean()
         
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
@@ -475,7 +479,7 @@ class Loss:
         errV = simpson((V.detach().cpu().numpy() - Vbeam)**2, dx=self.steps[2])/simpson(Vbeam**2, dx=self.steps[2])
         errT = simpson((T.detach().cpu().numpy() - Ekbeam)**2, dx=self.steps[2])/simpson(Ekbeam **2, dx=self.steps[2])
          
-        return loss, V, T, errV, errT
+        return loss, V, T, errV, errT, loss_kurt, loss_skew
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -521,7 +525,7 @@ class Loss:
         return loss, (losspos, lossv)
 
     def verbose(self, pinn, inc_enloss: bool = False):
-        res_loss, V, T, errV, errT = self.res_loss(pinn)
+        res_loss, V, T, errV, errT, res_kurt, res_skew = self.res_loss(pinn)
         enloss = self.penalty[3].item() * (((V+T)).pow(2).mean() + ((self.V0 + self.T0) - (V+T)).pow(2).mean())
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
@@ -539,7 +543,9 @@ class Loss:
             "V+T": (V+T).mean(),
             "enloss": enloss,
             "errV": errV,
-            "errT": errT
+            "errT": errT,
+            "res_kurt": res_kurt,
+            "res_skew": res_skew
         }
 
         return loss, res_loss, losses 
@@ -662,6 +668,11 @@ def train_model(
             'V-V_an': losses["errV"],
             'T-T_an': losses["errT"]
         }, epoch)
+
+        writer.add_scalars('Loss/Distr_res', {
+            'skew': losses['res_skew'],
+            'kurt': losses['res_kurt']
+        })
 
         writer.add_scalars('NTK', {
             'tr': trntk,
