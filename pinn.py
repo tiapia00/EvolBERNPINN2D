@@ -663,8 +663,6 @@ def train_model(
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    from plots import plot_energy
-
     optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
@@ -704,7 +702,7 @@ def train_model(
         loss.backward(retain_graph=False)
         optimizer.step()
         loss_fn.update_rand()
-        loss_fn.update_gamma(res_loss)
+        loss_fn.update_gamma(res_loss, eps=1e-3)
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
