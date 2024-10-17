@@ -5,9 +5,10 @@ import numpy as np
 import torch
 import math
 from torch import nn
-from torch.func import functional_call, vmap, vjp, jvp, jacrev
+from torch.func import functional_call, vmap, jacrev
 import torch.optim as optim
 from scipy.integrate import simpson
+from scipy.stats import kurtosis, skew
 
 def fnet_single(params, pinn, x, t):
     return functional_call(pinn, params, (x.unsqueeze(0), t.unsqueeze(0))).squeeze(0)
@@ -445,6 +446,9 @@ class Loss:
         lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
         
+        loss_skew = skew(lossesall.detach().cpu().numpy()) 
+        loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
+        
         loss = pinn.penalties[0].pow(2) * lossesall.pow(2).mean()
 
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
@@ -482,7 +486,7 @@ class Loss:
         errV = simpson((V.detach().cpu().numpy() - Vbeam)**2, dx=self.steps[2])/simpson(Vbeam**2, dx=self.steps[2])
         errT = simpson((T.detach().cpu().numpy() - Ekbeam)**2, dx=self.steps[2])/simpson(Ekbeam **2, dx=self.steps[2])
          
-        return loss, V, T, errV, errT, losslices
+        return loss, V, T, errV, errT, losslices, loss_kurt, loss_skew
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -528,7 +532,7 @@ class Loss:
         return loss, (losspos, lossv)
 
     def verbose(self, pinn, inc_enloss: bool = False):
-        res_loss, V, T, errV, errT, losseslices = self.res_loss(pinn)
+        res_loss, V, T, errV, errT, losseslices, kurt, skew = self.res_loss(pinn)
         enloss = pinn.penalties[3].pow(2) * ((V+T)).abs().mean() 
         #enloss += pinn.penalties[4].pow(2)*((self.V0 + self.T0) - (V+T)).pow(2).mean()
         boundloss = self.bound_N_loss(pinn)
@@ -548,7 +552,9 @@ class Loss:
             "enloss": enloss,
             "errV": errV,
             "errT": errT,
-            "slices": losseslices
+            "slices": losseslices,
+            "kurt_res": kurt,
+            "skew_res": skew
         }
 
         return loss, res_loss, losses 
@@ -581,7 +587,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        use_en = True 
+        use_en = False
         loss, res_loss, losses = loss_fn(nn_approximator, use_en)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
@@ -616,6 +622,11 @@ def train_model(
             'enlosses': losses["enloss"].item(),
             'V-V_an': losses["errV"],
             'T-T_an': losses["errT"]
+        }, epoch)
+
+        writer.add_scalars('Loss/Distr_res', {
+            "kurt_res": losses['kurt_res'],
+            "skew_res": losses['skew_res'],
         }, epoch)
 
         writer.add_scalars('NTK', {
