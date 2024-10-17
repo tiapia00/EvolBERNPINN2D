@@ -53,7 +53,7 @@ interpTbeam = make_interp_spline(t_beam, Ek_an, k=5)
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, multhyperx, lr, epochs = get_params(par.pinn_par)
-scaley = 2 
+b = h/3
 
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
@@ -79,6 +79,7 @@ par = {"Lx": Lx,
         "lam": lam,
         "mu":mu,
         "rho": rho,
+        "b": b,
         "t_ast": t_tild}
 
 inpoints = torch.cat(points["initial_points"], dim=1)
@@ -95,7 +96,7 @@ loss_fn = Loss(
         points,
         n_space,
         n_time,
-        h/3,
+        b,
         w0,
         steps,
         adim,
@@ -133,10 +134,12 @@ else:
 
 print(pinn_trained)
 
+
 pinn_trained.eval()
 
 tin = inpoints[:,-1].unsqueeze(1)
 z = pinn_trained(spacein, tin)
+
 v = calculate_speed(z, tin, par)
 z = torch.cat([z, v], dim=1)
 
@@ -146,7 +149,8 @@ allpoints = torch.cat(points["all_points_eval"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
-sol = obtainsolt_u(pinn_trained, space, t, nsamples)
+sol, V, T = obtainsolt_u(pinn_trained, space, t, nsamples, par, steps, device)
+plot_energy(torch.unique(t, sorted=True).detach().cpu().numpy(), V, T, dir_model)
 
 sol1D = sol[sol.shape[1]//2,sol.shape[1]//2,:,1]
 nfft = sol1D.shape[0]
