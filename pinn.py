@@ -202,11 +202,11 @@ class Grid:
         grid = torch.cat((x, y, t), dim=1)
 
         x = grid[:, 0].unsqueeze(1).to(self.device)
-        x.requires_grad = True
         y = grid[:, 1].unsqueeze(1).to(self.device)
-        y.requires_grad = True
         t = grid[:, 2].unsqueeze(1).to(self.device)
-        t.requires_grad = True
+        x.requires_grad = False
+        y.requires_grad = False
+        t.requires_grad = False
 
         return (x, y, t)
 
@@ -367,6 +367,29 @@ class PINN(nn.Module):
 
         return out
 
+def sample_uniform(min_vals, max_vals, num_samples, device):
+    """
+    Sample points from a uniform distribution given the min and max of each dimension.
+
+    Parameters:
+    - min_vals: A tensor or list containing the minimum values for each dimension.
+    - max_vals: A tensor or list containing the maximum values for each dimension.
+    - num_samples: The number of samples to draw.
+
+    Returns:
+    - A tensor containing the sampled points with shape (num_samples, len(min_vals)).
+    """
+    min_vals = torch.tensor(min_vals, device=device)
+    max_vals = torch.tensor(max_vals, device=device)
+    
+    # Ensure the shapes match
+    assert min_vals.shape == max_vals.shape, "min_vals and max_vals must have the same shape"
+
+    # Sample points in the range [0, 1] and scale them to [min_vals, max_vals]
+    random_points = torch.rand((num_samples, len(min_vals)), device=device)
+    scaled_points = min_vals + random_points * (max_vals - min_vals)
+    
+    return scaled_points
 
 class Loss:
     def __init__(
@@ -401,12 +424,50 @@ class Loss:
         self.interpVbeam = interpVbeam
         self.interpEkbeam = interpEkbeam
         self.t_tild = t_tild
-        self.V0: float
-        self.T0: float
+        self.maxlimts: tuple
+        self.minlimts: tuple
+        self.npointstot: int
+        self.vol: float
+        self.randunif = self.generate_rand_init()
+
+    def generate_rand_init(self):
+        x, y, t = self.points['res_points']
+        xmin = torch.min(x)
+        ymin = torch.min(y)
+        tmin = torch.min(t)
+
+        xmax = torch.max(x)
+        ymax = torch.max(y)
+        tmax = torch.max(t)
+
+        self.minlimts = (xmin, ymin, tmin)
+        self.maxlimts = (xmax, ymax, tmax)
+        self.npointstot = x.shape[0]
+
+        self.vol = (xmax - xmin) * (ymax - ymin) * (tmax - tmin)
+
+        randunif = sample_uniform(self.minlimts, self.maxlimts, self.npointstot, self.device)
+        sorted_indices = torch.argsort(randunif[:, -1])
+        randunif = randunif[sorted_indices]
+
+        return randunif
+    
+    def update_rand(self):
+        ntot = self.npointstot
+        nret = self.randunif.shape[0]
+
+        ntosample = ntot - nret
+
+        randadd = sample_uniform(self.minlimts, self.maxlimts, ntosample, self.device)
+        self.randunif = torch.cat([self.randunif, randadd], dim=0)
 
     def res_loss(self, pinn, use_init: bool = False):
-        x, y, t = self.points['res_points']
-        space = torch.cat([x, y], dim=1)
+        space = self.randunif[:,:2]
+        print(space.shape)
+        space.requires_grad_(True)
+        t = self.randunif[:,-1].unsqueeze(1)
+        t.requires_grad_(True)
+
         output = pinn(space, t, use_init)
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -446,6 +507,10 @@ class Loss:
         lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
         
+        thr = lossesall.mean().detach()
+        idxover = torch.argwhere(lossesall > thr).squeeze()
+        self.randunif = self.randunif[idxover,:]
+        
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
 
@@ -459,17 +524,28 @@ class Loss:
         dT = (1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2)
         dT = dT * torch.max(dV)/torch.max(dT)
 
-        tgrid = torch.unique(t, sorted=True)
+        Vmean = self.b * self.vol * dV.detach().mean()
+        Tmean = self.b * self.vol * dT.detach().mean()
 
+        Vbeam = np.mean(self.interpVbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild))
+        Ekbeam = np.mean(self.interpEkbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild)) 
+        Vbeam *= np.max(Vmean.detach().cpu().numpy())/np.max(Vbeam)
+        Ekbeam *= np.max(Tmean.detach().cpu().numpy())/np.max(Ekbeam)
+
+        errV = (Vmean - Vbeam)/(Vbeam)
+        errT = (Tmean - Ekbeam)/(Ekbeam)
+
+        """
         V = torch.zeros(tgrid.shape[0])
         T = torch.zeros_like(V)
+        vol = (xmax - xmin) * (ymax - ymin) * (tmax - tmin)
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
-            dTt = dT[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
+            dVt = dV[tidx]
+            dTt = dT[tidx]
 
-            V[i] = self.b*simps(simps(dVt, self.steps[1] * self.scaley, dim=1), self.steps[0])
-            T[i] = self.b*simps(simps(dTt, self.steps[1] * self.scaley, dim=1), self.steps[0])
+            V[i] = self.b * vol * dVt.mean()
+            T[i] = self.b * vol * dTt.mean()
 
         Vbeam = self.interpVbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
         Ekbeam = self.interpEkbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
@@ -478,8 +554,9 @@ class Loss:
 
         errV = simpson((V.detach().cpu().numpy() - Vbeam)**2, dx=self.steps[2])/simpson(Vbeam**2, dx=self.steps[2])
         errT = simpson((T.detach().cpu().numpy() - Ekbeam)**2, dx=self.steps[2])/simpson(Ekbeam **2, dx=self.steps[2])
-         
-        return loss, V, T, errV, errT, loss_kurt, loss_skew
+        """
+        
+        return loss, Vmean, Tmean, errV, errT, loss_kurt, loss_skew
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -526,13 +603,9 @@ class Loss:
 
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT, res_kurt, res_skew = self.res_loss(pinn)
-        enloss = self.penalty[3].item() * (((V+T)).pow(2).mean() + ((self.V0 + self.T0) - (V+T)).pow(2).mean())
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
-
-        if inc_enloss:
-            loss += enloss
 
         losses = {
             "in_losses": init_losses,
@@ -541,7 +614,6 @@ class Loss:
             "V": V,
             "T": T,
             "V+T": (V+T).mean(),
-            "enloss": enloss,
             "errV": errV,
             "errT": errT,
             "res_kurt": res_kurt,
@@ -613,58 +685,45 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        use_en = True 
+        use_en = False 
         loss, res_loss, losses = loss_fn(nn_approximator, use_en)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
-        if epoch % 500 == 0 and epoch != 0:
-            res_loss.backward(retain_graph=True)
-            norm_res = calculate_norm(nn_approximator)
-            optimizer.zero_grad()
-
-            norms = []
-            for lossinit in losses["in_losses"]:
-                lossinit.backward(retain_graph=True)
-                norms.append(calculate_norm(nn_approximator))
-                optimizer.zero_grad()
-            
-            if use_en:
-                losses['enloss'].backward(retain_graph=True)
-                norms.append(calculate_norm(nn_approximator))
-                optimizer.zero_grad()
+        if epoch % 500 == 0:
+            if epoch == 0:
+                params = {k: v.detach() for k, v in nn_approximator.named_parameters()}
+                idx_res = torch.randperm(points['res_points'][0].shape[0])[:10]
+                res_space = torch.cat(points['res_points'], dim=1)[idx_res,:2].detach()
+                res_t = points['res_points'][-1][idx_res, :].detach()
+                idx_init = torch.randperm(points['initial_points_hyper'][0].shape[0])[:10]
+                init_space = torch.cat(points['initial_points_hyper'], dim=1)[idx_init,:2].detach()
+                init_t = points['initial_points_hyper'][-1][idx_init,:].detach()
+                ntk = empirical_ntk_jacobian_contraction(fnet_single, params, res_space, res_t, init_space, init_t, nn_approximator)
+                trntk = torch.einsum('ii', ntk).item()
             else:
-                norms.append(1)
+                res_loss.backward(retain_graph=True)
+                norm_res = calculate_norm(nn_approximator)
 
-            norms.insert(0, norm_res)
-            loss.backward(retain_graph=False)
-            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9)
-            optimizer.step()
+                optimizer.zero_grad()
+                norms = []
+                for lossinit in losses["in_losses"]:
+                    lossinit.backward(retain_graph=True)
+                    norms.append(calculate_norm(nn_approximator))
+                    optimizer.zero_grad()
+                
+                norms.insert(0, norm_res)
+                update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9)
 
-        else:
-            loss.backward(retain_graph=False)
-
-            params = {k: v.detach() for k, v in nn_approximator.named_parameters()}
-            idx_res = torch.randperm(points['res_points'][0].shape[0])[:10]
-            res_space = torch.cat(points['res_points'], dim=1)[idx_res,:2].detach()
-            res_t = points['res_points'][-1][idx_res, :].detach()
-            idx_init = torch.randperm(points['initial_points_hyper'][0].shape[0])[:10]
-            init_space = torch.cat(points['initial_points_hyper'], dim=1)[idx_init,:2].detach()
-            init_t = points['initial_points_hyper'][-1][idx_init,:].detach()
-            ntk = empirical_ntk_jacobian_contraction(fnet_single, params, res_space, res_t, init_space, init_t, nn_approximator)
-            trntk = torch.einsum('ii', ntk).item()
-            optimizer.step()
-        """
-        l1_norm = sum(p.abs().sum() for p in nn_approximator.parameters())
-        loss += lambda_reg * l1_norm
-        """
+        loss.backward(retain_graph=False)
+        optimizer.step()
+        loss_fn.update_rand()
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
             'residual': res_loss.item(),
             'boundary': losses["bound_loss"].item(),
             'init': losses['in_loss'].item(),
-            'enlosses': losses["enloss"].item(),
             'V-V_an': losses["errV"],
             'T-T_an': losses["errT"]
         }, epoch)
@@ -683,8 +742,8 @@ def train_model(
 
         writer.add_scalars('Energy', {
             'V+T': losses["V+T"].item(),
-            'V': losses["V"].mean().detach().item(),
-            'T': losses["T"].mean().detach().item(),
+            'V': losses["V"],
+            'T': losses["T"],
         }, epoch)
 
         writer.add_scalars('Adaptive', {
@@ -693,11 +752,6 @@ def train_model(
             'initv': loss_fn.penalty[2].item(),
             'enloss': loss_fn.penalty[3].item()
         }, epoch)
-
-        if epoch % 500 == 0:
-            t = loss_fn.points['res_points'][-1].unsqueeze(1)
-            t = torch.unique(t, sorted=True)
-            plot_energy(t.detach().cpu().numpy(), losses["V"].detach().cpu().numpy(), losses["T"].detach().cpu().numpy(), epoch, modeldir) 
 
         pbar.update(1)
 

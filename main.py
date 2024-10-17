@@ -63,7 +63,7 @@ t_domain = torch.linspace(0, T, n_time)
 steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
-scaley = 2
+scaley = 1 
 
 points = {
     'res_points': grid.get_interior_points_train(scaley),
@@ -107,14 +107,6 @@ loss_fn = Loss(
         interpTbeam,
         t_tild
     )
-
-_, V, T, _, _, _, _ = loss_fn.res_loss(pinn, True)
-
-V0 = V[0].item()
-T0 = 0
-
-loss_fn.V0 = V0
-loss_fn.T0 = T0
 
 if retrain_PINN:
     dir_model = pass_folder('model')
