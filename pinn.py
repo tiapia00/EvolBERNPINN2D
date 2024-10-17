@@ -430,7 +430,7 @@ class Loss:
         self.maxlimts: tuple
         self.minlimts: tuple
         self.npointstot: int
-        self.gamma = 0
+        self.gamma = 0.15
         self.lr = lr
         self.vol: float
         self.randunif = self.generate_rand_init()

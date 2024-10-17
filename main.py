@@ -134,7 +134,6 @@ else:
 
 print(pinn_trained)
 
-
 pinn_trained.eval()
 
 tin = inpoints[:,-1].unsqueeze(1)
