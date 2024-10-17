@@ -391,6 +391,10 @@ def sample_uniform(min_vals, max_vals, num_samples, device):
     
     return scaled_points
 
+def get_gate(t: torch.Tensor, gamma: float, alpha: float = 5):
+    gate = (1 - torch.tanh(alpha*(t-gamma)))/2
+    return gate
+
 class Loss:
     def __init__(
         self,
@@ -408,7 +412,7 @@ class Loss:
         interpVbeam,
         interpEkbeam,
         t_tild: float,
-        verbose: bool = False
+        lr: float
     ):
         self.points = points
         self.w0 = w0
@@ -427,6 +431,8 @@ class Loss:
         self.maxlimts: tuple
         self.minlimts: tuple
         self.npointstot: int
+        self.gamma = -0.5
+        self.lr = lr
         self.vol: float
         self.randunif = self.generate_rand_init()
 
@@ -460,10 +466,12 @@ class Loss:
 
         randadd = sample_uniform(self.minlimts, self.maxlimts, ntosample, self.device)
         self.randunif = torch.cat([self.randunif, randadd], dim=0)
-
+    
+    def update_gamma(self, loss: torch.Tensor, eps=0.05):
+        self.gamma = self.gamma + self.lr * np.exp(-eps*loss.detach().cpu().numpy())
+    
     def res_loss(self, pinn, use_init: bool = False):
         space = self.randunif[:,:2]
-        print(space.shape)
         space.requires_grad_(True)
         t = self.randunif[:,-1].unsqueeze(1)
         t.requires_grad_(True)
@@ -506,6 +514,7 @@ class Loss:
         """
         lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
+        lossesall = get_gate(t, self.gamma) * lossesall
         
         thr = lossesall.mean().detach()
         idxover = torch.argwhere(lossesall > thr).squeeze()
@@ -535,27 +544,6 @@ class Loss:
         errV = (Vmean - Vbeam)/(Vbeam)
         errT = (Tmean - Ekbeam)/(Ekbeam)
 
-        """
-        V = torch.zeros(tgrid.shape[0])
-        T = torch.zeros_like(V)
-        vol = (xmax - xmin) * (ymax - ymin) * (tmax - tmin)
-        for i, ts in enumerate(tgrid):
-            tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx]
-            dTt = dT[tidx]
-
-            V[i] = self.b * vol * dVt.mean()
-            T[i] = self.b * vol * dTt.mean()
-
-        Vbeam = self.interpVbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
-        Ekbeam = self.interpEkbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
-        Vbeam *= np.max(V.detach().cpu().numpy())/np.max(Vbeam)
-        Ekbeam *= np.max(T.detach().cpu().numpy())/np.max(Ekbeam)
-
-        errV = simpson((V.detach().cpu().numpy() - Vbeam)**2, dx=self.steps[2])/simpson(Vbeam**2, dx=self.steps[2])
-        errT = simpson((T.detach().cpu().numpy() - Ekbeam)**2, dx=self.steps[2])/simpson(Ekbeam **2, dx=self.steps[2])
-        """
-        
         return loss, Vmean, Tmean, errV, errT, loss_kurt, loss_skew
 
     def bound_N_loss(self, pinn):
@@ -718,6 +706,7 @@ def train_model(
         loss.backward(retain_graph=False)
         optimizer.step()
         loss_fn.update_rand()
+        loss_fn.update_gamma(res_loss)
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
@@ -732,6 +721,8 @@ def train_model(
             'skew': losses['res_skew'],
             'kurt': losses['res_kurt']
         })
+
+        writer.add_scalar("Gamma_gate", loss_fn.gamma, epoch)
 
         writer.add_scalars('NTK', {
             'tr': trntk,
