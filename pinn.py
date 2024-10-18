@@ -672,7 +672,7 @@ def train_model(
         writer.add_scalars('Loss/Distr_res', {
             'skew': losses['res_skew'],
             'kurt': losses['res_kurt']
-        })
+        }, epoch)
 
         writer.add_scalars('NTK', {
             'tr': trntk,
