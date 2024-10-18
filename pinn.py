@@ -272,7 +272,7 @@ class PINN(nn.Module):
                  multux: int,
                  multuy: int,
                  device,
-                 act = nn.GELU()
+                 act = nn.Tanh()
                  ):
 
         super().__init__()
@@ -430,7 +430,8 @@ class Loss:
         self.maxlimts: tuple
         self.minlimts: tuple
         self.npointstot: int
-        self.gamma = 0.15
+        self.gamma = - 0.5 
+        self.lossprev: float = 10 
         self.lr = lr
         self.vol: float
         self.randunif = self.generate_rand_init()
@@ -467,7 +468,10 @@ class Loss:
         self.randunif = torch.cat([self.randunif, randadd], dim=0)
     
     def update_gamma(self, loss: torch.Tensor, eps=0.05):
-        self.gamma = self.gamma + self.lr * np.exp(-eps*loss.detach().cpu().numpy())
+        loss = loss.detach().cpu()
+        if loss < self.lossprev:
+            self.gamma = self.gamma + 1e-4 * np.exp(-eps*loss)
+        self.lossprev = loss
     
     def res_loss(self, pinn, use_init: bool = False):
         space = self.randunif[:,:2]
@@ -513,10 +517,13 @@ class Loss:
         """
         lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
-        lossesall = get_gate(t, self.gamma).squeeze() * torch.abs(lossesall)
+        F = get_gate(t, self.gamma).squeeze().detach() * torch.abs(lossesall)
         
-        thr = lossesall.mean().detach()
-        idxover = torch.argwhere(lossesall > thr).squeeze()
+        thr = F.mean().detach()
+        idxover = torch.argwhere(F > thr).squeeze()
+        retainedperc = idxover.shape[0]/self.randunif.shape[0] * 100
+        resampledperc = 100 - retainedperc
+
         self.randunif = self.randunif[idxover,:]
         
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
@@ -543,7 +550,7 @@ class Loss:
         errV = (Vmean - Vbeam)/(Vbeam)
         errT = (Tmean - Ekbeam)/(Ekbeam)
 
-        return loss, Vmean, Tmean, errV, errT, loss_kurt, loss_skew
+        return loss, Vmean, Tmean, errV, errT, loss_kurt, loss_skew, retainedperc, resampledperc
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -589,7 +596,8 @@ class Loss:
         return loss, (losspos, lossv)
 
     def verbose(self, pinn, inc_enloss: bool = False):
-        res_loss, V, T, errV, errT, res_kurt, res_skew = self.res_loss(pinn)
+        res_loss, V, T, errV, errT, res_kurt, res_skew, retainedperc, resampledperc = self.res_loss(pinn)
+        enloss = self.penalty[3] * torch.abs(V + T)
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -604,7 +612,9 @@ class Loss:
             "errV": errV,
             "errT": errT,
             "res_kurt": res_kurt,
-            "res_skew": res_skew
+            "res_skew": res_skew,
+            "resampled_perc": resampledperc,
+            "retained_perc": retainedperc
         }
 
         return loss, res_loss, losses 
@@ -719,6 +729,11 @@ def train_model(
         }, epoch)
 
         writer.add_scalar("Gamma_gate", loss_fn.gamma, epoch)
+
+        writer.add_scalars('R3', {
+            "resampled": losses["resampled_perc"],
+            "retained": losses["retained_perc"]
+        }, epoch)
 
         writer.add_scalars('NTK', {
             'tr': trntk,
