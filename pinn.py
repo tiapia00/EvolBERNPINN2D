@@ -470,7 +470,7 @@ class Loss:
     def update_gamma(self, loss: torch.Tensor, eps=0.05):
         loss = loss.detach().cpu()
         if loss < self.lossprev:
-            self.gamma = self.gamma + 1e-4 * np.exp(-eps*loss)
+            self.gamma = self.gamma + self.lr * np.exp(-eps*loss)
         self.lossprev = loss
     
     def res_loss(self, pinn, use_init: bool = False):
@@ -707,7 +707,7 @@ def train_model(
                     optimizer.zero_grad()
                 
                 norms.insert(0, norm_res)
-                update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9)
+                update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 1)
 
         loss.backward(retain_graph=False)
         optimizer.step()
