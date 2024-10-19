@@ -53,7 +53,7 @@ interpTbeam = make_interp_spline(t_beam, Ek_an, k=5)
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, multhyperx, lr, epochs = get_params(par.pinn_par)
-scaley = 2 
+scaley = 1 
 
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
@@ -66,7 +66,7 @@ grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
 scaley = 2
 
 points = {
-    'res_points': grid.get_interior_points_train(scaley),
+    'res_points': grid.get_interior_points_train(),
     'initial_points': grid.get_initial_points(),
     'boundary_points': grid.generate_grid_bound(),
     'initial_points_hyper': grid.get_initial_points_hyper(),
@@ -108,7 +108,7 @@ loss_fn = Loss(
         t_tild
     )
 
-_, V, T, _, _, _, _ = loss_fn.res_loss(pinn, True)
+_, V, T, _, _, _, _ = loss_fn.res_loss(pinn, False, True)
 
 V0 = V[0].item()
 T0 = 0

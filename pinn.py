@@ -3,7 +3,8 @@ from tqdm import tqdm
 from typing import Callable
 import numpy as np
 import torch
-import math
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from torch import nn
 from torch.func import functional_call, vmap, vjp, jvp, jacrev
 import torch.optim as optim
@@ -188,10 +189,10 @@ class Grid:
 
         return (x_grid, y_grid, t0)
 
-    def get_interior_points_train(self, scaley):
+    def get_interior_points_train(self):
         x_raw = self.x_domain[1:-1]
         y_raw = self.y_domain[1:-1]
-        y_raw = torch.linspace(0, torch.max(y_raw), x_raw.shape[0] // scaley)
+        y_raw = torch.linspace(0, torch.max(y_raw), x_raw.shape[0])
         t_raw = self.t_domain[1:]
         grids = torch.meshgrid(x_raw, y_raw, t_raw, indexing="ij")
 
@@ -404,7 +405,7 @@ class Loss:
         self.V0: float
         self.T0: float
 
-    def res_loss(self, pinn, use_init: bool = False):
+    def res_loss(self, pinn, returnlossdistr: bool= False, use_init: bool = False):
         x, y, t = self.points['res_points']
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t, use_init)
@@ -465,11 +466,11 @@ class Loss:
         T = torch.zeros_like(V)
         for i, ts in enumerate(tgrid):
             tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
-            dTt = dT[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
+            dVt = dV[tidx].reshape(self.n_space - 2, (self.n_space - 2)) 
+            dTt = dT[tidx].reshape(self.n_space - 2, (self.n_space - 2)) 
 
-            V[i] = self.b*simps(simps(dVt, self.steps[1] * self.scaley, dim=1), self.steps[0])
-            T[i] = self.b*simps(simps(dTt, self.steps[1] * self.scaley, dim=1), self.steps[0])
+            V[i] = self.b*simps(simps(dVt, self.steps[1], dim=1), self.steps[0])
+            T[i] = self.b*simps(simps(dTt, self.steps[1], dim=1), self.steps[0])
 
         Vbeam = self.interpVbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
         Ekbeam = self.interpEkbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
@@ -479,7 +480,10 @@ class Loss:
         errV = simpson((V.detach().cpu().numpy() - Vbeam)**2, dx=self.steps[2])/simpson(Vbeam**2, dx=self.steps[2])
         errT = simpson((T.detach().cpu().numpy() - Ekbeam)**2, dx=self.steps[2])/simpson(Ekbeam **2, dx=self.steps[2])
          
-        return loss, V, T, errV, errT, loss_kurt, loss_skew
+        if returnlossdistr:
+            return loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall.detach()
+        else:
+            return loss, V, T, errV, errT, loss_kurt, loss_skew
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -524,8 +528,11 @@ class Loss:
 
         return loss, (losspos, lossv)
 
-    def verbose(self, pinn, inc_enloss: bool = False):
-        res_loss, V, T, errV, errT, res_kurt, res_skew = self.res_loss(pinn)
+    def verbose(self, pinn, returnlossdistr: bool = False, inc_enloss: bool = False):
+        if returnlossdistr:
+            res_loss, V, T, errV, errT, res_kurt, res_skew, lossdistr = self.res_loss(pinn, returnlossdistr)
+        else:
+            res_loss, V, T, errV, errT, res_kurt, res_skew = self.res_loss(pinn)
         enloss = self.penalty[3].item() * (((V+T)).pow(2).mean() + ((self.V0 + self.T0) - (V+T)).pow(2).mean())
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
@@ -548,10 +555,13 @@ class Loss:
             "res_skew": res_skew
         }
 
+        if returnlossdistr:
+            losses['loss_distr'] = lossdistr
+
         return loss, res_loss, losses 
 
-    def __call__(self, pinn, inc_enloss = False):
-        return self.verbose(pinn, inc_enloss)
+    def __call__(self, pinn, returnlossdistr: bool = False, inc_enloss = False):
+        return self.verbose(pinn, returnlossdistr, inc_enloss)
 
 
 def calculate_norm(pinn: PINN):
@@ -613,8 +623,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        use_en = False 
-        loss, res_loss, losses = loss_fn(nn_approximator, use_en)
+        loss, res_loss, losses = loss_fn(nn_approximator)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
@@ -629,12 +638,7 @@ def train_model(
                 norms.append(calculate_norm(nn_approximator))
                 optimizer.zero_grad()
             
-            if use_en:
-                losses['enloss'].backward(retain_graph=True)
-                norms.append(calculate_norm(nn_approximator))
-                optimizer.zero_grad()
-            else:
-                norms.append(1)
+            norms.append(1)
 
             norms.insert(0, norm_res)
             loss.backward(retain_graph=False)
@@ -702,6 +706,27 @@ def train_model(
         pbar.update(1)
 
     pbar.update(1)
+
+    x, y, t = loss_fn.points['res_points']
+    x = x.reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
+    t = t.reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
+    loss, res_loss, losses = loss_fn(nn_approximator, True)
+    lossesdistr = losses['loss_distr'].reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1)
+    lossesdistr = lossesdistr[:,0,:].detach().cpu().numpy()
+    fig, ax = plt.subplots()
+    norm = mcolors.LogNorm(vmin=1e-3, vmax=np.abs(lossesdistr).max())
+    heatmap = ax.imshow(lossesdistr.T, extent=[t.min(), t.max(), x.min(), x.max()], origin='lower', 
+                    aspect='auto', cmap='inferno', norm=norm)
+    plt.colorbar(heatmap, ax=ax)
+    ax.set_title(r'PDE Residuals')
+    ax.set_xlabel(r'$t$')
+    ax.set_ylabel(r'$x$')
+    """
+    c = ax.pcolormesh(x, t, lossesdistr, cmap='RdBu', norm=norm)
+    ax.axis([x.min(), x.max(), t.min(), t.max()])
+    fig.colorbar(c, ax=ax)
+    """
+
     pbar.close()
 
     writer.close()
