@@ -721,6 +721,7 @@ def train_model(
     ax.set_title(r'PDE Residuals')
     ax.set_xlabel(r'$t$')
     ax.set_ylabel(r'$x$')
+    plt.savefig(f'{modeldir}/PDEres.png')
     """
     c = ax.pcolormesh(x, t, lossesdistr, cmap='RdBu', norm=norm)
     ax.axis([x.min(), x.max(), t.min(), t.max()])
