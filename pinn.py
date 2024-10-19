@@ -715,7 +715,7 @@ def train_model(
     lossesdistr = lossesdistr.detach().cpu().numpy()
     lossesdistr = np.mean(lossesdistr, axis=1)
     fig, ax = plt.subplots()
-    norm = mcolors.LogNorm(vmin=1e-3, vmax=np.abs(lossesdistr).max())
+    norm = mcolors.LogNorm(vmin=1e-3, vmax=1e3)
     heatmap = ax.imshow(lossesdistr, extent=[t.min(), t.max(), x.min(), x.max()], origin='lower', 
                     aspect='auto', cmap='inferno', norm=norm)
     plt.colorbar(heatmap, ax=ax)
