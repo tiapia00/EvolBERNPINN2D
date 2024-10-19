@@ -713,9 +713,9 @@ def train_model(
     loss, res_loss, losses = loss_fn(nn_approximator, True)
     lossesdistr = losses['loss_distr'].reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1)
     lossesdistr = lossesdistr.detach().cpu().numpy()
-    lossesdistr = np.mean(lossesdistr, axis=1)
+    lossesdistr = np.abs(np.mean(lossesdistr, axis=1))
     fig, ax = plt.subplots()
-    norm = mcolors.LogNorm(vmin=1e-3, vmax=1e3)
+    norm = mcolors.LogNorm(vmin=np.min(lossesdistr), vmax=np.max(lossesdistr))
     heatmap = ax.imshow(lossesdistr, extent=[t.min(), t.max(), x.min(), x.max()], origin='lower', 
                     aspect='auto', cmap='inferno', norm=norm)
     plt.colorbar(heatmap, ax=ax)
