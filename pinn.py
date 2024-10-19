@@ -712,10 +712,11 @@ def train_model(
     t = t.reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
     loss, res_loss, losses = loss_fn(nn_approximator, True)
     lossesdistr = losses['loss_distr'].reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1)
-    lossesdistr = lossesdistr[:,0,:].detach().cpu().numpy()
+    lossesdistr = lossesdistr.detach().cpu().numpy()
+    lossesdistr = np.mean(lossesdistr, axis=1)
     fig, ax = plt.subplots()
     norm = mcolors.LogNorm(vmin=1e-3, vmax=np.abs(lossesdistr).max())
-    heatmap = ax.imshow(lossesdistr.T, extent=[t.min(), t.max(), x.min(), x.max()], origin='lower', 
+    heatmap = ax.imshow(lossesdistr, extent=[t.min(), t.max(), x.min(), x.max()], origin='lower', 
                     aspect='auto', cmap='inferno', norm=norm)
     plt.colorbar(heatmap, ax=ax)
     ax.set_title(r'PDE Residuals')
