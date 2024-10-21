@@ -720,7 +720,7 @@ def train_model(
     heatmap = ax.imshow(lossesdistr, extent=[t.min(), t.max(), x.min(), x.max()], origin='lower', 
                     aspect='auto', cmap='inferno', norm=norm)
     """
-    plt.pcolormesh(t, x, lossesdistr, norm=mcolors.LogNorm(), shading='auto', cmap='inferno')
+    plt.pcolormesh(t, x, lossesdistr.T, norm=mcolors.LogNorm(), cmap='inferno')
     plt.colorbar()
     ax.set_title(r'PDE Residuals')
     ax.set_xlabel(r'$t$')
