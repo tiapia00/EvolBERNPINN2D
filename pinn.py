@@ -8,6 +8,7 @@ from torch import nn
 from torch.func import functional_call, vmap, vjp, jvp, jacrev
 import torch.optim as optim
 from scipy.stats import skew, kurtosis
+from scipy.integrate import simpson
 
 def fnet_single(params, pinn, x, t):
     return functional_call(pinn, params, (x.unsqueeze(0), t.unsqueeze(0))).squeeze(0)
@@ -393,6 +394,10 @@ def sample_uniform(min_vals, max_vals, num_samples, device):
 def get_gate(t: torch.Tensor, gamma: float, alpha: float = 5):
     gate = (1 - torch.tanh(alpha*(t-gamma)))/2
     return gate
+
+def calculateRMS(signal: np.ndarray, step_t: float, t_max: float):
+    rms = 1/t_max * simpson(signal**2, dx=step_t)**1/2
+    return rms
 
 class Loss:
     def __init__(

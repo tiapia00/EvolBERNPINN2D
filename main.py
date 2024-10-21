@@ -147,6 +147,7 @@ plot_initial_conditions(z, cond0, spacein, dir_model)
 allpoints = torch.cat(points["all_points_eval"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
+tmax = torch.max(t).item()
 nsamples = (n_space, n_space) + (n_time,)
 sol, V, T = obtainsolt_u(pinn_trained, space, t, nsamples, par, steps, device)
 plot_energy(torch.unique(t, sorted=True).detach().cpu().numpy(), V, T, dir_model)
@@ -156,11 +157,22 @@ nfft = sol1D.shape[0]
 window = np.hanning(nfft)
 fftpredicted = fft.rfft(window * sol1D)
 beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+Van = interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+Tan = interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+
+errV = (calculateRMS(V, steps[2], tmax) - calculateRMS(Van, steps[2], tmax))/(
+        calculateRMS(Van, steps[2], tmax)
+).item()
+errT = (calculateRMS(T, steps[2], tmax) - calculateRMS(Tan, steps[2], tmax))/(
+        calculateRMS(Tan, steps[2], tmax)
+).item()
 fftan = fft.rfft(window * beamdispl)
-errfreq = np.mean(np.abs(fftpredicted - fftan))
+errfreq = np.mean(np.abs(fftpredicted)/calculateRMS(sol1D, steps[2], tmax).item() - np.abs(fftan)/calculateRMS(beamdispl, steps[2], tmax).item())
 
 with open(f'{dir_model}/freqerr.txt', 'w') as file:
-    file.write(f"errfreq = {errfreq}\n")
+    file.write(f"errfreq = {errfreq}\n"
+               f"errV = {-errV}\n"
+               f"errT = {-errT}\n")
 
 sol = sol.reshape(n_space**2, n_time, 2)
 plot_sol(sol, spacein, t, dir_model)
