@@ -386,7 +386,6 @@ class Loss:
         interpVbeam,
         interpEkbeam,
         t_tild: float,
-        verbose: bool = False
     ):
         self.points = points
         self.w0 = w0
@@ -623,7 +622,7 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        loss, res_loss, losses = loss_fn(nn_approximator)
+        loss, res_loss, losses = loss_fn(nn_approximator, inc_enloss = True)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
