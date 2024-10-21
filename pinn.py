@@ -554,7 +554,7 @@ class Loss:
         errV = (Vmean - Vbeam)/(Vbeam)
         errT = (Tmean - Ekbeam)/(Ekbeam)
 
-        return loss, Vmean, Tmean, errV, errT, loss_kurt, loss_skew, retainedperc, resampledperc
+        return loss, Vmean, Tmean, errV, errT, loss_kurt, loss_skew, retainedperc, resampledperc, lossesall.detach()
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -600,7 +600,7 @@ class Loss:
         return loss, (losspos, lossv)
 
     def verbose(self, pinn, inc_enloss: bool = False):
-        res_loss, V, T, errV, errT, res_kurt, res_skew, retainedperc, resampledperc = self.res_loss(pinn)
+        res_loss, Vmean, Tmean, errV, errT, res_kurt, res_skew, retainedperc, resampledperc, lossesall = self.res_loss(pinn)
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -609,15 +609,16 @@ class Loss:
             "in_losses": init_losses,
             "in_loss": init_loss,
             "bound_loss": boundloss,
-            "V": V,
-            "T": T,
-            "V+T": (V+T).mean(),
+            "V": Vmean,
+            "T": Tmean,
+            "V+T": (Vmean+Tmean),
             "errV": errV,
             "errT": errT,
             "res_kurt": res_kurt,
             "res_skew": res_skew,
             "resampled_perc": resampledperc,
-            "retained_perc": retainedperc
+            "retained_perc": retainedperc,
+            "loss_distr": lossesall.detach()
         }
 
         return loss, res_loss, losses 
@@ -762,7 +763,7 @@ def train_model(
     ax.set_title(r'PDE Residuals')
     ax.set_xlabel(r'$t$')
     ax.set_ylabel(r'$x$')
-    plt.savefig(f'{path_logs}/PDEres.png')
+    plt.savefig(f'{path_model}/PDEres.png')
 
     return nn_approximator
 
