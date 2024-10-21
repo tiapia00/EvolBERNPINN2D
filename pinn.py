@@ -368,6 +368,9 @@ class PINN(nn.Module):
 
         return out
 
+def calculateRMS(signal: np.ndarray, step_t: float, t_max: float):
+    rms = 1/t_max * simpson(signal**2, dx=step_t)**1/2
+    return rms
 
 class Loss:
     def __init__(
@@ -460,6 +463,7 @@ class Loss:
         dT = dT * torch.max(dV)/torch.max(dT)
 
         tgrid = torch.unique(t, sorted=True)
+        tmax = torch.max(tgrid).item()
 
         V = torch.zeros(tgrid.shape[0])
         T = torch.zeros_like(V)
@@ -476,8 +480,8 @@ class Loss:
         Vbeam *= np.max(V.detach().cpu().numpy())/np.max(Vbeam)
         Ekbeam *= np.max(T.detach().cpu().numpy())/np.max(Ekbeam)
 
-        errV = (simpson(V.detach().cpu().numpy()**2, dx=self.steps[2])**(1/2) - simpson(Vbeam**2, dx=self.steps[2]))**(1/2)/simpson(Vbeam**2, dx=self.steps[2])**(1/2)
-        errT = (simpson(T.detach().cpu().numpy()**2, dx=self.steps[2])**(1/2) - simpson(Ekbeam**2, dx=self.steps[2]))**(1/2)/simpson(Ekbeam**2, dx=self.steps[2])**(1/2)
+        errV = (calculateRMS(V.detach().cpu().numpy(), self.steps[2], tmax) - calculateRMS(Vbeam, self.steps[2], tmax)) / calculateRMS(Vbeam, self.steps[2], tmax)
+        errT = (calculateRMS(T.detach().cpu().numpy(), self.steps[2], tmax) - calculateRMS(Ekbeam, self.steps[2], tmax)) / calculateRMS(Ekbeam, self.steps[2], tmax)
          
         if returnlossdistr:
             return loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall.detach()
@@ -532,7 +536,7 @@ class Loss:
             res_loss, V, T, errV, errT, res_kurt, res_skew, lossdistr = self.res_loss(pinn, returnlossdistr)
         else:
             res_loss, V, T, errV, errT, res_kurt, res_skew = self.res_loss(pinn)
-        enloss = self.penalty[3].item() * (((V+T)).pow(2).mean() + ((self.V0 + self.T0) - (V+T)).pow(2).mean())
+        enloss = self.penalty[3].item() * (((self.V0 + self.T0) - (V+T)).pow(2).mean())
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -641,7 +645,7 @@ def train_model(
 
             norms.insert(0, norm_res)
             loss.backward(retain_graph=False)
-            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 1)
+            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9)
             optimizer.step()
 
         else:
@@ -732,7 +736,7 @@ def train_model(
 
     writer.close()
 
-    return nn_approximator
+    return nn_approximator, losses['V'].detach().cpu().numpy, losses['T'].detach().cpu().numpy()
 
 def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
     nx, ny, nt = nsamples

@@ -120,7 +120,7 @@ if retrain_PINN:
     dir_model = pass_folder('model')
     dir_logs = pass_folder('model/logs')
 
-    pinn_trained = train_model(pinn, loss_fn=loss_fn, points=points, learning_rate=lr,
+    pinn_trained, V, T = train_model(pinn, loss_fn=loss_fn, points=points, learning_rate=lr,
                                max_epochs=epochs, path_logs=dir_logs, modeldir=dir_model)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
@@ -161,7 +161,20 @@ window = np.hanning(nfft)
 fftpredicted = fft.rfft(window * sol1D)
 beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 fftan = fft.rfft(window * beamdispl)
-errfreq = np.mean(np.abs(fftpredicted - fftan))
+hatrms = calculateRMS(sol1D, steps[2], torch.max(t).item())
+anrms = calculateRMS(beamdispl, steps[2], torch.max(t).item())
+errfreq = np.mean(np.abs(fftpredicted)/hatrms - np.abs(fftan)/anrms)
+
+data = {
+    'hatw_mid': sol1D,
+    'anw_mid': beamdispl, 
+    'hatT': T,
+    'hatV': V,
+    'anT': interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild),
+    'anV': interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+}
+
+np.savez(f'{dir_model}/data.npz', **data)
 
 with open(f'{dir_model}/freqerr.txt', 'w') as file:
     file.write(f"errfreq = {errfreq}\n")
