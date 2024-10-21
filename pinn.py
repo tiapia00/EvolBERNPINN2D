@@ -3,7 +3,8 @@ from tqdm import tqdm
 from typing import Callable
 import numpy as np
 import torch
-import math
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from torch import nn
 from torch.func import functional_call, vmap, vjp, jvp, jacrev
 import torch.optim as optim
@@ -667,10 +668,10 @@ def max_off_diagonal(mat):
 def train_model(
     nn_approximator: PINN,
     loss_fn: Callable,
-    points: dict,
     learning_rate: int,
     max_epochs: int,
     path_logs: str,
+    path_model: str
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
@@ -686,18 +687,7 @@ def train_model(
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
-        if epoch % 500 == 0:
-            if epoch == 0:
-                params = {k: v.detach() for k, v in nn_approximator.named_parameters()}
-                idx_res = torch.randperm(points['res_points'][0].shape[0])[:10]
-                res_space = torch.cat(points['res_points'], dim=1)[idx_res,:2].detach()
-                res_t = points['res_points'][-1][idx_res, :].detach()
-                idx_init = torch.randperm(points['initial_points_hyper'][0].shape[0])[:10]
-                init_space = torch.cat(points['initial_points_hyper'], dim=1)[idx_init,:2].detach()
-                init_t = points['initial_points_hyper'][-1][idx_init,:].detach()
-                ntk = empirical_ntk_jacobian_contraction(fnet_single, params, res_space, res_t, init_space, init_t, nn_approximator)
-                trntk = torch.einsum('ii', ntk).item()
-            else:
+        if epoch % 500 == 0 and epoch != 0:
                 res_loss.backward(retain_graph=True)
                 norm_res = calculate_norm(nn_approximator)
 
@@ -709,7 +699,7 @@ def train_model(
                     optimizer.zero_grad()
                 
                 norms.insert(0, norm_res)
-                update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 1)
+                update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9) 
 
         loss.backward(retain_graph=False)
         optimizer.step()
@@ -737,13 +727,6 @@ def train_model(
             "retained": losses["retained_perc"]
         }, epoch)
 
-        writer.add_scalars('NTK', {
-            'tr': trntk,
-            'offdiagnorm': torch.norm(ntk - trntk).item(),
-            'max_diag': torch.max(ntk.diagonal()).item(),
-            'maxoff': max_off_diagonal(ntk).item()
-        }, epoch)
-
         writer.add_scalars('Energy', {
             'V+T': losses["V+T"].item(),
             'V': losses["V"],
@@ -761,8 +744,25 @@ def train_model(
 
     pbar.update(1)
     pbar.close()
-
+    
     writer.close()
+
+    x, y, t = loss_fn.points['res_points']
+    x = x.reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
+    t = t.reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
+    loss, res_loss, losses = loss_fn(nn_approximator, True)
+    lossesdistr = losses['loss_distr'].reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1)
+    lossesdistr = lossesdistr.detach().cpu().numpy()
+    lossesdistr = np.abs(np.mean(lossesdistr, axis=1))
+    fig, ax = plt.subplots()
+    norm = mcolors.LogNorm(vmin=np.min(lossesdistr), vmax=np.max(lossesdistr))
+    heatmap = ax.imshow(lossesdistr, extent=[t.min(), t.max(), x.min(), x.max()], origin='lower', 
+                    aspect='auto', cmap='inferno', norm=norm)
+    plt.colorbar(heatmap, ax=ax)
+    ax.set_title(r'PDE Residuals')
+    ax.set_xlabel(r'$t$')
+    ax.set_ylabel(r'$x$')
+    plt.savefig(f'{path_logs}/PDEres.png')
 
     return nn_approximator
 

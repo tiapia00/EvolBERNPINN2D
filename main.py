@@ -62,7 +62,7 @@ t_domain = torch.linspace(0, T, n_time)
 steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
-hypert = 3
+hypert = 2 
 
 points = {
     'res_points': grid.get_interior_points_train(),
@@ -89,7 +89,7 @@ condx = condx[:,0]
 
 pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
 
-in_penalty = torch.tensor([1., 1., 1., 1.])
+in_penalty = torch.tensor([1., 4., 3., 1.])
 in_penalty.requires_grad_(False)
 loss_fn = Loss(
         points,
@@ -112,8 +112,8 @@ if retrain_PINN:
     dir_model = pass_folder('model')
     dir_logs = pass_folder('model/logs')
 
-    pinn_trained = train_model(pinn, loss_fn=loss_fn, points=points, learning_rate=lr,
-                               max_epochs=epochs, path_logs=dir_logs)
+    pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
+                               max_epochs=epochs, path_logs=dir_logs, path_model=dir_model)
 
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
