@@ -161,8 +161,8 @@ window = np.hanning(nfft)
 fftpredicted = fft.rfft(window * sol1D)
 beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 fftan = fft.rfft(window * beamdispl)
-hatrms = calculateRMS(sol1D, steps[2], torch.max(t).item())
-anrms = calculateRMS(beamdispl, steps[2], torch.max(t).item())
+hatrms = calculateRMS(sol1D, steps[2], torch.max(t).item()).item()
+anrms = calculateRMS(beamdispl, steps[2], torch.max(t).item()).item()
 errfreq = np.mean(np.abs(fftpredicted)/hatrms - np.abs(fftan)/anrms)
 
 data = {
