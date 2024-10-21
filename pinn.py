@@ -210,12 +210,16 @@ class Grid:
         return (x, y, t)
 
     def get_all_points_eval(self, hypert: int):
-        t_hyper = torch.linspace(0, torch.max(self.t_domain), self.t_domain.shape[0] * hypert, device=self.device)
+        t_hyper = torch.linspace(0, torch.max(self.t_domain), self.t_domain.shape[0] * hypert)
         x_all, y_all, t_all = torch.meshgrid(self.x_domain, self.y_domain,
                                              t_hyper, indexing='ij')
         x_all = x_all.reshape(-1,1).to(self.device)
         y_all = y_all.reshape(-1,1).to(self.device)
         t_all = t_all.reshape(-1,1).to(self.device)
+
+        x_all.requires_grad_(True)
+        y_all.requires_grad_(True)
+        t_all.requires_grad_(True)
 
         return (x_all, y_all, t_all)
 
@@ -762,8 +766,9 @@ def train_model(
 
     return nn_approximator
 
-def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple, par: dict, steps: list, device: torch.device):
+def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple, hypert: int, par: dict, steps: list, device: torch.device):
     nx, ny, nt = nsamples
+    nt *= hypert
     sol = torch.zeros(nx, ny, nt, 2)
     spaceidx = torch.zeros(nx, ny, nt, 2)
     tsv = torch.unique(t, sorted=True)

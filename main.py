@@ -147,7 +147,7 @@ space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 tmax = torch.max(t).item()
 nsamples = (n_space, n_space) + (n_time,)
-sol, V, T = obtainsolt_u(pinn_trained, space, t, nsamples, par, steps, device)
+sol, V, T = obtainsolt_u(pinn_trained, space, t, nsamples, hypert, par, steps, device)
 plot_energy(torch.unique(t, sorted=True).detach().cpu().numpy(), V, T, dir_model)
 
 sol1D = sol[sol.shape[1]//2,sol.shape[1]//2,:,1]
@@ -177,7 +177,7 @@ with open(f'{dir_model}/freqerr.txt', 'w') as file:
                f"errV = {-errV}\n"
                f"errT = {-errT}\n")
 
-sol = sol.reshape(n_space**2, n_time, 2)
+sol = sol.reshape(n_space**2, n_time * hypert, 2)
 plot_sol(sol, spacein, t, dir_model)
 plot_average_displ(sol, t, dir_model)
 
