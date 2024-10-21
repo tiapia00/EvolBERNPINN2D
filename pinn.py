@@ -3,6 +3,7 @@ from tqdm import tqdm
 from typing import Callable
 import numpy as np
 import torch
+import torch.nn.init as init
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from torch import nn
@@ -259,112 +260,70 @@ def matern52(alpha):
     phi = (torch.ones_like(alpha) + 5 ** 0.5 * alpha + (5 / 3) * alpha.pow(2)) * torch.exp(-5 ** 0.5 * alpha)
     return phi
 
-def calculate_fft(signal: np.ndarray, dx: float, x: np.ndarray):
-    window = np.hanning(signal.size)
-    signal = window * signal
-    yf = np.fft.fft(signal)
-    freq = np.fft.fftfreq(x.size, d=dx)
-    return yf, freq
-
 class PINN(nn.Module):
     def __init__(self,
-                 dim_hidden: tuple,
-                 w0: float,
-                 n_hidden: int,
-                 multux: int,
-                 multuy: int,
-                 device,
-                 act = nn.Tanh()
+                 hiddendim: int,
+                 nhidden: int,
+                 act=nn.Tanh(),
                  ):
 
         super().__init__()
+        self.hiddendim = hiddendim
+        self.nhidden = nhidden
+        self.act = act
 
-        self.w0 = w0
-        n_mode_spacex = dim_hidden[0]
-        n_mode_spacey = dim_hidden[1]
+        self.U =  nn.Linear(3, hiddendim)
 
-        self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = torch.randn((2, n_mode_spacey), device=device)
-        self.By[1,:] *= 0
+        self.V = nn.Linear(3, hiddendim)
+
+        init.normal_(self.U.weight, mean=1.0, std=0.1)
+        init.normal_(self.V.weight, mean=1.0, std=0.1)
+
+        init.normal_(self.U.bias, mean=0., std=0.1)
+        init.normal_(self.V.bias, mean=0., std=0.1)
+
+        for param in self.U.parameters():
+            param.requires_grad = False
+
+        for param in self.V.parameters():
+            param.requires_grad = False
+
+        self.initlayer = nn.Linear(3, 2*hiddendim, bias=False)
+        nn.init.orthogonal_(self.initlayer.weight)
+
+        self.layers = nn.ModuleList([])
+        for _ in range(nhidden):
+            self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim, bias=False))
+            nn.init.orthogonal_(self.layers[-1].weight)
         
-        self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = 0.7 * torch.randn((1, n_mode_spacey), device=device)
-
-        self.hid_space_layers_x = nn.ModuleList()
-        hiddimx = multux * 2 * n_mode_spacex
-        self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
-        for _ in range(n_hidden):
-            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
-
-        self.hid_space_layers_y = nn.ModuleList()
-        hiddimy = multuy * 2 * n_mode_spacey
-        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
-        for _ in range(n_hidden):
-            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
-            self.hid_space_layers_y.append(act)
-
-        self.layerxmodes = nn.Linear(hiddimx, n_mode_spacex)
-        self.layerymodes = nn.Linear(hiddimy, n_mode_spacey)
-
-        self.outlayerx = nn.Linear(n_mode_spacex, 1)
-        self.outlayery = nn.Linear(n_mode_spacey, 1)
-        self._initialize_weights()
-
+        self.outlayerx = nn.Linear(2*hiddendim, 1, bias=False)
         self.outlayerx.weight.data *= 0
 
         for param in self.outlayerx.parameters():
-            param.requires_grad_(False)
+            param.requires_grad = False
 
-    def fourier_features(self, input, B):
-        x_proj = input @ B
-        return torch.cat([torch.sin(np.pi * x_proj),
-                torch.cos(np.pi * x_proj)], dim=1)
+        self.outlayery = nn.Linear(2*hiddendim, 1, bias=False)
 
-    def _initialize_weights(self):
-        # Initialize all layers with Xavier initialization
-        for layer in self.modules():
-            if isinstance(layer, nn.Linear):
-                nn.init.xavier_normal_(layer.weight)  # Glorot uniform initialization
-                if layer.bias is not None:
-                    nn.init.zeros_(layer.bias)  # Initialize bias with zeros
-
-    def forward(self, space, t, use_init: bool = False):
-        fourier_space_x = self.fourier_features(space, self.Bx)
-        fourier_space_y = self.fourier_features(space, self.By)
-        fourier_tx = self.fourier_features(t, self.Btx)
-        fourier_ty = self.fourier_features(t, self.Bty)
-
-        x_in = fourier_space_x
-        y_in = fourier_space_y
-        tx = fourier_tx
-        ty = fourier_ty
-
-        for layer in self.hid_space_layers_x:
-            x_in = layer(x_in)
-            tx = layer(tx)
+    def forward(self, space, t):
+        input = torch.cat([space, t], dim=1)
+        U = self.U(input)
+        U = torch.cat([torch.cos(np.pi * U), torch.sin(np.pi * U)], dim=1)
         
-        for layer in self.hid_space_layers_y:
-            y_in = layer(y_in)
-            ty = layer(ty)
+        V = self.V(input)
+        V = torch.cat([torch.cos(np.pi * V), torch.sin(np.pi * V)], dim=1)
         
-        xout = self.layerxmodes(x_in)
-        tx = self.layerxmodes(tx)
-        yout = self.layerymodes(y_in)
-        ty = self.layerymodes(ty)
+        out = self.initlayer(input)
 
-        xout = xout * tx
-        yout = yout * ty
+        for layer in self.layers:
+            out = layer(out)
+            out = out * U + (1-out) * V
 
-        xout = self.outlayerx(xout)
-        yout = self.outlayery(yout)
+        outNNx = self.outlayerx(out)
+        outNNy = self.outlayery(out)
 
-        out = torch.cat([xout, yout], dim=1)
+        outNN = torch.cat([outNNx, outNNy], dim=1)
 
-        out = out * (1 - space[:,0].unsqueeze(1))* (space[:,0].unsqueeze(1))
-
-        if use_init:
-            init = initial_conditions(space, self.w0)[:,:2]
-            out = t * out + init
+        out = space[:,0].unsqueeze(1) * outNN * (1 - space[:,0].unsqueeze(1))
 
         return out
 
@@ -477,13 +436,13 @@ class Loss:
             self.gamma = self.gamma + self.lr * np.exp(-eps*loss)
         self.lossprev = loss
     
-    def res_loss(self, pinn, use_init: bool = False):
+    def res_loss(self, pinn):
         space = self.randunif[:,:2]
         space.requires_grad_(True)
         t = self.randunif[:,-1].unsqueeze(1)
         t.requires_grad_(True)
 
-        output = pinn(space, t, use_init)
+        output = pinn(space, t)
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -584,7 +543,7 @@ class Loss:
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
-        init = initial_conditions(space, pinn.w0)
+        init = initial_conditions(space, self.w0)
         losspos = self.penalty[1].item() * torch.abs(output[:,1] - init[:,1]).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
