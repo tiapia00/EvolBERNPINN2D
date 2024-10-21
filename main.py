@@ -62,7 +62,7 @@ t_domain = torch.linspace(0, T, n_time)
 steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
-hypert = 2 
+hypert = 1 
 
 points = {
     'res_points': grid.get_interior_points_train(),
@@ -89,7 +89,7 @@ condx = condx[:,0]
 
 pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
 
-in_penalty = torch.tensor([1., 4., 3., 1.])
+in_penalty = torch.tensor([1., 1., 1., 1.])
 in_penalty.requires_grad_(False)
 loss_fn = Loss(
         points,

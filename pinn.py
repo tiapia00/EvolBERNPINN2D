@@ -434,7 +434,7 @@ class Loss:
         self.maxlimts: tuple
         self.minlimts: tuple
         self.npointstot: int
-        self.gamma = - 0.5 
+        self.gamma = - 0.5
         self.lossprev: float = 10 
         self.lr = lr
         self.vol: float
@@ -521,7 +521,7 @@ class Loss:
         """
         lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
-        F = get_gate(t, self.gamma).squeeze().detach() * torch.abs(lossesall)
+        F = torch.abs(lossesall) * get_gate(t, self.gamma).squeeze()
         
         thr = F.mean().detach()
         idxover = torch.argwhere(F > thr).squeeze()
@@ -533,7 +533,7 @@ class Loss:
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
 
-        loss = self.penalty[0].item() * lossesall.pow(2).mean()
+        loss = self.penalty[0].item() * (lossesall.pow(2) * get_gate(t, self.gamma).squeeze()).mean()
         
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
