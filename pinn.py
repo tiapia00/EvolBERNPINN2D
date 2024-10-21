@@ -602,7 +602,6 @@ class Loss:
 
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT, res_kurt, res_skew, retainedperc, resampledperc = self.res_loss(pinn)
-        enloss = self.penalty[3] * torch.abs(V + T)
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -717,7 +716,7 @@ def train_model(
         loss.backward(retain_graph=False)
         optimizer.step()
         loss_fn.update_rand()
-        loss_fn.update_gamma(res_loss, eps=1e-3)
+        loss_fn.update_gamma(res_loss, eps=1e-4)
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
