@@ -181,6 +181,17 @@ sol = sol.reshape(n_space**2, n_time * hypert, 2)
 plot_sol(sol, spacein, t, dir_model)
 plot_average_displ(sol, t, dir_model)
 
+data = {
+    'hatw_mid': sol1D,
+    'anw_mid': beamdispl, 
+    'hatT': T,
+    'hatV': V,
+    'anT': interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild),
+    'anV': interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+}
+
+np.savez(f'{dir_model}/data.npz', **data)
+
 import os
 import shutil
 
