@@ -476,8 +476,8 @@ class Loss:
         Vbeam *= np.max(V.detach().cpu().numpy())/np.max(Vbeam)
         Ekbeam *= np.max(T.detach().cpu().numpy())/np.max(Ekbeam)
 
-        errV = (simpson(V.detach().cpu().numpy()**2, dx=self.steps[2]) - simpson(Vbeam**2, dx=self.steps[2]))/simpson(Vbeam**2, dx=self.steps[2])
-        errT = (simpson(T.detach().cpu().numpy()**2, dx=self.steps[2]) - simpson(Ekbeam**2, dx=self.steps[2]))/simpson(Ekbeam**2, dx=self.steps[2])
+        errV = (simpson(V.detach().cpu().numpy()**2, dx=self.steps[2])**(1/2) - simpson(Vbeam**2, dx=self.steps[2]))**(1/2)/simpson(Vbeam**2, dx=self.steps[2])**(1/2)
+        errT = (simpson(T.detach().cpu().numpy()**2, dx=self.steps[2])**(1/2) - simpson(Ekbeam**2, dx=self.steps[2]))**(1/2)/simpson(Ekbeam**2, dx=self.steps[2])**(1/2)
          
         if returnlossdistr:
             return loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall.detach()
