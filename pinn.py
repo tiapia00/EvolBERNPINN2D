@@ -707,26 +707,6 @@ def train_model(
     
     writer.close()
 
-    x, y, t = loss_fn.points['res_points']
-    x = x.reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
-    t = t.reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
-    loss, res_loss, losses = loss_fn(nn_approximator, True)
-    lossesdistr = losses['loss_distr'].reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1)
-    lossesdistr = lossesdistr.detach().cpu().numpy()
-    lossesdistr = np.abs(np.mean(lossesdistr, axis=1))
-    fig, ax = plt.subplots()
-    """
-    norm = mcolors.LogNorm(vmin=np.min(lossesdistr), vmax=np.max(lossesdistr))
-    heatmap = ax.imshow(lossesdistr, extent=[t.min(), t.max(), x.min(), x.max()], origin='lower', 
-                    aspect='auto', cmap='inferno', norm=norm)
-    """
-    plt.pcolormesh(t, x, lossesdistr.T, norm=mcolors.LogNorm(), cmap='inferno')
-    plt.colorbar()
-    ax.set_title(r'PDE Residuals')
-    ax.set_xlabel(r'$t$')
-    ax.set_ylabel(r'$x$')
-    plt.savefig(f'{path_model}/PDEres.png')
-
     return nn_approximator
 
 def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple, hypert: int, par: dict, steps: list, device: torch.device):
