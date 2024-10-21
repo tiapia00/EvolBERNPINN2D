@@ -8,71 +8,6 @@ from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
 from scipy.interpolate import make_interp_spline
-from scipy.signal import find_peaks
-
-def compute_cross_spectrum(signal1, signal2, fs):
-    """
-    Computes the cross-spectrum of two signals.
-    
-    Parameters:
-    signal1 : numpy array
-        The first time-domain signal.
-    signal2 : numpy array
-        The second time-domain signal.
-    fs : float
-        The sampling frequency of the signals.
-
-    Returns:
-    freqs : numpy array
-        Frequencies corresponding to the cross-spectrum.
-    cross_spectrum : numpy array
-        The computed cross-spectrum of the two signals.
-    """
-    # Fourier Transform of both signals
-    fft_signal1 = np.fft.fft(signal1)
-    fft_signal2 = np.fft.fft(signal2)
-    
-    # Frequency axis
-    freqs = np.fft.fftfreq(len(signal1), 1/fs)
-    
-    # Cross-spectrum (fft_signal1 * conj(fft_signal2))
-    cross_spectrum = fft_signal1 * np.conj(fft_signal2)
-    
-    return freqs, cross_spectrum
-
-def find_nearest_peak_difference(freqs, cross_spectrum):
-    """
-    Finds the difference in frequency between the two nearest peaks in the cross-spectrum.
-    
-    Parameters:
-    freqs : numpy array
-        Frequencies corresponding to the cross-spectrum.
-    cross_spectrum : numpy array
-        The computed cross-spectrum of the two signals.
-
-    Returns:
-    nearest_freq_diff : float
-        The difference in frequency between the two nearest peaks.
-    """
-    # Magnitude of the cross-spectrum
-    magnitude = np.abs(cross_spectrum)
-    
-    # Find peaks in the magnitude spectrum
-    peaks, _ = find_peaks(magnitude)
-    
-    # Check if there are at least two peaks
-    if len(peaks) >= 2:
-        # Get the frequencies of these peaks
-        peak_freqs = freqs[peaks]
-        # Sort peak frequencies in ascending order
-        peak_freqs = np.sort(peak_freqs)
-        
-        # Find the smallest difference between adjacent peaks
-        nearest_freq_diff = np.min(np.diff(peak_freqs))
-        return nearest_freq_diff
-    else:
-        # Return None if fewer than two peaks are found
-        return None
 
 torch.set_default_dtype(torch.float32)
 
@@ -127,14 +62,14 @@ t_domain = torch.linspace(0, T, n_time)
 steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
-scaley = 1 
+hypert = 3
 
 points = {
-    'res_points': grid.get_interior_points_train(scaley),
+    'res_points': grid.get_interior_points_train(),
     'initial_points': grid.get_initial_points(),
     'boundary_points': grid.generate_grid_bound(),
     'initial_points_hyper': grid.get_initial_points_hyper(),
-    'all_points_eval': grid.get_all_points_eval(),
+    'all_points_eval': grid.get_all_points_eval(hypert),
 }
 
 adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
@@ -165,7 +100,6 @@ loss_fn = Loss(
         steps,
         adim,
         par,
-        scaley,
         in_penalty,
         device,
         interpVbeam,
@@ -230,10 +164,13 @@ errT = (calculateRMS(T, steps[2], tmax) - calculateRMS(Tan, steps[2], tmax))/(
         calculateRMS(Tan, steps[2], tmax)
 ).item()
 
-freqs, crossspectrum = compute_cross_spectrum(sol1D, beamdispl, 1/steps[2].item())
-freqdiff = find_nearest_peak_difference(freqs, crossspectrum)
-print(freqdiff) 
-errfreq = freqdiff/1
+freqsfft = np.fft.rfftfreq(nfft, steps[2].item())
+fftpredicted = np.fft.rfft(window * sol1D)
+fftan = np.fft.rfft(window * beamdispl)
+freqmaxpred = np.argmax(fftpredicted)
+freqmaxan = np.argmax(fftan)
+
+errfreq = (freqsfft[freqmaxan] - freqsfft[freqmaxpred])/freqsfft[freqmaxan]
 
 with open(f'{dir_model}/freqerr.txt', 'w') as file:
     file.write(f"errfreq = {errfreq}\n"

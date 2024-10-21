@@ -188,10 +188,9 @@ class Grid:
 
         return (x_grid, y_grid, t0)
 
-    def get_interior_points_train(self, scaley):
+    def get_interior_points_train(self):
         x_raw = self.x_domain[1:-1]
         y_raw = self.y_domain[1:-1]
-        y_raw = torch.linspace(0, torch.max(y_raw), x_raw.shape[0] // scaley)
         t_raw = self.t_domain[1:]
         grids = torch.meshgrid(x_raw, y_raw, t_raw, indexing="ij")
 
@@ -210,16 +209,13 @@ class Grid:
 
         return (x, y, t)
 
-    def get_all_points_eval(self):
+    def get_all_points_eval(self, hypert: int):
+        t_hyper = torch.linspace(0, torch.max(self.t_domain), self.t_domain.shape[0] * hypert, device=self.device)
         x_all, y_all, t_all = torch.meshgrid(self.x_domain, self.y_domain,
-                                             self.t_domain, indexing='ij')
+                                             t_hyper, indexing='ij')
         x_all = x_all.reshape(-1,1).to(self.device)
         y_all = y_all.reshape(-1,1).to(self.device)
         t_all = t_all.reshape(-1,1).to(self.device)
-
-        x_all.requires_grad_(True)
-        y_all.requires_grad_(True)
-        t_all.requires_grad_(True)
 
         return (x_all, y_all, t_all)
 
@@ -410,7 +406,6 @@ class Loss:
         steps_int: tuple,
         adim: tuple,
         par: dict,
-        scaley: int,
         in_adaptive: torch.Tensor,
         device: torch.device,
         interpVbeam,
@@ -425,7 +420,6 @@ class Loss:
         self.steps = steps_int
         self.device = device
         self.adim = adim
-        self.scaley = scaley
         self.par = par
         self.b = b
         self.penalty = in_adaptive
