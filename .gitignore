@@ -10,7 +10,7 @@ plttensor.py
 */
 
 # Ignore all files with specific ending
-*~
+*.zip
 
 # Whitelist specific directories (unignore)
 !.gitignore  # Whitelist the .gitignore file itself
