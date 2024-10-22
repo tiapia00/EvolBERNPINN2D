@@ -276,8 +276,8 @@ class PINN(nn.Module):
 
         self.V = nn.Linear(3, hiddendim)
 
-        init.normal_(self.U.weight, mean=1.0, std=0.1)
-        init.normal_(self.V.weight, mean=1.0, std=0.1)
+        init.normal_(self.U.weight, mean=0.0, std=0.1)
+        init.normal_(self.V.weight, mean=0.0, std=0.1)
 
         init.normal_(self.U.bias, mean=0., std=0.1)
         init.normal_(self.V.bias, mean=0., std=0.1)
@@ -289,15 +289,19 @@ class PINN(nn.Module):
             param.requires_grad = False
 
         self.initlayer = nn.Linear(3, 2*hiddendim, bias=False)
-        nn.init.orthogonal_(self.initlayer.weight)
+        nn.init.xavier_normal_(self.initlayer.weight)
 
         self.layers = nn.ModuleList([])
         for _ in range(nhidden):
             self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim, bias=False))
-            nn.init.orthogonal_(self.layers[-1].weight)
+            self.layers.append(act)
+            nn.init.xavier_normal_(self.layers[-2].weight)
         
         self.outlayerx = nn.Linear(2*hiddendim, 1, bias=False)
         self.outlayerx.weight.data *= 0
+
+        for parameter in self.outlayerx.parameters():
+            parameter.requires_grad_(False)
 
         self.outlayery = nn.Linear(2*hiddendim, 1, bias=False)
 
@@ -688,6 +692,7 @@ def train_model(
             'V+T': losses["V+T"].item(),
             'V': losses["V"],
             'T': losses["T"],
+            'V-T': losses["V"] - losses["T"]
         }, epoch)
 
         writer.add_scalars('Adaptive', {
