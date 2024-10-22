@@ -20,7 +20,7 @@ class Parameters:
             'n_hidden_space': self.n_hidden,
             'multhyperx': self.multhyperx,
             'lr': 1e-4,
-            'epochs': 6000 
+            'epochs': 4000 
         }
         self.beam_par = {
             'x_end': self.x_end,

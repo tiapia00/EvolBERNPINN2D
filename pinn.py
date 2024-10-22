@@ -49,7 +49,7 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(space: torch.Tensor, w0: float, i: float = 2) -> torch.tensor:
+def initial_conditions(space: torch.Tensor, w0: float, i: float = 1) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
     uy0 = w0 * torch.sin(torch.pi*i*x)
@@ -271,8 +271,8 @@ class PINN(nn.Module):
 
         self.V = nn.Linear(3, hiddendim)
 
-        init.normal_(self.U.weight, mean=1.0, std=0.1)
-        init.normal_(self.V.weight, mean=1.0, std=0.1)
+        init.normal_(self.U.weight, mean=0.0, std=0.1)
+        init.normal_(self.V.weight, mean=0.0, std=0.1)
 
         init.normal_(self.U.bias, mean=0., std=0.1)
         init.normal_(self.V.bias, mean=0., std=0.1)
@@ -284,18 +284,16 @@ class PINN(nn.Module):
             param.requires_grad = False
 
         self.initlayer = nn.Linear(3, 2*hiddendim, bias=False)
-        nn.init.orthogonal_(self.initlayer.weight)
+        nn.init.xavier_normal_(self.initlayer.weight)
 
         self.layers = nn.ModuleList([])
         for _ in range(nhidden):
             self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim, bias=False))
-            nn.init.orthogonal_(self.layers[-1].weight)
+            self.layers.append(act)
+            nn.init.xavier_normal_(self.layers[-2].weight)
         
         self.outlayerx = nn.Linear(2*hiddendim, 1, bias=False)
         self.outlayerx.weight.data *= 0
-
-        for param in self.outlayerx.parameters():
-            param.requires_grad = False
 
         self.outlayery = nn.Linear(2*hiddendim, 1, bias=False)
 
@@ -380,12 +378,6 @@ class Loss:
         dyx_yy2uy = torch.autograd.grad(dxyuy[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         
-        loss = (self.adim[0] * (dxx_xy2ux[:,0] + dyx_yy2ux[:,1]) + self.adim[1] * 
-                (dxx_xy2ux[:,0] + dxx_xy2uy[:,1]) - self.adim[2] * ax.squeeze()).pow(2).mean()
-
-        loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
-                (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
-        
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
 
@@ -411,12 +403,14 @@ class Loss:
             T[i] = self.b*simps(simps(dTt, self.steps[1]), self.steps[0])
 
             if loss_time.shape[0] % (i + 1) == 0:
+                """
                 loss_i = (self.adim[0] * (dxx_xy2ux[:,0] + dyx_yy2ux[:,1]) + self.adim[1] * 
                         (dxx_xy2ux[:,0] + dxx_xy2uy[:,1]) - self.adim[2] * ax.squeeze())[tidx_par].pow(2).mean()
-                loss_i += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
+                """
+                loss_i = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                         (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())[tidx_par].pow(2).mean()
                 loss_time[i] = loss_i
-                loss += self.weights_t[i]*loss_i
+                loss += self.weights_t[i].item()*loss_i
                 tidx_par = torch.zeros(0, device=self.device, dtype=torch.int32, requires_grad=False)
 
         loss *= 1/self.weights_t.shape[0]
@@ -476,7 +470,7 @@ def update_adaptive(loss_fn: Loss, norm: tuple, total: float, alpha: float):
 
 def update_weights_t(weights_t: torch.Tensor, eps: float, loss_time: torch.Tensor):
     for i in torch.arange(weights_t.shape[0]-1):
-        sum = torch.sum(weights_t[:i+1])
+        sum = torch.sum(weights_t[:i+1]* loss_time[:i+1])
         weights_t[i+1] = torch.exp(-eps*sum)
 
 def train_model(
@@ -492,14 +486,11 @@ def train_model(
 
     from plots import plot_energy
 
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, nn_approximator.parameters()), lr = learning_rate)
+    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
-
-        for param in nn_approximator.outlayerx.parameters():
-            param.requires_grad = False
 
         loss, res_loss, init_loss, losses = loss_fn(nn_approximator)
 
