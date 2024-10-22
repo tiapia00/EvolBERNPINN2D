@@ -283,13 +283,12 @@ class PINN(nn.Module):
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
 
-        self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = torch.randn((2, n_mode_spacey), device=device)
+        self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
+        self.register_buffer('By', 0.7 * torch.randn((2, n_mode_spacey), device=device))
+        self.register_buffer('Btx', torch.randn((1, n_mode_spacex), device=device))
+        self.register_buffer('Bty', 0.7 * torch.randn((1, n_mode_spacey), device=device))
         self.By[1,:] *= 0
         
-        self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = 0.7 * torch.randn((1, n_mode_spacey), device=device)
-
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
         self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
@@ -533,7 +532,7 @@ class Loss:
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
 
-        loss = self.penalty[0].item() * (lossesall.pow(2) * get_gate(t, self.gamma).squeeze()).mean().detach()
+        loss = self.penalty[0].item() * (lossesall.pow(2) * get_gate(t, self.gamma).squeeze()).mean()
         
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
@@ -705,7 +704,7 @@ def train_model(
         loss.backward(retain_graph=False)
         optimizer.step()
         loss_fn.update_rand()
-        loss_fn.update_gamma(res_loss, eps=1e-4)
+        loss_fn.update_gamma(res_loss, eps=1e-5)
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
