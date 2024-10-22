@@ -470,10 +470,12 @@ class Loss:
         randadd = sample_uniform(self.minlimts, self.maxlimts, ntosample, self.device)
         self.randunif = torch.cat([self.randunif, randadd], dim=0)
     
-    def update_gamma(self, loss: torch.Tensor, eps=0.05):
+    def update_gamma(self, loss: torch.Tensor, eps=0.05, deltamax: float = 0.5):
         loss = loss.detach().cpu()
+        updateexp = np.exp(-eps*loss).item()
+        update = min(updateexp, deltamax)
         if loss < self.lossprev:
-            self.gamma = self.gamma + self.lr * np.exp(-eps*loss)
+            self.gamma = self.gamma + self.lr * update
         self.lossprev = loss
     
     def res_loss(self, pinn, use_init: bool = False):
