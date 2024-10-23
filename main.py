@@ -21,12 +21,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN =  True
-delete_old = False
-
-if delete_old:
-    delete_old_files("model")
-    delete_old_files("in_model")
+restart_train = False 
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -56,7 +51,7 @@ b = h/3
 
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
-y_domain = torch.linspace(0, Ly, n_space)/Ly
+y_domain = torch.linspace(0, Ly, n_space)/Lx
 t_domain = torch.linspace(0, T, n_time)
 
 steps = get_step((x_domain, y_domain, t_domain))
@@ -108,27 +103,22 @@ loss_fn = Loss(
         lr
     )
 
-if retrain_PINN:
-    dir_model = pass_folder('model')
-    dir_logs = pass_folder('model/logs')
-
-    pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
-                               max_epochs=epochs, path_logs=dir_logs, path_model=dir_model)
-
-    model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
-    model_path = os.path.join(dir_model, model_name)
-
-    torch.save(pinn_trained.state_dict(), model_path)
-
-else:
-    pinn_trained = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
+dir_model = pass_folder('model')
+dir_logs = pass_folder('model/logs')
+if restart_train:
     filename = get_last_modified_file('model', '.pth')
+    dir_load = os.path.dirname(filename)
+    pinn.load_state_dict(torch.load(filename, map_location=device))
+    with np.load(f'{dir_load}/data.npz') as data:
+        loss_fn.gamma = data['gamma'].item()
+        
+pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
+        max_epochs=epochs, path_logs=dir_logs, path_model=dir_model)
 
-    dir_model = os.path.dirname(filename)
-    print(f'Target for outputs: {dir_model}\n')
+model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
+model_path = os.path.join(dir_model, model_name)
 
-    pinn_trained.load_state_dict(torch.load(filename, map_location=device))
-    print(f'{filename} loaded.\n')
+torch.save(pinn_trained.state_dict(), model_path)
 
 print(pinn_trained)
 

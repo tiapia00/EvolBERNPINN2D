@@ -681,7 +681,7 @@ def train_model(
     writer = SummaryWriter(log_dir=path_logs)
 
     optimizer = optim.AdamW(nn_approximator.parameters(), lr = learning_rate, weight_decay=0.001)
-    scheduler = StepLR(optimizer, step_size = 200, gamma = 0.1)
+    scheduler = StepLR(optimizer, int(max_epochs/3))
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
