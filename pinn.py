@@ -472,7 +472,7 @@ class Loss:
         randadd = sample_uniform(self.minlimts, self.maxlimts, ntosample, self.device)
         self.randunif = torch.cat([self.randunif, randadd], dim=0)
     
-    def update_gamma(self, loss: torch.Tensor, eps=0.05, deltamax: float = 0.8):
+    def update_gamma(self, loss: torch.Tensor, eps=0.05, deltamax: float = 0.1):
         loss = loss.detach().cpu()
         updateexp = np.exp(-eps*loss).item()
         update = min(updateexp, deltamax)
@@ -704,13 +704,13 @@ def train_model(
                     optimizer.zero_grad()
                 
                 norms.insert(0, norm_res)
-                update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 1) 
+                update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9) 
 
         loss.backward(retain_graph=False)
         optimizer.step()
         scheduler.step()
         loss_fn.update_rand()
-        loss_fn.update_gamma(res_loss, eps=1e-5)
+        loss_fn.update_gamma(res_loss, eps=1e-4)
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
