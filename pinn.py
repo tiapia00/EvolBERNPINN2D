@@ -641,8 +641,9 @@ def train_model(
         }, epoch)
 
         writer.add_scalars('Weights_t', {
-            'maxidx': np.argmax(loss_fn.weights).item()
-        })
+            'maxidx': np.argmax(loss_fn.w[1:]).item(),
+            'first': loss_fn.w[0].item()
+        }, epoch)
 
         pbar.update(1)
 
