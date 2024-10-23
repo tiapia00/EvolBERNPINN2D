@@ -13,7 +13,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tens
     z: tensor describing predicted initial conditions"""
     fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(18, 8))
     x = space[:,0]
-    y = space[:,1]
+    y = space[:,1]/100
 
     x_raw = x.detach().cpu().numpy()
     y_raw = y.detach().cpu().numpy()
@@ -107,7 +107,7 @@ def plot_sol(sol: torch.Tensor, space_in: torch.Tensor, t: torch.Tensor, path: s
 
         ax.set_xlim(0, 1)
         ax.set_ylim(np.min(y_limts), np.max(y_limts))
-        ax.scatter(space_in[:,0]+sol[:,frame,0], space_in[:,1]+sol[:,frame,1])
+        ax.scatter(space_in[:,0]+sol[:,frame,0], space_in[:,1]/100+sol[:,frame,1])
 
         return ax
 

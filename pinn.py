@@ -276,8 +276,8 @@ class PINN(nn.Module):
 
         self.V = nn.Linear(3, hiddendim)
 
-        init.normal_(self.U.weight, mean=0.0, std=0.1)
-        init.normal_(self.V.weight, mean=0.0, std=0.1)
+        init.normal_(self.U.weight, mean=0.0, std=0.4)
+        init.normal_(self.V.weight, mean=0.0, std=0.4)
 
         init.normal_(self.U.bias, mean=0., std=0.1)
         init.normal_(self.V.bias, mean=0., std=0.1)
@@ -288,22 +288,22 @@ class PINN(nn.Module):
         for param in self.V.parameters():
             param.requires_grad = False
 
-        self.initlayer = nn.Linear(3, 2*hiddendim, bias=False)
+        self.initlayer = nn.Linear(3, 2*hiddendim)
         nn.init.xavier_normal_(self.initlayer.weight)
 
         self.layers = nn.ModuleList([])
         for _ in range(nhidden):
-            self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim, bias=False))
+            self.layers.append(nn.Linear(2*hiddendim, 2*hiddendim))
             self.layers.append(act)
             nn.init.xavier_normal_(self.layers[-2].weight)
         
-        self.outlayerx = nn.Linear(2*hiddendim, 1, bias=False)
+        self.outlayerx = nn.Linear(2*hiddendim, 1)
         self.outlayerx.weight.data *= 0
 
         for parameter in self.outlayerx.parameters():
             parameter.requires_grad_(False)
 
-        self.outlayery = nn.Linear(2*hiddendim, 1, bias=False)
+        self.outlayery = nn.Linear(2*hiddendim, 1)
 
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
