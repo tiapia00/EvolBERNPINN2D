@@ -21,7 +21,8 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-restart_train = False 
+load = True
+continue_train = False
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -105,20 +106,21 @@ loss_fn = Loss(
 
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
-if restart_train:
-    filename = get_last_modified_file('model', '.pth')
+if load:
+    filename = 'load/0.001_3000_(1, 60).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
     with np.load(f'{dir_load}/data.npz') as data:
         loss_fn.gamma = data['gamma'].item()
         
-pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
+if continue_train:
+    pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
         max_epochs=epochs, path_logs=dir_logs, path_model=dir_model)
-
-model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
-model_path = os.path.join(dir_model, model_name)
-
-torch.save(pinn_trained.state_dict(), model_path)
+    model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
+    model_path = os.path.join(dir_model, model_name)
+    torch.save(pinn_trained.state_dict(), model_path)
+else:
+    pinn_trained = pinn
 
 print(pinn_trained)
 
