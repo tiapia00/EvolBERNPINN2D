@@ -51,7 +51,7 @@ b = h/3
 
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
-y_domain = torch.linspace(0, Ly, n_space)/Lx
+y_domain = torch.linspace(0, Ly, n_space)/Ly
 t_domain = torch.linspace(0, T, n_time)
 
 steps = get_step((x_domain, y_domain, t_domain))
