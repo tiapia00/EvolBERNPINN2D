@@ -22,7 +22,7 @@ else:
     print("Using CPU device.")
 
 load = True
-continue_train = False
+continue_train = True
 
 def get_step(tensors: tuple):
     a, b, c = tensors
