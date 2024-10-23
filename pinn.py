@@ -415,7 +415,8 @@ class Loss:
         interpVbeam,
         interpEkbeam,
         t_tild: float,
-        lr: float
+        lr: float,
+        gamma: float = -0.5
     ):
         self.points = points
         self.w0 = w0
@@ -433,7 +434,7 @@ class Loss:
         self.maxlimts: tuple
         self.minlimts: tuple
         self.npointstot: int
-        self.gamma = -0.5
+        self.gamma = gamma
         self.lossprev: float = 10 
         self.lr = lr
         self.vol: float

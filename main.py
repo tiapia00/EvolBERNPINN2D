@@ -187,7 +187,8 @@ data = {
     'hatT': T,
     'hatV': V,
     'anT': interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild),
-    'anV': interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+    'anV': interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild),
+    'gamma': loss_fn.gamma
 }
 
 np.savez(f'{dir_model}/data.npz', **data)
