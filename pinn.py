@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from torch import nn
 from torch.func import functional_call, vmap, vjp, jvp, jacrev
+from torch.optim.lr_scheduler import StepLR
 import torch.optim as optim
 from scipy.stats import skew, kurtosis
 from scipy.integrate import simpson
@@ -679,7 +680,8 @@ def train_model(
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.AdamW(nn_approximator.parameters(), lr = learning_rate)
+    optimizer = optim.AdamW(nn_approximator.parameters(), lr = learning_rate, weight_decay=0.001)
+    scheduler = StepLR(optimizer, step_size = 200, gamma = 0.1)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
@@ -706,6 +708,7 @@ def train_model(
 
         loss.backward(retain_graph=False)
         optimizer.step()
+        scheduler.step()
         loss_fn.update_rand()
         loss_fn.update_gamma(res_loss, eps=1e-5)
 
