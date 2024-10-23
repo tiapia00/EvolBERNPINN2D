@@ -678,7 +678,7 @@ def train_model(
 
     writer = SummaryWriter(log_dir=path_logs)
 
-    optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
+    optimizer = optim.AdamW(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
