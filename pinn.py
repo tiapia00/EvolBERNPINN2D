@@ -412,7 +412,8 @@ class Loss:
         self.w = np.ones(self.n_time - 1, dtype=np.float32)
         self.vol = vol
         self.res: torch.Tensor = self.initialize_res() 
-        self.Na: int
+        self.Nax: int
+        self.Nt: int
         self.is_a: bool = False
 
     def initialize_res(self):
@@ -484,7 +485,7 @@ class Loss:
         """
         lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).detach()
-        lossesall = lossesall.reshape(N, N, N).pow(2)
+        lossesall = lossesall.reshape(N, N, self.n_time - 1).pow(2)
         
         res_weight = torch.tensor(self.w, device=self.device)**p * lossesall
         
@@ -538,7 +539,7 @@ class Loss:
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
         if self.is_a:
-            lossesall = lossesall.reshape(self.n_space - 3 + self.Na, self.n_space - 3 + self.Na, self.n_time - 1).pow(2)
+            lossesall = lossesall.reshape(self.n_space - 2 + self.Na, self.n_space - 2 + self.Na, self.n_time - 1).pow(2)
         else:
             lossesall = lossesall.reshape(self.n_space - 2, self.n_space - 2, self.n_time - 1).pow(2)
         lossest = lossesall.mean(dim=[0,1])
@@ -691,24 +692,24 @@ def get_p(p: float, w: np.ndarray, dt: float, tada=0, beta1=0.5, beta2=0.7):
     return p.item()
 
 def get_random(t_unique: torch.Tensor, x_max: float, y_max: float, Na: int, device):
-    t_a = t_unique[torch.randint(t_unique.shape[0], (Na,))]
     x_a = torch.rand(Na, device=device) * x_max
     y_a = torch.rand(Na, device=device) * y_max
     
-    x_a, y_a, t_a = torch.meshgrid(x_a, y_a, t_a, indexing='ij')
-    x_a = x_a.reshape(-1,1)
-    y_a = y_a.reshape(-1,1)
-    t_a = t_a.reshape(-1,1)
+    x_grid, y_grid, t_grid = torch.meshgrid(x_a, y_a, t_unique, indexing='ij')
+    x_a = x_grid.reshape(-1,1)
+    y_a = y_grid.reshape(-1,1)
+    t_a = t_grid.reshape(-1,1)
 
     adapt = torch.cat([x_a,y_a,t_a], dim=1)
-    return adapt
+    return adapt, x_grid, y_grid, t_grid
 
 def get_maxidx(res_weight: torch.Tensor, Na: int):
-    topidx = torch.topk(torch.topk(res_weight, Na, dim=0)[0], Na, dim=1)[1]
-    return topidx.reshape(-1)
+    topidx = torch.topk(res_weight.view(-1), Na)[1]
+    return topidx
 
-def update_tada(idxmax, step_t: float):
-    tgrid = idxmax * step_t
+def get_tada(tgrid_flattened: torch.Tensor):
+    tada = tgrid_flattened.mean()
+    return tada
 
 def train_model(
     nn_approximator: PINN,
@@ -720,7 +721,7 @@ def train_model(
     delta: float = 0.99,
     p: float = 1.,
     N: int = 5,
-    Na: int = 2
+    Na: int = 4 
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
@@ -748,16 +749,17 @@ def train_model(
             break
         if epoch % k == 0:
             p = get_p(p, loss_fn.w, loss_fn.steps[-1], tada)
-            random = get_random(t_unique, xmax, ymax, N, loss_fn.device) 
+            random, x_grid, y_grid, t_grid = get_random(t_unique, xmax, ymax, N, loss_fn.device) 
             res_weight = loss_fn.res_grid(nn_approximator, p, random, N)
             topidx = get_maxidx(res_weight, Na)
             x_a = x_grid.reshape(-1)[topidx]
             y_a = y_grid.reshape(-1)[topidx]
-            x_a = torch.unique(x_a)
-            y_a = torch.unique(y_a)
+            t_a = t_grid.reshape(-1)[topidx]
+            tada = get_tada(t_a)
             loss_fn.update_res_points(x_a, y_a)
-        loss_fn.is_a = True
-        loss_fn.Na = Na
+            if epoch == 0:
+                loss_fn.is_a = True
+                loss_fn.Na = Na
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
