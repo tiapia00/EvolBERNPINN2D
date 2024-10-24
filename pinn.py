@@ -204,9 +204,6 @@ class Grid:
         x = grid[:, 0].unsqueeze(1).to(self.device)
         y = grid[:, 1].unsqueeze(1).to(self.device)
         t = grid[:, 2].unsqueeze(1).to(self.device)
-        x.requires_grad = True
-        y.requires_grad = True
-        t.requires_grad = True
 
         return (x, y, t)
 
@@ -725,7 +722,7 @@ def train_model(
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
-    k = max_epochs // 10
+    k =  max_epochs // 10
     tada = 0
 
     optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
@@ -739,10 +736,9 @@ def train_model(
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
         x, y, t = loss_fn.points['res_points']
-        t = t.detach()
         xmax = torch.max(x.detach())
         ymax = torch.max(y.detach())
-        t_unique = torch.unique(t, sorted=True).detach()
+        t_unique = torch.unique(t, sorted=True)
         loss.backward(retain_graph=False)
         optimizer.step()
         if min(loss_fn.w[1:]) > delta:
@@ -755,7 +751,7 @@ def train_model(
             x_a = x_grid.reshape(-1)[topidx]
             y_a = y_grid.reshape(-1)[topidx]
             t_a = t_grid.reshape(-1)[topidx]
-            tada = get_tada(t_a)
+            tada = get_tada(t_a).item()
             loss_fn.update_res_points(x_a, y_a)
             if epoch == 0:
                 loss_fn.is_a = True
