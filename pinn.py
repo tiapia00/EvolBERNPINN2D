@@ -411,12 +411,93 @@ class Loss:
         self.npointstot: int
         self.w = np.ones(self.n_time - 1, dtype=np.float32)
         self.vol = vol
+        self.res: torch.Tensor = self.initialize_res() 
+        self.Na: int
+        self.is_a: bool = False
 
-    def res_loss(self, pinn, use_init: bool = False):
+    def initialize_res(self):
         x, y, t = self.points['res_points']
-        space = torch.cat([x, y], dim=1)
+        res = (torch.cat([x,y], dim=1), t)
+        return res
+    
+    def update_res_points(self, x_a, y_a):
+        x, y, t = self.points['res_points']
+        x = torch.unique(x, sorted=True).detach()
+        y = torch.unique(y, sorted=True).detach()
+        t = torch.unique(t, sorted=True).detach()
 
-        output = pinn(space, t, use_init)
+        x = torch.cat([x, x_a.detach()])
+        y = torch.cat([y, y_a.detach()])
+
+        xgrid, ygrid, tgrid = torch.meshgrid(x, y, t, indexing='ij')
+        x = xgrid.reshape(-1,1)
+        y = ygrid.reshape(-1,1)
+        t = tgrid.reshape(-1,1)
+
+        self.res = (torch.cat([x, y], dim=1), t)
+
+    def res_grid(self, pinn, p: float, random: torch.Tensor, N: int):
+        space = random[:,:2]
+        t = random[:,-1].unsqueeze(1)
+        
+        space.requires_grad_(True)
+        t.requires_grad_(True)
+        output = pinn(space, t)
+
+        """
+        vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        """        
+        vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        """        
+        ax = torch.autograd.grad(vx, t, torch.ones_like(t, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        """
+        ay = torch.autograd.grad(vy, t, torch.ones_like(t, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+
+        """
+        dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        """
+        dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        
+        """
+        dxx_xy2ux = torch.autograd.grad(dxyux[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        dyx_yy2ux = torch.autograd.grad(dxyux[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        """
+        dxx_xy2uy = torch.autograd.grad(dxyuy[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        dyx_yy2uy = torch.autograd.grad(dxyuy[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=False)[0]
+        
+        """
+        loss = (self.adim[0] * (dxx_xy2ux[:,0] + dyx_yy2ux[:,1]) + self.adim[1] * 
+                (dxx_xy2ux[:,0] + dxx_xy2uy[:,1]) - self.adim[2] * ax.squeeze()).pow(2).mean()
+
+        loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
+                (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
+        """
+        lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
+                (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).detach()
+        lossesall = lossesall.reshape(N, N, N).pow(2)
+        
+        res_weight = torch.tensor(self.w, device=self.device)**p * lossesall
+        
+        return res_weight
+        
+
+    def res_loss(self, pinn):
+        space = self.res[0]
+        t = self.res[1]
+        space.requires_grad_(True)
+        t.requires_grad_(True)
+
+        output = pinn(space, t)
 
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -456,7 +537,10 @@ class Loss:
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
-        lossesall = lossesall.reshape(self.n_space - 2, self.n_space - 2, self.n_time - 1).pow(2)
+        if self.is_a:
+            lossesall = lossesall.reshape(self.n_space - 3 + self.Na, self.n_space - 3 + self.Na, self.n_time - 1).pow(2)
+        else:
+            lossesall = lossesall.reshape(self.n_space - 2, self.n_space - 2, self.n_time - 1).pow(2)
         lossest = lossesall.mean(dim=[0,1])
         loss = lossest * torch.tensor(self.w).to(self.device)
         loss = loss.mean()
@@ -527,7 +611,7 @@ class Loss:
 
         return loss, (losspos, lossv)
 
-    def verbose(self, pinn, inc_enloss: bool = False):
+    def verbose(self, pinn):
         res_loss, Vmean, Tmean, errV, errT, res_kurt, res_skew, lossesall = self.res_loss(pinn)
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
@@ -549,8 +633,8 @@ class Loss:
 
         return loss, res_loss, losses 
 
-    def __call__(self, pinn, inc_enloss = False):
-        return self.verbose(pinn, inc_enloss)
+    def __call__(self, pinn):
+        return self.verbose(pinn)
 
 
 def calculate_norm(pinn: PINN):
@@ -592,6 +676,40 @@ def max_off_diagonal(mat):
     
     return max_element
 
+def calculate_tw(w: np.ndarray, dt: float, kappa=0.6):
+    if w[-1] < kappa:
+        logic = np.where(w < kappa)
+        logic = np.argmax(logic)
+        tw = dt * logic
+    else:
+        tw = w.shape[0] * dt
+
+    return tw
+        
+def get_p(p: float, w: np.ndarray, dt: float, tada=0, beta1=0.5, beta2=0.7):
+    p = p * (beta1 * np.tanh(beta2*(tada/calculate_tw(w, dt) - 1)) + 1)
+    return p.item()
+
+def get_random(t_unique: torch.Tensor, x_max: float, y_max: float, Na: int, device):
+    t_a = t_unique[torch.randint(t_unique.shape[0], (Na,))]
+    x_a = torch.rand(Na, device=device) * x_max
+    y_a = torch.rand(Na, device=device) * y_max
+    
+    x_a, y_a, t_a = torch.meshgrid(x_a, y_a, t_a, indexing='ij')
+    x_a = x_a.reshape(-1,1)
+    y_a = y_a.reshape(-1,1)
+    t_a = t_a.reshape(-1,1)
+
+    adapt = torch.cat([x_a,y_a,t_a], dim=1)
+    return adapt
+
+def get_maxidx(res_weight: torch.Tensor, Na: int):
+    topidx = torch.topk(torch.topk(res_weight, Na, dim=0)[0], Na, dim=1)[1]
+    return topidx.reshape(-1)
+
+def update_tada(idxmax, step_t: float):
+    tgrid = idxmax * step_t
+
 def train_model(
     nn_approximator: PINN,
     loss_fn: Callable,
@@ -600,9 +718,14 @@ def train_model(
     path_logs: str,
     path_model: str,
     delta: float = 0.99,
+    p: float = 1.,
+    N: int = 5,
+    Na: int = 2
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
+    k = max_epochs // 10
+    tada = 0
 
     optimizer = optim.Adam(nn_approximator.parameters(), lr = learning_rate)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
@@ -610,15 +733,31 @@ def train_model(
     for epoch in range(max_epochs + 1):
         optimizer.zero_grad()
 
-        use_en = False 
-        loss, res_loss, losses = loss_fn(nn_approximator, use_en)
+        loss, res_loss, losses = loss_fn(nn_approximator)
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
-        loss.backward()
+        x, y, t = loss_fn.points['res_points']
+        t = t.detach()
+        xmax = torch.max(x.detach())
+        ymax = torch.max(y.detach())
+        t_unique = torch.unique(t, sorted=True).detach()
+        loss.backward(retain_graph=False)
         optimizer.step()
         if min(loss_fn.w[1:]) > delta:
             break
+        if epoch % k == 0:
+            p = get_p(p, loss_fn.w, loss_fn.steps[-1], tada)
+            random = get_random(t_unique, xmax, ymax, N, loss_fn.device) 
+            res_weight = loss_fn.res_grid(nn_approximator, p, random, N)
+            topidx = get_maxidx(res_weight, Na)
+            x_a = x_grid.reshape(-1)[topidx]
+            y_a = y_grid.reshape(-1)[topidx]
+            x_a = torch.unique(x_a)
+            y_a = torch.unique(y_a)
+            loss_fn.update_res_points(x_a, y_a)
+        loss_fn.is_a = True
+        loss_fn.Na = Na
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
