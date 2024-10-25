@@ -392,7 +392,7 @@ def sample_uniform(min_vals, max_vals, num_samples, device):
     
     return scaled_points
 
-def get_gate(t: torch.Tensor, gamma: float, alpha: float = 5, istanh: bool = True):
+def get_gate(t: torch.Tensor, gamma: float, alpha: float = 2, istanh: bool = True):
     tnorm = t/torch.max(t).detach()
     if istanh:
         gate = (1 - torch.tanh(alpha*(tnorm-gamma)))/2
@@ -422,7 +422,7 @@ class Loss:
         interpEkbeam,
         t_tild: float,
         lr: float,
-        gamma: float = 0.05
+        gamma: float = -0.5
     ):
         self.points = points
         self.w0 = w0
@@ -529,7 +529,8 @@ class Loss:
         """
         lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
-        F = torch.abs(lossesall) * get_gate(t, self.gamma, istanh=False).squeeze()
+        istanh = True
+        F = torch.abs(lossesall) * get_gate(t, self.gamma, istanh=istanh).squeeze()
         
         thr = F.mean().detach()
         idxover = torch.argwhere(F > thr).squeeze()
@@ -541,7 +542,7 @@ class Loss:
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
 
-        loss = self.penalty[0].item() * (lossesall.pow(2) * get_gate(t, self.gamma, istanh=False).squeeze()).mean()
+        loss = self.penalty[0].item() * (lossesall.pow(2) * get_gate(t, self.gamma, istanh=istanh).squeeze()).mean()
         
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
@@ -709,7 +710,7 @@ def train_model(
                     optimizer.zero_grad()
                 
                 norms.insert(0, norm_res)
-                update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9) 
+                update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 1) 
 
         loss.backward(retain_graph=False)
         optimizer.step()
