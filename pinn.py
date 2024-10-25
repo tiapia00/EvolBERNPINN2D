@@ -489,7 +489,7 @@ class Loss:
         return res_weight
         
 
-    def res_loss(self, pinn):
+    def res_loss(self, pinn, eps=0.1):
         space = self.res[0]
         t = self.res[1]
         space.requires_grad_(True)
@@ -543,7 +543,7 @@ class Loss:
         loss = lossest * torch.tensor(self.w).to(self.device)
         loss = loss.mean()
 
-        self.w = update_tweights(lossesall, self.w, 100)
+        self.w = update_tweights(lossesall, self.w, eps)
             
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
@@ -717,8 +717,8 @@ def train_model(
     path_model: str,
     delta: float = 0.99,
     p: float = 1.,
-    N: int = 5,
-    Na: int = 4 
+    N: int = 40,
+    Na: int = 8 
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
