@@ -684,7 +684,7 @@ def calculate_tw(w: np.ndarray, dt: float, kappa=0.7):
 
     return tw
         
-def get_p(p: float, w: np.ndarray, dt: float, tada=0, beta1=0.5, beta2=0.7):
+def get_p(p: float, w: np.ndarray, dt: float, tada=0, beta1=0.6, beta2=2):
     p = p * (beta1 * np.tanh(beta2*(tada/calculate_tw(w, dt) - 1)) + 1)
     return p.item()
 
@@ -758,7 +758,6 @@ def train_model(
             if epoch == 0:
                 loss_fn.is_a = True
                 loss_fn.Na = Na
-            print(loss_fn.w)
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
@@ -782,7 +781,9 @@ def train_model(
 
         writer.add_scalars('Weights_t', {
             'maxidx': np.argmax(loss_fn.w[1:]).item(),
-            'first': loss_fn.w[0].item()
+            'first': loss_fn.w[0].item(),
+            'tada': tada,
+            'p': p
         }, epoch)
 
         pbar.update(1)

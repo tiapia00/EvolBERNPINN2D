@@ -9,7 +9,7 @@ class Parameters:
         self.multux = 1
         self.multuy = 1 
         self.multhyperx = 1 
-        self.n_hidden : int = 2 
+        self.n_hidden : int = 3 
         self.w0 = 0.08 
         self.pinn_par = {
             'x_end': self.x_end,
@@ -24,7 +24,7 @@ class Parameters:
             'multuy': self.multuy,
             'multhyperx': self.multhyperx,
             'lr': 1e-4,
-            'epochs': 3000 
+            'epochs': 1000 
         }
         self.beam_par = {
             'x_end': self.x_end,
