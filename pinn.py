@@ -489,7 +489,7 @@ class Loss:
         return res_weight
         
 
-    def res_loss(self, pinn, eps=0.1):
+    def res_loss(self, pinn, eps=1):
         space = self.res[0]
         t = self.res[1]
         space.requires_grad_(True)
@@ -674,7 +674,7 @@ def max_off_diagonal(mat):
     
     return max_element
 
-def calculate_tw(w: np.ndarray, dt: float, kappa=0.6):
+def calculate_tw(w: np.ndarray, dt: float, kappa=0.7):
     if w[-1] < kappa:
         logic = np.where(w < kappa)
         logic = np.argmax(logic)
@@ -718,7 +718,7 @@ def train_model(
     delta: float = 0.99,
     p: float = 1.,
     N: int = 40,
-    Na: int = 8 
+    Na: int = 10 
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
@@ -741,8 +741,10 @@ def train_model(
         t_unique = torch.unique(t, sorted=True)
         loss.backward(retain_graph=False)
         optimizer.step()
+        """
         if min(loss_fn.w[1:]) > delta:
             break
+        """
         if epoch % k == 0:
             p = get_p(p, loss_fn.w, loss_fn.steps[-1], tada)
             random, x_grid, y_grid, t_grid = get_random(t_unique, xmax, ymax, N, loss_fn.device) 
@@ -756,6 +758,7 @@ def train_model(
             if epoch == 0:
                 loss_fn.is_a = True
                 loss_fn.Na = Na
+            print(loss_fn.w)
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
@@ -792,8 +795,8 @@ def train_model(
     x, y, t = loss_fn.points['res_points']
     x = x.reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
     t = t.reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
-    loss, res_loss, losses = loss_fn(nn_approximator, True)
-    lossesdistr = losses['loss_distr'].reshape(loss_fn.n_space - 2, loss_fn.n_space - 2, loss_fn.n_time - 1)
+    loss, res_loss, losses = loss_fn(nn_approximator)
+    lossesdistr = losses['loss_distr'].reshape(loss_fn.n_space - 2 + loss_fn.Na, loss_fn.n_space - 2 + loss_fn.Na, loss_fn.n_time - 1)
     lossesdistr = lossesdistr.detach().cpu().numpy()
     lossesdistr = np.abs(np.mean(lossesdistr, axis=1))
     fig, ax = plt.subplots()
