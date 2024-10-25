@@ -393,7 +393,7 @@ def sample_uniform(min_vals, max_vals, num_samples, device):
     return scaled_points
 
 def get_gate(t: torch.Tensor, gamma: float, alpha: float = 5):
-    gate = (1 - torch.tanh(alpha*(t-gamma)))/2
+    gate = (1 - torch.tanh(alpha*(t/torch.max(t).detach()-gamma)))/2
     return gate
 
 def calculateRMS(signal: np.ndarray, step_t: float, t_max: float):
