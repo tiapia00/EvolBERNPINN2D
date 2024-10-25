@@ -285,9 +285,9 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
 
         self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
-        self.register_buffer('By', 0.7 * torch.randn((2, n_mode_spacey), device=device))
+        self.register_buffer('By', torch.randn((2, n_mode_spacey), device=device))
         self.register_buffer('Btx', torch.randn((1, n_mode_spacex), device=device))
-        self.register_buffer('Bty', 0.7 * torch.randn((1, n_mode_spacey), device=device))
+        self.register_buffer('Bty', torch.randn((1, n_mode_spacey), device=device))
         self.By[1,:] *= 0
         
         self.hid_space_layers_x = nn.ModuleList()
@@ -392,7 +392,7 @@ def sample_uniform(min_vals, max_vals, num_samples, device):
     
     return scaled_points
 
-def get_gate(t: torch.Tensor, gamma: float, alpha: float = 2, istanh: bool = True):
+def get_gate(t: torch.Tensor, gamma: float, alpha: float = 5, istanh: bool = True):
     tnorm = t/torch.max(t).detach()
     if istanh:
         gate = (1 - torch.tanh(alpha*(tnorm-gamma)))/2
@@ -477,7 +477,7 @@ class Loss:
         randadd = sample_uniform(self.minlimts, self.maxlimts, ntosample, self.device)
         self.randunif = torch.cat([self.randunif, randadd], dim=0)
     
-    def update_gamma(self, loss: torch.Tensor, eps=0.05, deltamax: float = 0.1):
+    def update_gamma(self, loss: torch.Tensor, eps=0.05, deltamax: float = 0.5):
         loss = loss.detach().cpu()
         updateexp = np.exp(-eps*loss).item()
         update = min(updateexp, deltamax)
@@ -710,7 +710,7 @@ def train_model(
                     optimizer.zero_grad()
                 
                 norms.insert(0, norm_res)
-                update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 1) 
+                update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9) 
 
         loss.backward(retain_graph=False)
         optimizer.step()
