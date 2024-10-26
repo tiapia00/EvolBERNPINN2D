@@ -451,8 +451,10 @@ class Loss:
         
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
+        loss_spikes = torch.autograd.grad(lossesall.unsqueeze(1), t, torch.ones(t.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
 
-        loss = self.penalty[0].item() * lossesall.pow(2).mean()
+        loss = self.penalty[0].item() * (lossesall + loss_spikes.squeeze()).pow(2).mean()
         
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
