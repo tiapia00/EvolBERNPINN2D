@@ -465,15 +465,11 @@ class Loss:
         tgrid = torch.unique(t, sorted=True)
         tmax = torch.max(tgrid).item()
 
-        V = torch.zeros(tgrid.shape[0])
-        T = torch.zeros_like(V)
-        for i, ts in enumerate(tgrid):
-            tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx].reshape(self.n_space - 2, (self.n_space - 2)) 
-            dTt = dT[tidx].reshape(self.n_space - 2, (self.n_space - 2)) 
+        dVt = dV.reshape(self.n_space - 2, self.n_space - 2, self.n_time - 1) 
+        dTt = dT.reshape(self.n_space - 2, self.n_space - 2, self.n_time - 1) 
 
-            V[i] = self.b*simps(simps(dVt, self.steps[1], dim=1), self.steps[0])
-            T[i] = self.b*simps(simps(dTt, self.steps[1], dim=1), self.steps[0])
+        V = self.b*simps(simps(dVt, self.steps[1], dim=1), self.steps[0])
+        T = self.b*simps(simps(dTt, self.steps[1], dim=1), self.steps[0])
 
         Vbeam = self.interpVbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
         Ekbeam = self.interpEkbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
