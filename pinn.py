@@ -712,8 +712,6 @@ def train_model(
             'kurt': losses['res_kurt']
         }, epoch)
 
-        writer.add_scalar("Gamma_gate", loss_fn.gamma, epoch)
-
         writer.add_scalars('R3', {
             "resampled": losses["resampled_perc"],
             "retained": losses["retained_perc"]
