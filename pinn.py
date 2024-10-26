@@ -3,7 +3,7 @@ from tqdm import tqdm
 from typing import Callable
 import numpy as np
 import torch
-import math
+import matplotlib.pyplot as plt
 from torch import nn
 from torch.func import functional_call, vmap, jacrev
 import torch.optim as optim
@@ -629,6 +629,18 @@ def train_model(
             'V': losses["V"].mean().detach().item(),
             'T': losses["T"].mean().detach().item(),
         }, epoch)
+        
+        if epoch % 200 == 0 :
+            fig, ax = plt.subplots()
+            cax = ax.imshow(nn_approximator.res_penalties[:,:,0].detach().cpu().numpy(), cmap='viridis')
+            fig.colorbar(cax)
+            ax.axis('off')
+            plt.tight_layout()
+            fig.canvas.draw()
+            plt.close()
+            img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+            img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            writer.add_image('Penalty matrix for t=0', img, global_step=epoch, dataformats='HWC')
 
         writer.add_scalars('Adaptive', {
             'res': nn_approximator.penalties[0].item(),
