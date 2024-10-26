@@ -147,7 +147,9 @@ nfft = sol1D.shape[0]
 window = np.hanning(nfft)
 beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 Van = interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+Van *= np.max(V)/np.max(Van)
 Tan = interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+Tan *= np.max(T)/np.max(Tan)
 
 errV = (calculateRMS(V, steps[2], tmax) - calculateRMS(Van, steps[2], tmax))/(
         calculateRMS(Van, steps[2], tmax)
