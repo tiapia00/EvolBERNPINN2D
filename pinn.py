@@ -274,7 +274,7 @@ class PINN(nn.Module):
                  multux: int,
                  multuy: int,
                  device,
-                 act = nn.GELU()
+                 act = nn.Tanh()
                  ):
 
         super().__init__()
@@ -450,10 +450,13 @@ class Loss:
         
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
-        loss_spikes = torch.autograd.grad(lossesall.unsqueeze(1), t, torch.ones(t.shape[0], 1, device=self.device),
+        loss_spikes_space = torch.autograd.grad(lossesall.unsqueeze(1), space, torch.ones(space.shape[0], 1, device=self.device),
                 create_graph=True, retain_graph=True)[0]
+        loss_spikes_time = torch.autograd.grad(lossesall.unsqueeze(1), t, torch.ones(t.shape[0], 1, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        loss_spikes = loss_spikes_space.pow(2).mean(dim=0).sum() + loss_spikes_time.pow(2).mean()
 
-        loss = self.penalty[0].item() * (lossesall + loss_spikes.squeeze()).pow(2).mean()
+        loss = self.penalty[0].item() * ((lossesall).pow(2).mean() + loss_spikes)
         
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
@@ -642,7 +645,7 @@ def train_model(
 
             norms.insert(0, norm_res)
             loss.backward(retain_graph=False)
-            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 0.9)
+            update_adaptive(loss_fn, norms, findmaxgrad(nn_approximator), 1)
             optimizer.step()
 
         else:
