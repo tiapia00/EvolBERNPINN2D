@@ -274,7 +274,7 @@ class PINN(nn.Module):
                  multuy: int,
                  penalties: torch.Tensor,
                  device,
-                 act = nn.GELU()
+                 act = nn.Tanh()
                  ):
 
         super().__init__()
