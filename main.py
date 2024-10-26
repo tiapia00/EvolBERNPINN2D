@@ -53,8 +53,6 @@ interpTbeam = make_interp_spline(t_beam, Ek_an, k=5)
 lam, mu = par.to_matpar_PINN()
 
 Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, multhyperx, lr, epochs = get_params(par.pinn_par)
-scaley = 2 
-
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
 y_domain = torch.linspace(0, Ly, n_space)/Lx
@@ -87,8 +85,8 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 
-in_penalty = torch.tensor([1., 2., 1., 2., 1.])
-pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, in_penalty, device).to(device)
+in_penalty = torch.tensor([2., 1., 2.])
+pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, in_penalty, n_space, n_time, scaley, device).to(device)
 in_penalty.requires_grad_(False)
 loss_fn = Loss(
         points,
@@ -106,7 +104,7 @@ loss_fn = Loss(
         t_tild
     )
 
-_, V, T, _, _, _, _, _ = loss_fn.res_loss(pinn, True)
+_, V, T, _, _, _, _ = loss_fn.res_loss(pinn, True)
 
 V0 = V[0].item()
 T0 = 0

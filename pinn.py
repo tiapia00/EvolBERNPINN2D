@@ -273,6 +273,9 @@ class PINN(nn.Module):
                  multux: int,
                  multuy: int,
                  penalties: torch.Tensor,
+                 n_space: int,
+                 n_time: int,
+                 scaley: int,
                  device,
                  act = nn.Tanh()
                  ):
@@ -283,14 +286,14 @@ class PINN(nn.Module):
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
         self.penalties = nn.Parameter(penalties)
+        self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
 
-        self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.By = 0.5 * torch.randn((2, n_mode_spacey), device=device)
+        self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
+        self.register_buffer('By', 0.45 * torch.randn((2, n_mode_spacey), device=device))
+        self.register_buffer('Btx', torch.randn((1, n_mode_spacex), device=device))
+        self.register_buffer('Bty', 0.45 * torch.randn((1, n_mode_spacey), device=device))
         self.By[1,:] *= 0
         
-        self.Btx = torch.randn((1, n_mode_spacex), device=device)
-        self.Bty = 0.5 * torch.randn((1, n_mode_spacey), device=device)
-
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
         self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
@@ -449,7 +452,8 @@ class Loss:
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
         
-        loss = pinn.penalties[0].pow(2) * lossesall.pow(2).mean()
+        loss = pinn.res_penalties.pow(2) * lossesall.reshape(self.n_space - 2, (self.n_space - 2) // self.scaley, self.n_time -1)
+        loss = loss.pow(2).mean()
 
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
@@ -459,24 +463,11 @@ class Loss:
         dT = (1/2*(self.par['w0']/self.par['t_ast'])**2*self.par['rho']*vnorm**2)
         dT = dT * torch.max(dV)/torch.max(dT)
 
-        tgrid = torch.unique(t, sorted=True)
+        dVt = dV.reshape(self.n_space - 2, (self.n_space - 2) // self.scaley, self.n_time - 1) 
+        dTt = dT.reshape(self.n_space - 2, (self.n_space - 2) // self.scaley, self.n_time - 1) 
 
-        V = torch.zeros(tgrid.shape[0])
-        T = torch.zeros_like(V)
-        slices = 10
-        losslices = []
-        losslice = 0
-        for i, ts in enumerate(tgrid):
-            if (i % slices == 0 and i != 0) or i == tgrid.shape[0] - 1:
-                losslices.append(losslice)
-                losslice = 0
-            tidx = torch.nonzero(t.squeeze() == ts).squeeze()
-            dVt = dV[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
-            dTt = dT[tidx].reshape(self.n_space - 2, (self.n_space - 2) // self.scaley) 
-
-            V[i] = self.b*simps(simps(dVt, self.steps[1] * self.scaley, dim=1), self.steps[0])
-            T[i] = self.b*simps(simps(dTt, self.steps[1] * self.scaley, dim=1), self.steps[0])
-            losslice += lossesall[tidx].pow(2).mean().item()
+        V = self.b*simps(simps(dVt, self.steps[1], dim=1), self.steps[0])
+        T = self.b*simps(simps(dTt, self.steps[1], dim=1), self.steps[0])
 
         Vbeam = self.interpVbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
         Ekbeam = self.interpEkbeam(torch.unique(t).detach().cpu().numpy() * self.t_tild) 
@@ -486,7 +477,7 @@ class Loss:
         errV = simpson((V.detach().cpu().numpy() - Vbeam)**2, dx=self.steps[2])/simpson(Vbeam**2, dx=self.steps[2])
         errT = simpson((T.detach().cpu().numpy() - Ekbeam)**2, dx=self.steps[2])/simpson(Ekbeam **2, dx=self.steps[2])
          
-        return loss, V, T, errV, errT, losslices, loss_kurt, loss_skew
+        return loss, V, T, errV, errT, loss_kurt, loss_skew
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -517,7 +508,7 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        losspos = pinn.penalties[1].pow(2) * torch.abs(output[:,1] - init[:,1]).mean()
+        losspos = pinn.penalties[0].pow(2) * torch.abs(output[:,1] - init[:,1]).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -525,16 +516,15 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        lossv = pinn.penalties[2].pow(2) * torch.abs(v * self.par['w0'] - init[:,2:]).mean(dim=0).sum()
+        lossv = pinn.penalties[1].pow(2) * torch.abs(v * self.par['w0'] - init[:,2:]).mean(dim=0).sum()
 
         loss = losspos + lossv
 
         return loss, (losspos, lossv)
 
     def verbose(self, pinn, inc_enloss: bool = False):
-        res_loss, V, T, errV, errT, losseslices, kurt, skew = self.res_loss(pinn)
-        enloss = pinn.penalties[3].pow(2) * ((V+T)).abs().mean() 
-        #enloss += pinn.penalties[4].pow(2)*((self.V0 + self.T0) - (V+T)).pow(2).mean()
+        res_loss, V, T, errV, errT, kurt, skew = self.res_loss(pinn)
+        enloss = pinn.penalties[2].pow(2) * ((V+T)).abs().mean() 
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -552,7 +542,6 @@ class Loss:
             "enloss": enloss,
             "errV": errV,
             "errT": errT,
-            "slices": losseslices,
             "kurt_res": kurt,
             "skew_res": skew
         }
@@ -576,7 +565,7 @@ def train_model(
 
     from plots import plot_energy
 
-    exclude_params = ['penalties']
+    exclude_params = ['penalties', 'res_penalties']
     params_to_optimize = [
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
         {'params': [nn_approximator.penalties], 'lr':  -1e-4}
@@ -635,9 +624,6 @@ def train_model(
             'meantri': meantrintk
         }, epoch)
 
-        slices_dict = {f'slice_{i}': value for i, value in enumerate(losses["slices"])}
-        writer.add_scalars('Slices_loss', slices_dict, epoch)
-
         writer.add_scalars('Energy', {
             'V+T': losses["V+T"].item(),
             'V': losses["V"].mean().detach().item(),
@@ -648,8 +634,6 @@ def train_model(
             'res': nn_approximator.penalties[0].item(),
             'initpos': nn_approximator.penalties[1].item(),
             'initv': nn_approximator.penalties[2].item(),
-            'enlosscons': nn_approximator.penalties[3].item(),
-            'enlossinit': nn_approximator.penalties[4].item()
         }, epoch)
 
         if epoch % 500 == 0:
