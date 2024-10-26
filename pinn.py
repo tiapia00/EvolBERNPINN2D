@@ -392,15 +392,6 @@ def sample_uniform(min_vals, max_vals, num_samples, device):
     
     return scaled_points
 
-def get_gate(t: torch.Tensor, gamma: float, alpha: float = 5, istanh: bool = True):
-    tnorm = t/torch.max(t).detach()
-    if istanh:
-        gate = (1 - torch.tanh(alpha*(tnorm-gamma)))/2
-    else:
-        gate = torch.relu(-torch.tanh(alpha * (tnorm - gamma)))
-    return gate
-
-
 def calculateRMS(signal: np.ndarray, step_t: float, t_max: float):
     rms = 1/t_max * simpson(signal**2, dx=step_t)**1/2
     return rms
@@ -440,7 +431,6 @@ class Loss:
         self.maxlimts: tuple
         self.minlimts: tuple
         self.npointstot: int
-        self.gamma = gamma
         self.lossprev: float = 10 
         self.lr = lr
         self.vol: float
@@ -476,14 +466,6 @@ class Loss:
 
         randadd = sample_uniform(self.minlimts, self.maxlimts, ntosample, self.device)
         self.randunif = torch.cat([self.randunif, randadd], dim=0)
-    
-    def update_gamma(self, loss: torch.Tensor, eps=0.05, deltamax: float = 0.5):
-        loss = loss.detach().cpu()
-        updateexp = np.exp(-eps*loss).item()
-        update = min(updateexp, deltamax)
-        if loss < self.lossprev:
-            self.gamma = self.gamma + self.lr * update
-        self.lossprev = loss
     
     def res_loss(self, pinn, use_init: bool = False):
         space = self.randunif[:,:2]
@@ -529,8 +511,7 @@ class Loss:
         """
         lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
-        istanh = True
-        F = torch.abs(lossesall) * get_gate(t, self.gamma, istanh=istanh).squeeze()
+        F = torch.abs(lossesall)
         
         thr = F.mean().detach()
         idxover = torch.argwhere(F > thr).squeeze()
@@ -542,7 +523,7 @@ class Loss:
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
 
-        loss = self.penalty[0].item() * (lossesall.pow(2) * get_gate(t, self.gamma, istanh=istanh).squeeze()).mean()
+        loss = self.penalty[0].item() * (lossesall.pow(2)).mean()
         
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
@@ -716,7 +697,6 @@ def train_model(
         optimizer.step()
         scheduler.step()
         loss_fn.update_rand()
-        loss_fn.update_gamma(res_loss, eps=1e-4)
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
