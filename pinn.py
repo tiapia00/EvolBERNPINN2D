@@ -272,7 +272,6 @@ class PINN(nn.Module):
                  n_hidden: int,
                  multux: int,
                  multuy: int,
-                 penalties: torch.Tensor,
                  n_space: int,
                  n_time: int,
                  scaley: int,
@@ -285,8 +284,8 @@ class PINN(nn.Module):
         self.w0 = w0
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
-        self.penalties = nn.Parameter(penalties)
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
+        self.in_penalties = nn.Parameter(torch.ones(n_space, n_space // scaley))
 
         self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
         self.register_buffer('By', 0.45 * torch.randn((2, n_mode_spacey), device=device))
@@ -508,7 +507,9 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        losspos = pinn.penalties[0].pow(2) * torch.abs(output[:,1] - init[:,1]).mean()
+        lossgridpos = (output[:,1] - init[:,1]).reshape(self.n_space, self.n_space // self.scaley)
+        losspos = pinn.in_penalties.pow(2) * lossgridpos
+        losspos = losspos.pow(2).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -516,7 +517,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        lossv = pinn.penalties[1].pow(2) * torch.abs(v * self.par['w0'] - init[:,2:]).mean(dim=0).sum()
+        lossv = (v * self.par['w0'] - init[:,2:]).pow(2).mean(dim=0).sum()
 
         loss = losspos + lossv
 
@@ -524,7 +525,7 @@ class Loss:
 
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT, kurt, skew = self.res_loss(pinn)
-        enloss = pinn.penalties[2].pow(2) * ((V+T)).abs().mean() 
+        enloss = ((V+T)).pow(2).mean() 
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -565,10 +566,10 @@ def train_model(
 
     from plots import plot_energy
 
-    exclude_params = ['penalties', 'res_penalties']
+    exclude_params = ['res_penalties', 'in_penalties']
     params_to_optimize = [
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
-        {'params': [nn_approximator.penalties], 'lr':  -1e-4}
+        {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -5e-3}
     ]
     optimizer = optim.Adam(params_to_optimize)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
@@ -640,13 +641,17 @@ def train_model(
             plt.close()
             img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
             img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-            writer.add_image('Penalty matrix for t=0', img, global_step=epoch, dataformats='HWC')
-
-        writer.add_scalars('Adaptive', {
-            'res': nn_approximator.penalties[0].item(),
-            'initpos': nn_approximator.penalties[1].item(),
-            'initv': nn_approximator.penalties[2].item(),
-        }, epoch)
+            writer.add_image('Penalty res t=0', img, global_step=epoch, dataformats='HWC')
+            fig, ax = plt.subplots()
+            cax = ax.imshow(nn_approximator.in_penalties[:,:].detach().cpu().numpy(), cmap='viridis')
+            fig.colorbar(cax)
+            ax.axis('off')
+            plt.tight_layout()
+            fig.canvas.draw()
+            plt.close()
+            img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+            img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            writer.add_image('Penalty init', img, global_step=epoch, dataformats='HWC')
 
         if epoch % 500 == 0:
             t = loss_fn.points['res_points'][-1].unsqueeze(1)
