@@ -44,7 +44,7 @@ Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
-t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 2000, 1)
+t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 1000, 1)
 
 interpdisplbeam = make_interp_spline(t_beam, w[w.shape[0]//2,:])
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)

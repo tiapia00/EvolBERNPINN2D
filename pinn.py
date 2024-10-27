@@ -451,8 +451,8 @@ class Loss:
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
         
-        loss = pinn.res_penalties.pow(2) * lossesall.reshape(self.n_space - 2, (self.n_space - 2) // self.scaley, self.n_time -1)
-        loss = loss.pow(2).mean()
+        loss = torch.tanh(pinn.res_penalties) * lossesall.reshape(self.n_space - 2, (self.n_space - 2) // self.scaley, self.n_time -1).pow(2)
+        loss = loss.mean()
 
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         dV = ((self.par['w0']/self.par['Lx'])**2*(self.par['mu']*torch.sum(eps**2, dim=1)) + self.par['lam']/2 * torch.sum(eps, dim=1)**2)
@@ -508,8 +508,8 @@ class Loss:
 
         init = initial_conditions(space, pinn.w0)
         lossgridpos = (output[:,1] - init[:,1]).reshape(self.n_space, self.n_space // self.scaley)
-        losspos = pinn.in_penalties.pow(2) * lossgridpos
-        losspos = losspos.pow(2).mean()
+        losspos = torch.tanh(pinn.in_penalties) * lossgridpos.pow(2)
+        losspos = losspos.mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
