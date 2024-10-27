@@ -4,7 +4,7 @@ class Parameters:
         self.y_end = 0.5
         self.t_end = 0.5 
         self.n_space = 50 
-        self.n_time = 60
+        self.n_time = 50
         self.dim_hidden = 70
         self.multux = 1
         self.multuy = 1 
@@ -23,7 +23,7 @@ class Parameters:
             'multux': self.multux,
             'multuy': self.multuy,
             'multhyperx': self.multhyperx,
-            'lr': 5e-4,
+            'lr': 5e-5,
             'epochs': 5000 
         }
         self.beam_par = {

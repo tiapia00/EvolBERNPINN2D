@@ -480,15 +480,12 @@ class Loss:
 
         return loss, (losspos, lossv)
 
-    def verbose(self, pinn, inc_enloss: bool = False):
+    def verbose(self, pinn):
         res_loss, V, T, errV, errT, kurt, skew = self.res_loss(pinn)
         enloss = ((V+T)).pow(2).mean() 
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
-
-        if inc_enloss:
-            loss += enloss
 
         losses = {
             "in_losses": init_losses,
@@ -507,7 +504,7 @@ class Loss:
         return loss, res_loss, losses 
 
     def __call__(self, pinn, inc_enloss = False):
-        return self.verbose(pinn, inc_enloss)
+        return self.verbose(pinn)
 
 def train_model(
     nn_approximator: PINN,
@@ -524,22 +521,35 @@ def train_model(
     from plots import plot_energy
 
     exclude_params = ['res_penalties', 'in_penalties_p', 'in_penalties_v']
+    params_non_excluded = [p for n, p in nn_approximator.named_parameters() if n not in exclude_params]
+    params_excluded = [p for n, p in nn_approximator.named_parameters() if n in exclude_params]
+
     params_to_optimize = [
-        {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
-        {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -5e-3}
+        {'params': params_non_excluded, 'lr': learning_rate},
+        {'params': params_excluded, 'lr': -5e-3}
     ]
-    optimizer = optim.Adam(params_to_optimize)
+    adam_optimizer = optim.Adam(params_to_optimize)
+    lbfgs_optimizer = optim.LBFGS(params_non_excluded, lr=learning_rate)
+
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
+    res_loss = None
+    losses = None
+
     for epoch in range(max_epochs + 1):
-        optimizer.zero_grad()
+        if epoch > max_epochs - 100:
+            optimizer = lbfgs_optimizer
+        else:
+            optimizer = adam_optimizer
+        def closure():
+            nonlocal res_loss, losses
+            optimizer.zero_grad()
+            loss, res_loss, losses = loss_fn(nn_approximator)
+            loss.backward(retain_graph=False)
+            return loss
 
-        use_en = False
-        loss, res_loss, losses = loss_fn(nn_approximator, use_en)
-
+        loss = optimizer.step(closure)
         pbar.set_description(f"Loss: {loss.item():.3e}")
-
-        loss.backward(retain_graph=False)
 
         if epoch % 100 == 0:
             params = {k: v.detach() for k, v in nn_approximator.named_parameters()}
@@ -551,8 +561,6 @@ def train_model(
             init_t = points['initial_points_hyper'][-1][idx_init,:].detach()
             ntk = empirical_ntk_jacobian_contraction(fnet_single, params, res_space, res_t, init_space, init_t, nn_approximator)
             trntk = torch.einsum('ii', ntk).item()
-
-        optimizer.step()
         upper_sum = torch.einsum('ij->', torch.triu(ntk, diagonal=1))
         lower_sum = torch.einsum('ij->', torch.tril(ntk, diagonal=-1))
         meantrintk = 1/(ntk.shape[0]**2 - ntk.shape[0]) * (upper_sum + lower_sum)

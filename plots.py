@@ -3,7 +3,6 @@ from matplotlib.cm import viridis
 from mpl_toolkits.mplot3d import Axes3D
 import torch
 from matplotlib.animation import FuncAnimation
-from pinn import PINN
 import numpy as np
 
 
@@ -123,6 +122,7 @@ def plot_energy(t: np.ndarray, V: np.ndarray, T: np.ndarray, epoch: int, path: s
     plt.plot(t, V, label='Potential energy')
     plt.plot(t, T, label='Kinetic energy')
     plt.plot(t, V+T, label='Mechanical energy')
+    plt.xlabel(r'$t$')
     
     plt.legend()
     file = f'{path}/energy_{epoch}'
