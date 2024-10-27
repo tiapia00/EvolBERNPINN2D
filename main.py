@@ -85,7 +85,7 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 
-pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, n_space, n_time, scaley, device).to(device)
+pinn = PINN(dim_hidden, n_hidden, n_space, n_time, scaley).to(device)
 loss_fn = Loss(
         points,
         n_space,
@@ -101,14 +101,6 @@ loss_fn = Loss(
         interpTbeam,
         t_tild
     )
-
-_, V, T, _, _, _, _ = loss_fn.res_loss(pinn, True)
-
-V0 = V[0].item()
-T0 = 0
-
-loss_fn.V0 = V0
-loss_fn.T0 = T0
 
 if retrain_PINN:
     dir_model = pass_folder('model')
