@@ -286,8 +286,7 @@ class PINN(nn.Module):
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
-        self.in_penalties_p = nn.Parameter(5 * torch.ones(n_space, n_space // scaley))
-        self.in_penalties_v = nn.Parameter(torch.ones(n_space, n_space // scaley))
+        self.in_penalties = nn.Parameter(3 * torch.ones(n_space, n_space // scaley))
 
         self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
         self.register_buffer('By', 1.4 * torch.randn((2, n_mode_spacey), device=device))
@@ -506,7 +505,7 @@ class Loss:
 
         init = initial_conditions(space, pinn.w0)
         lossgridpos = (output[:,1] - init[:,1]).reshape(self.n_space, self.n_space // self.scaley)
-        losspos = torch.tanh(pinn.in_penalties_p) * lossgridpos.pow(2)
+        losspos = torch.tanh(pinn.in_penalties) * lossgridpos.pow(2)
         losspos = losspos.mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
@@ -515,7 +514,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        lossv = torch.tanh(pinn.in_penalties_v.unsqueeze(2)) * (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(self.n_space, self.n_space // self.scaley, 2).pow(2)
+        lossv = torch.tanh(pinn.in_penalties.unsqueeze(2)) * (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(self.n_space, self.n_space // self.scaley, 2).pow(2)
         lossv = lossv.mean()
 
         loss = losspos + lossv
@@ -571,7 +570,7 @@ def train_model(
         {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-3}
     ]
     optimizer = optim.AdamW(params_to_optimize)
-    #scheduler = lr_scheduler.StepLR(optimizer, 400)
+    scheduler = lr_scheduler.ExponentialLR(optimizer, 0.998)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
@@ -596,7 +595,7 @@ def train_model(
             trntk = torch.einsum('ii', ntk).item()
 
         optimizer.step()
-        #scheduler.step()
+        scheduler.step()
         upper_sum = torch.einsum('ij->', torch.triu(ntk, diagonal=1))
         lower_sum = torch.einsum('ij->', torch.tril(ntk, diagonal=-1))
         meantrintk = 1/(ntk.shape[0]**2 - ntk.shape[0]) * (upper_sum + lower_sum)
@@ -644,7 +643,7 @@ def train_model(
             img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
             writer.add_image('Penalty res t=0', img, global_step=epoch, dataformats='HWC')
             fig, ax = plt.subplots()
-            cax = ax.imshow(nn_approximator.in_penalties_p[:,:].detach().cpu().numpy(), cmap='viridis')
+            cax = ax.imshow(nn_approximator.in_penalties[:,:].detach().cpu().numpy(), cmap='viridis')
             fig.colorbar(cax)
             ax.axis('off')
             plt.tight_layout()
