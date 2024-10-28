@@ -291,8 +291,8 @@ class PINN(nn.Module):
         nn.init.normal_(self.U.weight, mean=0.0, std=0.7)
         nn.init.normal_(self.V.weight, mean=0.0, std=0.7)
 
-        nn.init.normal_(self.U.bias, mean=0., std=0.5)
-        nn.init.normal_(self.V.bias, mean=0., std=0.5)
+        nn.init.normal_(self.U.bias, mean=0., std=0.4)
+        nn.init.normal_(self.V.bias, mean=0., std=0.4)
 
         for param in self.U.parameters():
             param.requires_grad = False
@@ -313,12 +313,10 @@ class PINN(nn.Module):
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
         U = self.U(input)
-        U = torch.tanh(input)
         #U = torch.sin(np.pi * U)
         
         V = self.V(input)
-        V = torch.tanh(V)
-        #V = torch.sin(np.pi * V)
+        V = torch.sin(np.pi * V)
         
         out = self.initlayer(input)
 
@@ -532,8 +530,9 @@ def train_model(
         {'params': params_non_excluded, 'lr': learning_rate},
         {'params': params_excluded, 'lr': -5e-3}
     ]
-    adam_optimizer = optim.AdamW(params_to_optimize, weight_decay=0.01)
-    lbfgs_optimizer = optim.LBFGS(params_non_excluded, lr=learning_rate)
+    adam_optimizer = optim.AdamW(params_to_optimize)
+    
+    optimizer = adam_optimizer
 
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
@@ -541,10 +540,6 @@ def train_model(
     losses = None
 
     for epoch in range(max_epochs + 1):
-        if epoch > max_epochs - 100:
-            optimizer = lbfgs_optimizer
-        else:
-            optimizer = adam_optimizer
         def closure():
             nonlocal res_loss, losses
             optimizer.zero_grad()
