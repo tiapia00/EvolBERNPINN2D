@@ -93,7 +93,7 @@ magnpos, freqpos = extractcompfft(yf, freq)
 if np.max(magnpos) != 0:
     magnpos *= 1./np.max(magnpos)
 
-pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
+pinn = PINN(dim_hidden, n_hidden, device).to(device)
 
 #En0 = calc_initial_energy(pinn, n_space, points, device)
 

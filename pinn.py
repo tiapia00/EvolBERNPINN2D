@@ -345,48 +345,35 @@ def gaussian(alpha, beta):
     return phi
 
 class PINN(nn.Module):
-    def __init__(self,
-                 dim_hidden: tuple,
-                 w0: float,
-                 n_hidden: int,
-                 multux: int,
-                 multuy: int,
-                 device,
-                 act = nn.Tanh()
-                 ):
-
+    def __init__(self, hiddim: tuple, nhidden: int, device):
         super().__init__()
+        hiddimx, hiddimy = hiddim
 
-        self.w0 = w0
-        n_mode_spacex = dim_hidden[0]
-        n_mode_spacey = dim_hidden[1]
+        self.inx = nn.Linear(3, hiddimx)
+        self.layers_x = nn.ModuleList()
+        for _ in range(nhidden):
+            self.layers_x.append(nn.Linear(hiddimx, hiddimx))
+            self.layers_x.append(nn.Tanh())
+        self.outx = nn.Linear(hiddimx, 1)
 
-        self.Bx = torch.randn([2, n_mode_spacex], device=device)
-        self.Btx = torch.randn((1, n_mode_spacex), device=device)
+        self.iny = nn.Linear(3, hiddimy)
+        self.rbf_y = RBF(hiddimy, 1, device)
+    
+    def forward(self, space, t):
+        inp = torch.cat([space, t], dim=1)
+        outx = self.inx(inp)
+        for layer in self.layers_x:
+            outx = layer(outx)
+        
+        outy = self.iny(inp)
+        outy = self.rbf_y(outy)
 
-        self.hid_space_layers_x = nn.ModuleList()
-        hiddimx = multux * 2 * n_mode_spacex
-        self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
-        for _ in range(n_hidden):
-            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
+        out = torch.cat([outx, outy], dim=1)
 
-        self.inity = nn.Linear(2, n_mode_spacey)
-        self.layersy = RBF(3, n_mode_spacey, device)
-        self.outy = nn.Linear(n_mode_spacey, 1)
-        nn.init.normal_(self.outy.weight)
+        out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
-        self.layerxmodes = nn.Linear(hiddimx, n_mode_spacex)
-        self.outlayerx = nn.Linear(n_mode_spacex, 1)
+        return out
 
-        self.outlayerx.weight.data *= 0
-
-        for param in self.outlayerx.parameters():
-            param.requires_grad_(False)
-
-    def fourier_features(self, input, B):
-        x_proj = input @ B
-        return torch.cat([torch.sin(np.pi * x_proj),
-                torch.cos(np.pi * x_proj)], dim=1)
 
     def _initialize_weights(self):
         # Initialize all layers with Xavier initialization
@@ -395,33 +382,6 @@ class PINN(nn.Module):
                 nn.init.orthogonal_(layer.weight)  # Glorot uniform initialization
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
-
-    def forward(self, space, t):
-        fourier_space_x = self.fourier_features(space, self.Bx)
-        fourier_tx = self.fourier_features(t, self.Btx)
-
-        x_in = fourier_space_x
-        tx = fourier_tx
-
-        for layer in self.hid_space_layers_x:
-            x_in = layer(x_in)
-            tx = layer(tx)
-        
-        ytrans = self.layersy(torch.cat([space, t], dim=1))
-        yout = self.outy(ytrans)
-        
-        xout = self.layerxmodes(x_in)
-        tx = self.layerxmodes(tx)
-
-        xout = xout * tx
-
-        xout = self.outlayerx(xout)
-
-        out = torch.cat([xout, yout], dim=1)
-
-        out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
-
-        return out
 
 class Loss:
     def __init__(
@@ -543,9 +503,8 @@ class Loss:
         space = torch.cat([x, y], dim=1)
         output = pinn(space, t)
 
-        init = initial_conditions(space, pinn.w0)
-        losspos = (output[:,0] - init[:,0]).pow(2).mean()
-        losspos += self.penalty[1].item() * (output[:,1] - init[:,1]).pow(2).mean()
+        init = initial_conditions(space, self.w0)
+        losspos = self.penalty[1].item() * (output[:,1] - init[:,1]).pow(2).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
