@@ -313,10 +313,12 @@ class PINN(nn.Module):
     def forward(self, space, t):
         input = torch.cat([space, t], dim=1)
         U = self.U(input)
-        U = torch.sin(np.pi * U)
+        U = torch.tanh(input)
+        #U = torch.sin(np.pi * U)
         
         V = self.V(input)
-        V = torch.sin(np.pi * V)
+        V = torch.tanh(V)
+        #V = torch.sin(np.pi * V)
         
         out = self.initlayer(input)
 
