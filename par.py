@@ -2,10 +2,10 @@ class Parameters:
     def __init__(self):
         self.x_end = 500 
         self.y_end = 0.5
-        self.t_end = 0.8
+        self.t_end = 0.5
         self.n_space = 40
         self.n_time = 50 
-        self.dim_hidden = (1, 40) 
+        self.dim_hidden = (1, 20) 
         self.multux = 1
         self.multuy = 1 
         self.multhyperx = 1 
@@ -24,7 +24,7 @@ class Parameters:
             'multuy': self.multuy,
             'multhyperx': self.multhyperx,
             'lr': 1e-3,
-            'epochs': 5000 
+            'epochs': 3000 
         }
         self.beam_par = {
             'x_end': self.x_end,
