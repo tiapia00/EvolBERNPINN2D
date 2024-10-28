@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from torch import nn
 from torch.func import functional_call, vmap, jacrev
 import torch.optim as optim
+import matplotlib.colors as mcolors
 from scipy.integrate import simpson
 from scipy.stats import kurtosis, skew
 
@@ -290,8 +291,8 @@ class PINN(nn.Module):
         nn.init.normal_(self.U.weight, mean=0.0, std=0.7)
         nn.init.normal_(self.V.weight, mean=0.0, std=0.7)
 
-        nn.init.normal_(self.U.bias, mean=0., std=0.1)
-        nn.init.normal_(self.V.bias, mean=0., std=0.1)
+        nn.init.normal_(self.U.bias, mean=0., std=0.5)
+        nn.init.normal_(self.V.bias, mean=0., std=0.5)
 
         for param in self.U.parameters():
             param.requires_grad = False
@@ -432,7 +433,7 @@ class Loss:
         errV = simpson((V.detach().cpu().numpy() - Vbeam)**2, dx=self.steps[2])/simpson(Vbeam**2, dx=self.steps[2])
         errT = simpson((T.detach().cpu().numpy() - Ekbeam)**2, dx=self.steps[2])/simpson(Ekbeam **2, dx=self.steps[2])
          
-        return loss, V, T, errV, errT, loss_kurt, loss_skew
+        return loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -481,7 +482,7 @@ class Loss:
         return loss, (losspos, lossv)
 
     def verbose(self, pinn):
-        res_loss, V, T, errV, errT, kurt, skew = self.res_loss(pinn)
+        res_loss, V, T, errV, errT, kurt, skew, lossesall = self.res_loss(pinn)
         enloss = ((V+T)).pow(2).mean() 
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
@@ -498,7 +499,8 @@ class Loss:
             "errV": errV,
             "errT": errT,
             "kurt_res": kurt,
-            "skew_res": skew
+            "skew_res": skew,
+            'loss_distr': lossesall
         }
 
         return loss, res_loss, losses 
@@ -528,7 +530,7 @@ def train_model(
         {'params': params_non_excluded, 'lr': learning_rate},
         {'params': params_excluded, 'lr': -5e-3}
     ]
-    adam_optimizer = optim.Adam(params_to_optimize)
+    adam_optimizer = optim.AdamW(params_to_optimize, weight_decay=0.01)
     lbfgs_optimizer = optim.LBFGS(params_non_excluded, lr=learning_rate)
 
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
@@ -629,6 +631,23 @@ def train_model(
     pbar.close()
 
     writer.close()
+    x, y, t = loss_fn.points['res_points']
+    ydim = (loss_fn.n_space - 2) // loss_fn.scaley
+    x = x.reshape(loss_fn.n_space - 2, ydim, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
+    t = t.reshape(loss_fn.n_space - 2, ydim, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
+    loss, res_loss, losses = loss_fn(nn_approximator, True)
+    lossesdistr = losses['loss_distr'].reshape(loss_fn.n_space - 2, ydim, loss_fn.n_time - 1)
+    lossesdistr = lossesdistr.detach().cpu().numpy()
+    lossesdistr = np.abs(np.mean(lossesdistr, axis=1))
+    fig, ax = plt.subplots()
+    norm = mcolors.LogNorm(vmin=np.min(lossesdistr), vmax=np.max(lossesdistr))
+    heatmap = ax.imshow(lossesdistr, extent=[t.min(), t.max(), x.min(), x.max()], origin='lower', 
+                    aspect='auto', cmap='inferno', norm=norm)
+    plt.colorbar(heatmap, ax=ax)
+    ax.set_title(r'PDE Residuals')
+    ax.set_xlabel(r'$t$')
+    ax.set_ylabel(r'$x$')
+    plt.savefig(f'{modeldir}/PDEres.png')
 
     return nn_approximator
 
