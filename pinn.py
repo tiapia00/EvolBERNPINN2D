@@ -286,7 +286,7 @@ class PINN(nn.Module):
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
-        self.in_penalties = nn.Parameter(3 * torch.ones(n_space, n_space // scaley))
+        self.in_penalties = nn.Parameter(4 * torch.ones(n_space, n_space // scaley))
 
         self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
         self.register_buffer('By', 1.4 * torch.randn((2, n_mode_spacey), device=device))
@@ -564,13 +564,13 @@ def train_model(
 
     from plots import plot_energy
 
-    exclude_params = ['res_penalties', 'in_penalties_p', 'in_penalties_v']
+    exclude_params = ['res_penalties', 'in_penalties']
     params_to_optimize = [
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
         {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-3}
     ]
-    optimizer = optim.AdamW(params_to_optimize)
-    scheduler = lr_scheduler.ExponentialLR(optimizer, 0.998)
+    optimizer = optim.AdamW(params_to_optimize, weight_decay=0.1)
+    #scheduler = lr_scheduler.ExponentialLR(optimizer, 0.993)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
@@ -595,7 +595,7 @@ def train_model(
             trntk = torch.einsum('ii', ntk).item()
 
         optimizer.step()
-        scheduler.step()
+        #scheduler.step()
         upper_sum = torch.einsum('ij->', torch.triu(ntk, diagonal=1))
         lower_sum = torch.einsum('ij->', torch.tril(ntk, diagonal=-1))
         meantrintk = 1/(ntk.shape[0]**2 - ntk.shape[0]) * (upper_sum + lower_sum)

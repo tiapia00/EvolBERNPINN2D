@@ -4,8 +4,8 @@ class Parameters:
         self.y_end = 0.5
         self.t_end = 0.5 
         self.n_space = 50 
-        self.n_time = 50
-        self.dim_hidden = (1, 30) 
+        self.n_time = 60
+        self.dim_hidden = (1, 50) 
         self.multux = 1
         self.multuy = 1 
         self.multhyperx = 1 
