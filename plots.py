@@ -84,6 +84,7 @@ def plot_average_displ(sol: torch.Tensor, t: torch.Tensor, path: str):
     ax[1].set_ylabel(r'$\overline{u}_y$')
 
     file = f'{path}/displ_comp.png'
+    plt.tight_layout()
     plt.savefig(file)
 
 
