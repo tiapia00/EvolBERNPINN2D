@@ -570,7 +570,7 @@ def train_model(
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
         {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-3}
     ]
-    optimizer = optim.AdamW(params_to_optimize, weight_decay=0.001)
+    optimizer = optim.AdamW(params_to_optimize)
     #scheduler = lr_scheduler.ExponentialLR(optimizer, 0.997)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
