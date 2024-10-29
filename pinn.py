@@ -369,6 +369,9 @@ class PINN(nn.Module):
 
         return out
     
+def calculateRMS(signal: np.ndarray, step_t: float, t_max: float):
+    rms = 1/t_max * simpson(signal**2, dx=step_t)**1/2
+    return rms
 
 class Loss:
     def __init__(
@@ -403,6 +406,7 @@ class Loss:
         self.t_tild = t_tild
         self.V0: float
         self.T0: float
+        self.tmax = torch.max(self.points['res_points'][-1]).item()
 
     def res_loss(self, pinn, use_init: bool = False):
         x, y, t = self.points['res_points']
@@ -471,8 +475,8 @@ class Loss:
         Vbeam *= np.max(V.detach().cpu().numpy())/np.max(Vbeam)
         Ekbeam *= np.max(T.detach().cpu().numpy())/np.max(Ekbeam)
 
-        errV = simpson((V.detach().cpu().numpy() - Vbeam)**2, dx=self.steps[2])/simpson(Vbeam**2, dx=self.steps[2])
-        errT = simpson((T.detach().cpu().numpy() - Ekbeam)**2, dx=self.steps[2])/simpson(Ekbeam **2, dx=self.steps[2])
+        errV = (calculateRMS(V.detach().cpu().numpy(), self.steps[2], self.tmax) - calculateRMS(Vbeam, self.steps[2], self.tmax)) / calculateRMS(Vbeam, self.steps[2], self.tmax)
+        errT = (calculateRMS(T.detach().cpu().numpy(), self.steps[2], self.tmax) - calculateRMS(Ekbeam, self.steps[2], self.tmax)) / calculateRMS(Ekbeam, self.steps[2], self.tmax)
          
         return loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall.detach()
 
@@ -666,25 +670,51 @@ def train_model(
 
     return nn_approximator
 
-def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple):
+def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tuple, hypert: int, par: dict, steps: list, device: torch.device):
     nx, ny, nt = nsamples
+    nt *= hypert
     sol = torch.zeros(nx, ny, nt, 2)
     spaceidx = torch.zeros(nx, ny, nt, 2)
     tsv = torch.unique(t, sorted=True)
     output = pinn(space, t)
 
+    dxyux = torch.autograd.grad(output[:,0].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=device),
+            create_graph=True, retain_graph=True)[0]
+    dxyuy = torch.autograd.grad(output[:,1].unsqueeze(1), space, torch.ones(space.shape[0], 1, device=device),
+            create_graph=True, retain_graph=True)[0]
+    vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=device),
+            create_graph=True, retain_graph=True)[0]
+    vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=device),
+            create_graph=True, retain_graph=True)[0]
+
+    eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1).detach()
+    dV = ((par['w0']/par['Lx'])**2*(par['mu']*torch.sum(eps**2, dim=1)) + par['lam']/2 * torch.sum(eps, dim=1)**2).detach()
+
+    v = torch.cat([vx, vy], dim=1)
+    vnorm = torch.norm(v, dim=1)
+    dT = (1/2*(par['w0']/par['t_ast'])**2*par['rho']*vnorm**2).detach()
+    dT = dT * torch.max(dV)/torch.max(dT)
+
+    V = torch.zeros(len(tsv))
+    T = torch.zeros_like(V)
     for i in range(len(tsv)):
         idxt = torch.nonzero(t.squeeze() == tsv[i])
         spaceidx[:,:,i,:] = space[idxt].reshape(nx, ny, 2)
         sol[:,:,i,:] = output[idxt,:2].reshape(nx, ny, 2)
-    
+
+        dVt = dV[idxt].reshape(nx, ny)
+        dTt = dT[idxt].reshape(nx, ny)
+
+        V[i] = par["b"] * simps(simps(dVt, steps[1], dim=1), steps[0])
+        T[i] = par["b"] * simps(simps(dTt, steps[1], dim=1), steps[0])
+
     spaceexpand = spaceidx[:,:,0,:].unsqueeze(2).expand_as(spaceidx)
     check = torch.all(spaceexpand == spaceidx).item()
 
     if not check:
         raise ValueError('Extracted space tensors not matching')
     
-    return sol.detach().cpu().numpy()
+    return sol.detach().cpu().numpy(), V.detach().cpu().numpy(), T.detach().cpu().numpy()
 
 def df_num_torch(dx: float, y: torch.tensor):
     dy = torch.diff(y)

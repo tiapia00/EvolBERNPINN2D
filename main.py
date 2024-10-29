@@ -23,7 +23,7 @@ else:
     print("Using CPU device.")
 
 load = True
-train = True
+train = False 
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -48,11 +48,11 @@ interpTbeam = make_interp_spline(t_beam, Ek_an, k=5)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, T, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, multhyperx, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, tmax, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, multhyperx, lr, epochs = get_params(par.pinn_par)
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
 y_domain = torch.linspace(0, Ly, n_space)/Lx
-t_domain = torch.linspace(0, T, n_time)
+t_domain = torch.linspace(0, tmax, n_time)
 
 steps = get_step((x_domain, y_domain, t_domain))
 
@@ -70,6 +70,7 @@ points = {
 adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
 par = {"Lx": Lx,
         "w0": w0,
+        "b": h/3,
         "lam": lam,
         "mu":mu,
         "rho": rho,
@@ -136,18 +137,23 @@ allpoints = torch.cat(points["all_points_eval"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
-sol = obtainsolt_u(pinn_trained, space, t, nsamples)
+sol, V, T = obtainsolt_u(pinn_trained, space, t, nsamples, 1, par, steps, device)
 
 sol1D = sol[sol.shape[1]//2,sol.shape[1]//2,:,1]
 nfft = sol1D.shape[0]
-window = np.hanning(nfft)
-fftpredicted = fft.rfft(window * sol1D)
 beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
-fftan = fft.rfft(window * beamdispl)
-errfreq = np.mean(np.abs(fftpredicted - fftan))
+Van = interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+Van *= np.max(V)/np.max(Van)
+Tan = interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+Tan *= np.max(T)/np.max(Tan)
 
-with open(f'{dir_model}/freqerr.txt', 'w') as file:
-    file.write(f"errfreq = {errfreq}\n")
+dt = steps[2].item()
+errV = (calculateRMS(V, dt, tmax) - calculateRMS(Van, dt, tmax))/(
+        calculateRMS(Van, dt, tmax)
+).item()
+errT = (calculateRMS(T, dt, tmax) - calculateRMS(Tan, dt, tmax))/(
+        calculateRMS(Tan, dt, tmax)
+).item()
 
 sol = sol.reshape(n_space**2, n_time, 2)
 plot_sol(sol, spacein, t, dir_model)
