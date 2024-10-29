@@ -4,6 +4,7 @@ from typing import Callable
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from torch import nn
 from torch.func import functional_call, vmap, jacrev
 import torch.optim as optim
@@ -286,12 +287,12 @@ class PINN(nn.Module):
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
-        self.in_penalties = nn.Parameter(4 * torch.ones(n_space, n_space // scaley))
+        self.in_penalties = nn.Parameter(5 * torch.ones(n_space, n_space // scaley))
 
         self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
-        self.register_buffer('By', 1.4 * torch.randn((2, n_mode_spacey), device=device))
+        self.register_buffer('By', 1.5 * torch.randn((2, n_mode_spacey), device=device))
         self.register_buffer('Btx', torch.randn((1, n_mode_spacex), device=device))
-        self.register_buffer('Bty', 1.2 * torch.randn((1, n_mode_spacey), device=device))
+        self.register_buffer('Bty', torch.randn((1, n_mode_spacey), device=device))
         
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -301,9 +302,9 @@ class PINN(nn.Module):
 
         self.hid_space_layers_y = nn.ModuleList()
         hiddimy = multuy * 2 * n_mode_spacey
-        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy))
+        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy, bias=False))
         for _ in range(n_hidden):
-            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy, bias=False))
+            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
             self.hid_space_layers_y.append(act)
 
         self.layerxmodes = nn.Linear(hiddimx, n_mode_spacex)
@@ -324,7 +325,7 @@ class PINN(nn.Module):
         # Initialize all layers with Xavier initialization
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_normal_(layer.weight)  # Glorot uniform initialization
+                nn.init.xavier_uniform_(layer.weight)  # Glorot uniform initialization
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
@@ -473,7 +474,7 @@ class Loss:
         errV = simpson((V.detach().cpu().numpy() - Vbeam)**2, dx=self.steps[2])/simpson(Vbeam**2, dx=self.steps[2])
         errT = simpson((T.detach().cpu().numpy() - Ekbeam)**2, dx=self.steps[2])/simpson(Ekbeam **2, dx=self.steps[2])
          
-        return loss, V, T, errV, errT, loss_kurt, loss_skew
+        return loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall.detach()
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -522,7 +523,7 @@ class Loss:
         return loss, (losspos, lossv)
 
     def verbose(self, pinn, inc_enloss: bool = False):
-        res_loss, V, T, errV, errT, kurt, skew = self.res_loss(pinn)
+        res_loss, V, T, errV, errT, kurt, skew, lossgrid = self.res_loss(pinn)
         enloss = ((V+T)).pow(2).mean() 
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
@@ -542,7 +543,8 @@ class Loss:
             "errV": errV,
             "errT": errT,
             "kurt_res": kurt,
-            "skew_res": skew
+            "skew_res": skew,
+            "loss_distr": lossgrid
         }
 
         return loss, res_loss, losses 
@@ -553,7 +555,6 @@ class Loss:
 def train_model(
     nn_approximator: PINN,
     loss_fn: Callable,
-    points: dict,
     learning_rate: int,
     max_epochs: int,
     path_logs: str,
@@ -569,8 +570,8 @@ def train_model(
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
         {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-3}
     ]
-    optimizer = optim.AdamW(params_to_optimize, weight_decay=0.1)
-    #scheduler = lr_scheduler.ExponentialLR(optimizer, 0.993)
+    optimizer = optim.AdamW(params_to_optimize, weight_decay=0.001)
+    #scheduler = lr_scheduler.ExponentialLR(optimizer, 0.997)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
     for epoch in range(max_epochs + 1):
@@ -583,22 +584,8 @@ def train_model(
 
         loss.backward(retain_graph=False)
 
-        if epoch % 100 == 0:
-            params = {k: v.detach() for k, v in nn_approximator.named_parameters()}
-            idx_res = torch.randperm(points['res_points'][0].shape[0])[:10]
-            res_space = torch.cat(points['res_points'], dim=1)[idx_res,:2].detach()
-            res_t = points['res_points'][-1][idx_res, :].detach()
-            idx_init = torch.randperm(points['initial_points_hyper'][0].shape[0])[:10]
-            init_space = torch.cat(points['initial_points_hyper'], dim=1)[idx_init,:2].detach()
-            init_t = points['initial_points_hyper'][-1][idx_init,:].detach()
-            ntk = empirical_ntk_jacobian_contraction(fnet_single, params, res_space, res_t, init_space, init_t, nn_approximator)
-            trntk = torch.einsum('ii', ntk).item()
-
         optimizer.step()
         #scheduler.step()
-        upper_sum = torch.einsum('ij->', torch.triu(ntk, diagonal=1))
-        lower_sum = torch.einsum('ij->', torch.tril(ntk, diagonal=-1))
-        meantrintk = 1/(ntk.shape[0]**2 - ntk.shape[0]) * (upper_sum + lower_sum)
         """
         l1_norm = sum(p.abs().sum() for p in nn_approximator.parameters())
         loss += lambda_reg * l1_norm
@@ -617,12 +604,6 @@ def train_model(
         writer.add_scalars('Loss/Distr_res', {
             "kurt_res": losses['kurt_res'],
             "skew_res": losses['skew_res'],
-        }, epoch)
-
-        writer.add_scalars('NTK', {
-            'tr': trntk,
-            'meandiag': ntk.diag().mean(),
-            'meantri': meantrintk
         }, epoch)
 
         writer.add_scalars('Energy', {
@@ -664,6 +645,24 @@ def train_model(
     pbar.close()
 
     writer.close()
+
+    x, y, t = loss_fn.points['res_points']
+    ny = (loss_fn.n_space - 2) // loss_fn.scaley
+    x = x.reshape(loss_fn.n_space - 2, ny, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
+    t = t.reshape(loss_fn.n_space - 2, ny, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
+    loss, res_loss, losses = loss_fn(nn_approximator, True)
+    lossesdistr = losses['loss_distr'].reshape(loss_fn.n_space - 2, ny, loss_fn.n_time - 1)
+    lossesdistr = lossesdistr.detach().cpu().numpy()
+    lossesdistr = np.abs(np.mean(lossesdistr, axis=1))
+    fig, ax = plt.subplots()
+    norm = mcolors.LogNorm(vmin=np.min(lossesdistr), vmax=np.max(lossesdistr))
+    heatmap = ax.imshow(lossesdistr, extent=[t.min(), t.max(), x.min(), x.max()], origin='lower', 
+                    aspect='auto', cmap='inferno', norm=norm)
+    plt.colorbar(heatmap, ax=ax)
+    ax.set_title(r'PDE Residuals')
+    ax.set_xlabel(r'$t$')
+    ax.set_ylabel(r'$x$')
+    plt.savefig(f'{modeldir}/PDEres.png')
 
     return nn_approximator
 

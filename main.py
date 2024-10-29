@@ -22,12 +22,8 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-retrain_PINN =  True
-delete_old = False
-
-if delete_old:
-    delete_old_files("model")
-    delete_old_files("in_model")
+load = True
+train = True
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -102,7 +98,7 @@ loss_fn = Loss(
         t_tild
     )
 
-_, V, T, _, _, _, _ = loss_fn.res_loss(pinn, True)
+_, V, T, _, _, _, _, _ = loss_fn.res_loss(pinn, True)
 
 V0 = V[0].item()
 T0 = 0
@@ -110,27 +106,20 @@ T0 = 0
 loss_fn.V0 = V0
 loss_fn.T0 = T0
 
-if retrain_PINN:
-    dir_model = pass_folder('model')
-    dir_logs = pass_folder('model/logs')
-
-    pinn_trained = train_model(pinn, loss_fn=loss_fn, points=points, learning_rate=lr,
-                               max_epochs=epochs, path_logs=dir_logs, modeldir=dir_model)
-
+dir_model = pass_folder('model')
+dir_logs = pass_folder('model/logs')
+if load:
+    filename = 'model/10-29/1102/0.001_5000_(1, 80).pth'
+    dir_load = os.path.dirname(filename)
+    pinn.load_state_dict(torch.load(filename, map_location=device))
+if train:
+    pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
+        max_epochs=epochs, path_logs=dir_logs, modeldir=dir_model)
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
-
     torch.save(pinn_trained.state_dict(), model_path)
-
 else:
-    pinn_trained = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
-    filename = get_last_modified_file('model', '.pth')
-
-    dir_model = os.path.dirname(filename)
-    print(f'Target for outputs: {dir_model}\n')
-
-    pinn_trained.load_state_dict(torch.load(filename, map_location=device))
-    print(f'{filename} loaded.\n')
+    pinn_trained = pinn
 
 print(pinn_trained)
 
