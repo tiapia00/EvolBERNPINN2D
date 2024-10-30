@@ -24,6 +24,8 @@ else:
 
 load = True
 train = False 
+plotloss = True
+getzip = False
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -159,55 +161,69 @@ sol = sol.reshape(n_space**2, n_time, 2)
 plot_sol(sol, spacein, t, dir_model)
 plot_average_displ(sol, t, dir_model)
 
-# Compute gradients with respect to the loss
-loss = loss_fn(pinn_trained)[0]
-loss.backward()
+if plotloss:
+    grad_accumulation = {name: 0.0 for name, param in pinn_trained.named_parameters()}
 
-param_gradients = [(name, param.grad.abs().mean().item()) for name, param in pinn.named_parameters()]
-# Sort by gradient magnitude to find the most determinant parameters
-param_gradients.sort(key=lambda x: x[1], reverse=True)
-most_determinant_params = [param_gradients[0][0], param_gradients[1][0]]
+    num_epochs = 30
 
-# Define perturbations for the two most determinant parameters and create a grid
-perturb_range = np.linspace(-0.5, 0.5, 30)
-loss_profile = np.zeros((50, 50))
+    pbar = tqdm(total=num_epochs, desc="", position=0)
+    for epoch in range(num_epochs):
+        loss = loss_fn(pinn_trained)[0]        # Compute loss
+        pinn_trained.zero_grad()                   # Zero gradients before backprop
+        loss.backward()                     # Backpropagation
 
-# Set up grid and evaluate loss for perturbations
-original_params = {name: param.clone() for name, param in pinn.named_parameters()}
+        pbar.update(1)
 
-for i, alpha in enumerate(perturb_range):
-    for j, beta in enumerate(perturb_range):
-        # Apply perturbations to the two most determinant parameters
-        for idx, perturb in enumerate([alpha, beta]):
-            layer_name, param_type = most_determinant_params[idx].rsplit(".", 1)
-            param = getattr(getattr(pinn_trained, layer_name), param_type)
-            param.data = original_params[most_determinant_params[idx]] + perturb
-        
-        # Forward pass and loss calculation
-        loss_profile[i, j] = loss_fn(pinn_trained)[0].item()
+        # Accumulate gradient magnitudes
+        for name, param in pinn_trained.named_parameters():
+            if param.grad is not None:
+                grad_accumulation[name] += param.grad.abs().mean().item()
 
-# Reset parameters to original values
-for name, param in original_params.items():
-    layer_name, param_type = name.rsplit(".", 1)
-    original_param = getattr(getattr(pinn_trained, layer_name), param_type)
-    original_param.data = param
+    pbar.close()
+    for name in grad_accumulation:
+        grad_accumulation[name] /= num_epochs
 
-# Plot the loss profile
-plt.figure(figsize=(10, 6))
-plt.contourf(perturb_range, perturb_range, loss_profile, levels=50, cmap='viridis')
-plt.colorbar(label='Loss')
-plt.xlabel(r'$\alpha$')
-plt.ylabel(r'$\beta$')
-plt.tight_layout()
-plt.savefig(f'{dir_model}/loss_map.png')
+    sorted_params = sorted(grad_accumulation.items(), key=lambda x: x[1], reverse=True)
+    most_influential_params = [sorted_params[0][0], sorted_params[1][0]]
 
-import os
-import shutil
+    perturb_range = np.linspace(-1e-3, 1e-3, 30)
+    loss_profile = np.zeros((30, 30))
 
-def create_zip(file_paths, zip_name):
-    shutil.make_archive(zip_name, 'zip', file_paths)
+    original_params = {name: param.clone() for name, param in pinn.named_parameters()}
 
-timenow = get_current_time(fmt='%m-%d %H:%M')
+    for i, alpha in enumerate(perturb_range):
+        for j, beta in enumerate(perturb_range):
+            for idx, perturb in enumerate([alpha, beta]):
+                layer_name, param_type = most_influential_params[idx].rsplit(".", 1)
+                param = getattr(getattr(pinn_trained, layer_name), param_type)
+                param.data = original_params[most_influential_params[idx]] + perturb
+            
+            loss_profile[i, j] = loss_fn(pinn_trained)[0].item()
 
-create_zip(dir_model, f'model_FF-{timenow}')
-create_zip(dir_logs, f'logs_FF-{timenow}')
+    plt.figure(figsize=(10, 6))
+    X, Y = np.meshgrid(perturb_range, perturb_range)
+    fig = plt.figure(figsize=(10, 7))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(X, Y, loss_profile, cmap='viridis', edgecolor='none')
+    plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
+    plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+    plt.ticklabel_format(style='sci', axis='z', scilimits=(0,0))
+    plt.locator_params(axis='y', nbins=7)
+    plt.locator_params(axis='x', nbins=7)
+    plt.locator_params(axis='z', nbins=7)
+    plt.xlabel(r'$\alpha$')
+    plt.ylabel(r'$\beta$')
+    plt.tight_layout()
+    plt.savefig(f'{dir_model}/loss_map.png')
+
+if getzip:
+    import os
+    import shutil
+
+    def create_zip(file_paths, zip_name):
+        shutil.make_archive(zip_name, 'zip', file_paths)
+
+    timenow = get_current_time(fmt='%m-%d %H:%M')
+
+    create_zip(dir_model, f'model_FF-{timenow}')
+    create_zip(dir_logs, f'logs_FF-{timenow}')

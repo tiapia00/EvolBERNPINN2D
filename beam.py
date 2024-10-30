@@ -6,7 +6,6 @@ from scipy.integrate import odeint
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation as animation
 
-
 class Beam:
     def __init__(self, length, E, rho, H, b, n_points):
         self.length = length  # m
