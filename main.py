@@ -186,10 +186,10 @@ if plotloss:
     sorted_params = sorted(grad_accumulation.items(), key=lambda x: x[1], reverse=True)
     most_influential_params = [sorted_params[0][0], sorted_params[1][0]]
 
-    perturb_range = np.linspace(-1e-3, 1e-3, 30)
+    perturb_range = np.linspace(-1e-1, 1e-1, 30)
     loss_profile = np.zeros((30, 30))
 
-    original_params = {name: param.clone() for name, param in pinn.named_parameters()}
+    original_params = {name: param.clone() for name, param in pinn_trained.named_parameters()}
 
     for i, alpha in enumerate(perturb_range):
         for j, beta in enumerate(perturb_range):
