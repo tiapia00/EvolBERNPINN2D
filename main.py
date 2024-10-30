@@ -21,8 +21,10 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True
+load = True
+train = False 
+plotloss = False
+getzip = False
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -107,11 +109,11 @@ loss_fn = Loss(
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.0001_5000_(1, 60).pth'
+    filename = 'load/0.0001_3000_(1, 60).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
     with np.load(f'{dir_load}/data.npz') as data:
-        loss_fn.gamma = data['gamma'].item()
+        loss_fn.gamma = -0.3819
         
 if train:
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
@@ -187,13 +189,83 @@ data = {
 
 np.savez(f'{dir_model}/data.npz', **data)
 
-import os
-import shutil
+
+if plotloss:
+    grad_accumulation = {name: 0.0 for name, param in pinn_trained.named_parameters()}
+
+    num_epochs = 20 
+
+    pbar = tqdm(total=num_epochs, desc="", position=0)
+    for epoch in range(num_epochs):
+        loss = loss_fn(pinn_trained, update=False)[0]        # Compute loss
+        pinn_trained.zero_grad()                   # Zero gradients before backprop
+        loss.backward()                     # Backpropagation
+
+        pbar.update(1)
+
+        # Accumulate gradient magnitudes
+        for name, param in pinn_trained.named_parameters():
+            if param.grad is not None:
+                grad_accumulation[name] += param.grad.abs().mean().item()
+
+    pbar.close()
+    for name in grad_accumulation:
+        grad_accumulation[name] /= num_epochs
+
+    sorted_params = sorted(grad_accumulation.items(), key=lambda x: x[1], reverse=True)
+    most_influential_params = [sorted_params[0][0], sorted_params[1][0]]
+
+    npoints = 30
+    perturb_range = np.linspace(-0.5, 0.5, npoints)
+    loss_profile = np.zeros((npoints, npoints))
+
+    original_params = {name: param.clone() for name, param in pinn_trained.named_parameters()}
+
+    for i, alpha in enumerate(perturb_range):
+        for j, beta in enumerate(perturb_range):
+            # Apply perturbations
+            for idx, perturb in enumerate([alpha, beta]):
+                param_name = most_influential_params[idx]
+                # Split the parameter name into layer_name and param_type
+                layer_name, param_type = param_name.rsplit('.', 1)  # Split from the right on the last dot
+                
+                # Access the layer using the name and index
+                if '.' in layer_name:  # Handle if layer_name includes an index (e.g., 'hid_space_layers_x.0')
+                    layer_base_name, layer_index = layer_name.rsplit('.', 1)  # Separate base name and index
+                    layer = getattr(pinn_trained, layer_base_name)[int(layer_index)]  # Access the layer by index
+                else:
+                    layer = getattr(pinn_trained, layer_name)  # Get the layer directly
+
+                param = getattr(layer, param_type)  # Get the parameter (weight/bias)
+
+                # Apply the perturbation
+                param.data = original_params[param_name].data + perturb
+            
+            # Calculate the loss with the perturbed parameters
+            loss_profile[i, j] = loss_fn(pinn_trained, update=False)[0].item()
+
+    plt.figure(figsize=(10, 6))
+    X, Y = np.meshgrid(perturb_range, perturb_range)
+    fig = plt.figure(figsize=(10, 7))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(X, Y, loss_profile, cmap='viridis', edgecolor='none')
+    plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
+    plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+    plt.ticklabel_format(style='sci', axis='z', scilimits=(0,0))
+    plt.locator_params(axis='y', nbins=7)
+    plt.locator_params(axis='x', nbins=7)
+    plt.locator_params(axis='z', nbins=7)
+    plt.xlabel(r'$\alpha$')
+    plt.ylabel(r'$\beta$')
+    plt.tight_layout()
+    plt.savefig(f'{dir_model}/loss_map.png')
 
 def create_zip(file_paths, zip_name):
     shutil.make_archive(zip_name, 'zip', file_paths)
 
-timenow = get_current_time(fmt='%m-%d %H:%M')
-
-create_zip(dir_model, f'model_FF-{timenow}')
-create_zip(dir_logs, f'logs_FF-{timenow}')
+if getzip:
+    import os
+    import shutil
+    timenow = get_current_time(fmt='%m-%d %H:%M')
+    create_zip(dir_model, f'model_FF-{timenow}')
+    create_zip(dir_logs, f'logs_FF-{timenow}')

@@ -485,7 +485,7 @@ class Loss:
             self.gamma = self.gamma + self.lr * update
         self.lossprev = loss
     
-    def res_loss(self, pinn, use_init: bool = False):
+    def res_loss(self, pinn, use_init: bool = False, update: bool = True):
         space = self.randunif[:,:2]
         space.requires_grad_(True)
         t = self.randunif[:,-1].unsqueeze(1)
@@ -530,14 +530,18 @@ class Loss:
         lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
         istanh = True
-        F = torch.abs(lossesall) * get_gate(t, self.gamma, istanh=istanh).squeeze()
         
-        thr = F.mean().detach()
-        idxover = torch.argwhere(F > thr).squeeze()
-        retainedperc = idxover.shape[0]/self.randunif.shape[0] * 100
-        resampledperc = 100 - retainedperc
+        if update:
+            F = torch.abs(lossesall) * get_gate(t, self.gamma, istanh=istanh).squeeze()
+            thr = F.mean().detach()
+            idxover = torch.argwhere(F > thr).squeeze()
+            retainedperc = idxover.shape[0]/self.randunif.shape[0] * 100
+            resampledperc = 100 - retainedperc
 
-        self.randunif = self.randunif[idxover,:]
+            self.randunif = self.randunif[idxover,:]
+        else:
+            retainedperc = 0
+            resampledperc = 0
         
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
         loss_kurt = kurtosis(lossesall.detach().cpu().numpy())
@@ -608,8 +612,8 @@ class Loss:
 
         return loss, (losspos, lossv)
 
-    def verbose(self, pinn, inc_enloss: bool = False):
-        res_loss, Vmean, Tmean, errV, errT, res_kurt, res_skew, retainedperc, resampledperc, lossesall = self.res_loss(pinn)
+    def verbose(self, pinn, update: bool = True):
+        res_loss, Vmean, Tmean, errV, errT, res_kurt, res_skew, retainedperc, resampledperc, lossesall = self.res_loss(pinn, update=update)
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = res_loss + init_loss
@@ -632,8 +636,8 @@ class Loss:
 
         return loss, res_loss, losses 
 
-    def __call__(self, pinn, inc_enloss = False):
-        return self.verbose(pinn, inc_enloss)
+    def __call__(self, pinn, update: bool = True):
+        return self.verbose(pinn, update)
 
 
 def calculate_norm(pinn: PINN):
