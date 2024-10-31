@@ -625,7 +625,7 @@ def train_model(
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
-        loss.backward(retain_graph=False)
+        loss.backward()
 
         optimizer.step()
         #scheduler.step()
@@ -678,9 +678,9 @@ def train_model(
             writer.add_image('Penalty init', img, global_step=epoch, dataformats='HWC')
 
         if epoch % 500 == 0:
-            t = loss_fn.points['res_points'][-1].unsqueeze(1)
+            t = loss_fn.points['res_points'][-1].unsqueeze(1).detach()
             t = torch.unique(t, sorted=True)
-            plot_energy(t.detach().cpu().numpy(), losses["V"].detach().cpu().numpy(), losses["T"].detach().cpu().numpy(), epoch, modeldir) 
+            plot_energy(t.cpu().numpy(), losses["V"].detach().cpu().numpy(), losses["T"].detach().cpu().numpy(), epoch, modeldir) 
 
         pbar.update(1)
 

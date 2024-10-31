@@ -64,7 +64,7 @@ if plots:
     ani = animation.FuncAnimation(fig=fig, func=update, frames=40, interval=100)
     plt.show()
 
-interpdisplbeam = make_interp_spline(t_beam, w[w.shape[0]//2,:])
+interpdisplbeam = make_interp_spline(t_beam, w[w.shape[0]//2,:], k=5)
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)
 interpTbeam = make_interp_spline(t_beam, Ek_an, k=5)
 
@@ -148,6 +148,7 @@ else:
 print(pinn_trained)
 
 pinn_trained.eval()
+torch.cuda.empty_cache()
 
 tin = inpoints[:,-1].unsqueeze(1)
 z = pinn_trained(spacein, tin)
@@ -177,6 +178,12 @@ plt.savefig(f'{dir_model}/anhatencomp.png')
 sol1D = sol[sol.shape[1]//2,sol.shape[1]//2,:,1]
 nfft = sol1D.shape[0]
 beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+plt.figure()
+plt.plot(t_domain.detach().cpu().numpy(), beamdispl, label=r'$w$')
+plt.plot(t_domain.detach().cpu().numpy(), sol1D, label=r'$\hat{w}$')
+plt.xlabel(r'$\hat{t}$')
+plt.legend()
+plt.savefig(f'{dir_model}/wmidcomp.png')
 
 dt = steps[2].item()
 errV = (calculateRMS(V, dt, tmax) - calculateRMS(Van, dt, tmax))/(
