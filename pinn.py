@@ -289,7 +289,7 @@ class PINN(nn.Module):
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
-        self.in_penalties = nn.Parameter(5 * torch.ones(n_space * hyperx, n_space // scaley))
+        self.in_penalties = nn.Parameter(torch.ones(n_space * hyperx, n_space // scaley))
 
         for i in range(modesx):
             Bx = torch.randn([2, n_mode_spacex], device=device)
@@ -297,9 +297,11 @@ class PINN(nn.Module):
         for i in range(len(modesy)):
             By = modesy[i] * torch.randn([2, n_mode_spacey], device=device)
             self.register_buffer(f'By_{i}', By)
+        """
         for name, buffer in self.named_buffers():
             if name.startswith('By_'):
                 buffer[1,:] = torch.zeros(n_mode_spacey, device=device)
+        """
         
         for i in range(modesx):
             Btx = torch.randn([1, n_mode_spacex], device=device)
@@ -324,7 +326,6 @@ class PINN(nn.Module):
         self.outlayerx = nn.Linear(2 * modesx**2 * n_mode_spacex, 1, bias=False)
         self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1, bias=False)
         self._initialize_weights()
-        self.outlayerx.weight.data *= 0 
         """
         weightslast = torch.from_numpy(magnFFT).float()
         weightslast[2:] *= 0
@@ -612,7 +613,7 @@ def train_model(
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
         {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-3}
     ]
-    optimizer = optim.AdamW(params_to_optimize)
+    optimizer = optim.AdamW(params_to_optimize, weight_decay=0.1)
     #scheduler = lr_scheduler.ExponentialLR(optimizer, 0.997)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 

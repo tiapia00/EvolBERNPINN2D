@@ -162,13 +162,21 @@ t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
 sol, V, T = obtainsolt_u(pinn_trained, space, t, nsamples, 1, par, steps, device)
 
-sol1D = sol[sol.shape[1]//2,sol.shape[1]//2,:,1]
-nfft = sol1D.shape[0]
-beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 Van = interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 Van *= np.max(V)/np.max(Van)
 Tan = interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 Tan *= np.max(T)/np.max(Tan)
+
+plt.figure()
+plt.plot(torch.unique(t).detach().cpu().numpy(), V, label=r'$\hat{V}$')
+plt.plot(torch.unique(t).detach().cpu().numpy(), Tan, label=r'$V$')
+plt.xlabel(r'$\hat{t}$')
+plt.legend()
+plt.savefig(f'{dir_model}/anhatencomp.png')
+
+sol1D = sol[sol.shape[1]//2,sol.shape[1]//2,:,1]
+nfft = sol1D.shape[0]
+beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 
 dt = steps[2].item()
 errV = (calculateRMS(V, dt, tmax) - calculateRMS(Van, dt, tmax))/(
