@@ -9,6 +9,7 @@ from par import Parameters, get_params
 from analytical import obtain_analytical_free
 from scipy.interpolate import make_interp_spline
 import scipy.fft as fft
+import matplotlib.animation as animation
 
 torch.set_default_dtype(torch.float32)
 
@@ -26,6 +27,7 @@ load = False
 train = True 
 plotloss = False
 getzip = False
+plots = False
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -43,6 +45,24 @@ E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
 t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 1000, 2)
+if plots:
+    plt.figure()
+    plt.plot(t_beam, V_an, label='Potential Energy')
+    plt.plot(t_beam, Ek_an, label='Kinetic Energy')
+    plt.xlim((0, 0.05))
+    plt.legend()
+
+    plt.show()
+    fig, ax = plt.subplots()
+    line, = ax.plot(my_beam.xi, w[:,0])
+    ax.legend()
+
+    def update(frame):
+        line.set_ydata(w[:,frame])
+        return line, 
+
+    ani = animation.FuncAnimation(fig=fig, func=update, frames=40, interval=100)
+    plt.show()
 
 interpdisplbeam = make_interp_spline(t_beam, w[w.shape[0]//2,:])
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)
