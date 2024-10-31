@@ -279,6 +279,7 @@ class PINN(nn.Module):
                  multuy: int,
                  modesx: int,
                  modesy: list,
+                 hyperx: int,
                  device,
                  ):
 
@@ -288,7 +289,7 @@ class PINN(nn.Module):
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
-        self.in_penalties = nn.Parameter(5 * torch.ones(n_space, n_space // scaley))
+        self.in_penalties = nn.Parameter(5 * torch.ones(n_space * hyperx, n_space // scaley))
 
         for i in range(modesx):
             Bx = torch.randn([2, n_mode_spacex], device=device)
@@ -419,6 +420,7 @@ class Loss:
         adim: tuple,
         par: dict,
         scaley: int,
+        hyperx: int,
         device: torch.device,
         interpVbeam,
         interpEkbeam,
@@ -440,6 +442,7 @@ class Loss:
         self.t_tild = t_tild
         self.V0: float
         self.T0: float
+        self.hyperx = hyperx
         self.tmax = torch.max(self.points['res_points'][-1]).item()
 
     def res_loss(self, pinn, use_init: bool = False):
@@ -543,7 +546,7 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        lossgridpos = (output[:,1] - init[:,1]).reshape(self.n_space, self.n_space // self.scaley)
+        lossgridpos = (output[:,1] - init[:,1]).reshape(self.n_space * self.hyperx, self.n_space // self.scaley)
         losspos = torch.tanh(pinn.in_penalties) * lossgridpos.pow(2)
         losspos = losspos.mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -553,7 +556,8 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        lossv = torch.tanh(pinn.in_penalties.unsqueeze(2)) * (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(self.n_space, self.n_space // self.scaley, 2).pow(2)
+        lossv = torch.tanh(pinn.in_penalties.unsqueeze(2)) * (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(
+                self.n_space * self.hyperx, self.n_space // self.scaley, 2).pow(2)
         lossv = lossv.mean()
 
         loss = losspos + lossv

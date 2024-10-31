@@ -84,7 +84,7 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 
-pinn = PINN(dim_hidden, w0, n_hidden, n_space, scaley, n_time, multux, multuy, modesx, modesy, device).to(device)
+pinn = PINN(dim_hidden, w0, n_hidden, n_space, scaley, n_time, multux, multuy, modesx, modesy, multhyperx, device).to(device)
 loss_fn = Loss(
         points,
         n_space,
@@ -95,6 +95,7 @@ loss_fn = Loss(
         adim,
         par,
         scaley,
+        multhyperx,
         device,
         interpVbeam,
         interpTbeam,
