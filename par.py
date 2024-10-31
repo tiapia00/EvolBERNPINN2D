@@ -7,10 +7,10 @@ class Parameters:
         self.n_time = 65
         self.dim_hidden = (1, 80) 
         self.modesx = 1
-        self.modesy = [1.7, 4.5]
+        self.modesy = [1.7]
         self.multux = 1
         self.multuy = 1 
-        self.multhyperx = 3 
+        self.multhyperx = 2 
         self.n_hidden : int = 3 
         self.w0 = 0.08 
         self.pinn_par = {

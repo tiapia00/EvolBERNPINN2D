@@ -75,7 +75,7 @@ def simps(y, dx, dim=0):
 def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0*(torch.sin(2*torch.pi*x) + torch.sin(4*torch.pi*x))
+    uy0 = w0*(torch.sin(2*torch.pi*x))
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -212,7 +212,7 @@ class Grid:
 
         return (x, y, t)
 
-    def get_all_points_eval(self):
+    def get_all_points(self):
         x_all, y_all, t_all = torch.meshgrid(self.x_domain, self.y_domain,
                                              self.t_domain, indexing='ij')
         x_all = x_all.reshape(-1,1).to(self.device)
@@ -345,7 +345,7 @@ class PINN(nn.Module):
         # Initialize all layers with Xavier initialization
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
-                nn.init.orthogonal_(layer.weight)  # Glorot uniform initialization
+                nn.init.xavier_normal_(layer.weight)  # Glorot uniform initialization
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
@@ -426,7 +426,7 @@ class Loss:
         interpVbeam,
         interpEkbeam,
         t_tild: float,
-        verbose: bool = False
+        labelled: torch.Tensor
     ):
         self.points = points
         self.w0 = w0
@@ -445,6 +445,7 @@ class Loss:
         self.T0: float
         self.hyperx = hyperx
         self.tmax = torch.max(self.points['res_points'][-1]).item()
+        self.labelled = labelled
 
     def res_loss(self, pinn, use_init: bool = False):
         x, y, t = self.points['res_points']
@@ -550,33 +551,34 @@ class Loss:
         lossgridpos = (output[:,1] - init[:,1]).reshape(self.n_space * self.hyperx, self.n_space // self.scaley)
         losspos = torch.tanh(pinn.in_penalties) * lossgridpos.pow(2)
         losspos = losspos.mean()
-        vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
-                create_graph=True, retain_graph=True)[0]
-        vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
-                create_graph=True, retain_graph=True)[0]
+
+        return losspos
+
+    def data_loss(self, pinn):
+        x, y, t = self.points['all_points']
+        space = torch.cat([x, y], dim=1)
+
+        output = pinn(space, t)
+
+        output = output.reshape(self.n_space, self.n_space, self.n_time, 2)
+        criterion = nn.MSELoss()
+        loss = criterion(output[...,1], self.labelled)
+
+        return loss
+
         
-        v = torch.cat([vx, vy], dim=1)
-
-        lossv = torch.tanh(pinn.in_penalties.unsqueeze(2)) * (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(
-                self.n_space * self.hyperx, self.n_space // self.scaley, 2).pow(2)
-        lossv = lossv.mean()
-
-        loss = losspos + lossv
-
-        return loss, (losspos, lossv)
-
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT, kurt, skew, lossgrid = self.res_loss(pinn)
         enloss = ((V+T)).pow(2).mean() 
         boundloss = self.bound_N_loss(pinn)
-        init_loss, init_losses = self.initial_loss(pinn)
-        loss = init_loss + res_loss
+        init_loss = self.initial_loss(pinn)
+        data_loss = self.data_loss(pinn)
+        loss = init_loss + res_loss + data_loss
 
         if inc_enloss:
             loss += enloss
 
         losses = {
-            "in_losses": init_losses,
             "in_loss": init_loss,
             "bound_loss": boundloss,
             "V": V,

@@ -8,8 +8,8 @@ from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
 from scipy.interpolate import make_interp_spline
-import scipy.fft as fft
 import matplotlib.animation as animation
+from scipy.interpolate import RegularGridInterpolator
 
 torch.set_default_dtype(torch.float32)
 
@@ -44,7 +44,7 @@ Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
-t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 1000, 2)
+t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 3000, 2)
 if plots:
     plt.figure()
     plt.plot(t_beam, V_an, label='Potential Energy')
@@ -61,10 +61,10 @@ if plots:
         line.set_ydata(w[:,frame])
         return line, 
 
-    ani = animation.FuncAnimation(fig=fig, func=update, frames=40, interval=100)
+    ani = animation.FuncAnimation(fig=fig, func=update, frames=t_beam.shape[0], interval=30)
     plt.show()
 
-interpdisplbeam = make_interp_spline(t_beam, w[w.shape[0]//2,:])
+interpdispbeam = RegularGridInterpolator((my_beam.xi, t_beam), w)
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)
 interpTbeam = make_interp_spline(t_beam, Ek_an, k=5)
 
@@ -86,7 +86,7 @@ points = {
     'initial_points': grid.get_initial_points(),
     'boundary_points': grid.generate_grid_bound(),
     'initial_points_hyper': grid.get_initial_points_hyper(),
-    'all_points_eval': grid.get_all_points_eval(),
+    'all_points': grid.get_all_points(),
 }
 
 adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
@@ -104,6 +104,17 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 
+points_interp = np.array(np.meshgrid(x_domain.detach().cpu().numpy() * Lx, t_domain.detach().cpu().numpy() * t_tild)).T.reshape(-1,2)
+labelled = interpdispbeam(points_interp)
+labelled = labelled.reshape(n_space, n_time)
+if plots:
+    plt.figure()
+    plt.plot(x_domain.detach().cpu().numpy(), labelled[:,0])
+    plt.show()
+labelled = np.expand_dims(labelled, axis=1)
+labelled = np.repeat(labelled, repeats=n_space, axis=1)
+labelled = torch.tensor(labelled, device=device, dtype=torch.float32)
+
 pinn = PINN(dim_hidden, w0, n_hidden, n_space, scaley, n_time, multux, multuy, modesx, modesy, multhyperx, device).to(device)
 loss_fn = Loss(
         points,
@@ -119,7 +130,8 @@ loss_fn = Loss(
         device,
         interpVbeam,
         interpTbeam,
-        t_tild
+        t_tild,
+        labelled
     )
 
 _, V, T, _, _, _, _, _ = loss_fn.res_loss(pinn, True)
@@ -176,7 +188,6 @@ plt.savefig(f'{dir_model}/anhatencomp.png')
 
 sol1D = sol[sol.shape[1]//2,sol.shape[1]//2,:,1]
 nfft = sol1D.shape[0]
-beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 
 dt = steps[2].item()
 errV = (calculateRMS(V, dt, tmax) - calculateRMS(Van, dt, tmax))/(
