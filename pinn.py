@@ -72,10 +72,10 @@ def simps(y, dx, dim=0):
     return integral
 
 
-def initial_conditions(space: torch.Tensor, w0: float, i: float = 1) -> torch.tensor:
+def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0*torch.sin(torch.pi*i*x)
+    uy0 = w0*(torch.sin(2*torch.pi*x) + torch.sin(4*torch.pi*x))
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -272,13 +272,14 @@ class PINN(nn.Module):
                  dim_hidden: tuple,
                  w0: float,
                  n_hidden: int,
+                 n_space: int,
+                 scaley: int,
+                 n_time: int,
                  multux: int,
                  multuy: int,
-                 n_space: int,
-                 n_time: int,
-                 scaley: int,
+                 modesx: int,
+                 modesy: list,
                  device,
-                 act = nn.Tanh()
                  ):
 
         super().__init__()
@@ -289,86 +290,119 @@ class PINN(nn.Module):
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
         self.in_penalties = nn.Parameter(5 * torch.ones(n_space, n_space // scaley))
 
-        self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
-        self.register_buffer('By', 1.5 * torch.randn((2, n_mode_spacey), device=device))
-        self.register_buffer('Btx', torch.randn((1, n_mode_spacex), device=device))
-        self.register_buffer('Bty', torch.randn((1, n_mode_spacey), device=device))
+        for i in range(modesx):
+            Bx = torch.randn([2, n_mode_spacex], device=device)
+            self.register_buffer(f'Bx_{i}', Bx)
+        for i in range(len(modesy)):
+            By = modesy[i] * torch.randn([2, n_mode_spacey], device=device)
+            self.register_buffer(f'By_{i}', By)
+        for name, buffer in self.named_buffers():
+            if name.startswith('By_'):
+                buffer[1,:] = torch.zeros(n_mode_spacey, device=device)
         
+        for i in range(modesx):
+            Btx = torch.randn([1, n_mode_spacex], device=device)
+            self.register_buffer(f'Btx_{i}', Btx)
+        for i in range(len(modesy)):
+            Bty = modesy[i] * torch.randn([1, n_mode_spacey], device=device)
+            self.register_buffer(f'Bty_{i}', Bty)
+
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
-        self.hid_space_layers_x.append(nn.Linear(2*n_mode_spacex, hiddimx))
-        for _ in range(n_hidden):
-            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx))
+        self.hid_space_layers_x.append(nn.Linear(2 * n_mode_spacex, hiddimx))
+        for _ in range(n_hidden - 1):
+            self.hid_space_layers_x.append(nn.Linear(hiddimx, hiddimx, bias=False))
 
         self.hid_space_layers_y = nn.ModuleList()
         hiddimy = multuy * 2 * n_mode_spacey
-        self.hid_space_layers_y.append(nn.Linear(2*n_mode_spacey, hiddimy, bias=False))
-        for _ in range(n_hidden):
-            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
-            self.hid_space_layers_y.append(act)
+        self.hid_space_layers_y.append(nn.Linear(2 * n_mode_spacey, hiddimy))
+        for _ in range(n_hidden - 1):
+            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy, bias=False))
+            self.hid_space_layers_y.append(nn.Tanh())
 
-        self.layerxmodes = nn.Linear(hiddimx, n_mode_spacex)
-        self.layerymodes = nn.Linear(hiddimy, n_mode_spacey)
-
-        self.outlayerx = nn.Linear(n_mode_spacex, 1)
-        self.outlayery = nn.Linear(n_mode_spacey, 1)
+        self.outlayerx = nn.Linear(2 * modesx**2 * n_mode_spacex, 1, bias=False)
+        self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1, bias=False)
         self._initialize_weights()
+        self.outlayerx.weight.data *= 0 
+        """
+        weightslast = torch.from_numpy(magnFFT).float()
+        weightslast[2:] *= 0
+        self.outlayery.weight.data = weightslast[:n_mode_spacey].unsqueeze(0)
+        """
 
-        self.outlayerx.weight.data *= 0
-
-    def fourier_features(self, input, B):
-        x_proj = input @ B
-        return torch.cat([torch.sin(np.pi * x_proj),
-                torch.cos(np.pi * x_proj)], dim=1)
+    def fourier_features(self, input: torch.Tensor, buffer_name: str):
+        out = []
+        for name, buffer in self.named_buffers():
+            if name.startswith(f'{buffer_name}_'):
+                x_proj = input @ buffer 
+                out.append(torch.cat([torch.sin(np.pi * x_proj),
+                        torch.cos(np.pi * x_proj)], dim=1))
+        return out
 
     def _initialize_weights(self):
         # Initialize all layers with Xavier initialization
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)  # Glorot uniform initialization
+                nn.init.orthogonal_(layer.weight)  # Glorot uniform initialization
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)  # Initialize bias with zeros
 
-    def forward(self, space, t, use_init: bool = False):
-        fourier_space_x = self.fourier_features(space, self.Bx)
-        fourier_space_y = self.fourier_features(space, self.By)
-        fourier_tx = self.fourier_features(t, self.Btx)
-        fourier_ty = self.fourier_features(t, self.Bty)
+    def forward(self, space, t, use_init = False):
+        fourier_space_x = self.fourier_features(space, 'Bx')
+        fourier_space_y = self.fourier_features(space, 'By')
+        fourier_tx = self.fourier_features(t, 'Btx')
+        fourier_ty = self.fourier_features(t, 'Bty')
 
-        x_in = fourier_space_x
-        y_in = fourier_space_y
-        tx = fourier_tx
-        ty = fourier_ty
+        xs_in = fourier_space_x
+        ys_in = fourier_space_y
+        txs_in = fourier_tx
+        tys_in = fourier_ty
 
-        for layer in self.hid_space_layers_x:
-            x_in = layer(x_in)
-            tx = layer(tx)
+        txs_out = []
+        x_out = []
+        for i in range(len(xs_in)):
+            x_in = xs_in[i]
+            tx = txs_in[i]
+            for layer in self.hid_space_layers_x:
+               x_in = layer(x_in) 
+               tx = layer(tx)
+            x_out.append(x_in)
+            txs_out.append(tx)
         
-        for layer in self.hid_space_layers_y:
-            y_in = layer(y_in)
-            ty = layer(ty)
+        stackedx = []
+        for i in range(len(x_out)):
+            for j in range (len(txs_out)):
+                stackedx.append(x_out[i] * txs_out[j])
+        stackedx = torch.cat(stackedx, dim=1)
         
-        xout = self.layerxmodes(x_in)
-        tx = self.layerxmodes(tx)
-        yout = self.layerymodes(y_in)
-        ty = self.layerymodes(ty)
+        tys_out = []
+        y_out = []
+        for i in range(len(ys_in)):
+            y_in = ys_in[i]
+            ty = tys_in[i]
+            for layer in self.hid_space_layers_y:
+               y_in = layer(y_in) 
+               ty = layer(ty)
+            y_out.append(y_in)
+            tys_out.append(ty)
+        
+        stackedy = []
+        for i in range(len(y_out)):
+            for j in range (len(tys_out)):
+                stackedy.append(y_out[i] * tys_out[j])
+        stackedy = torch.cat(stackedy, dim=1)
+        
+        outx = self.outlayerx(stackedx)
+        outy = self.outlayery(stackedy)
+        out = torch.cat([outx, outy], dim=1)
 
-        xout = xout * tx
-        yout = yout * ty
-
-        xout = self.outlayerx(xout)
-        yout = self.outlayery(yout)
-
-        out = torch.cat([xout, yout], dim=1)
-
-        out = out * (1 - space[:,0].unsqueeze(1))* (space[:,0].unsqueeze(1))
+        out = out * space[:,0].unsqueeze(1) * (1 - space[:,0].unsqueeze(1))
 
         if use_init:
-            init = initial_conditions(space, self.w0)[:,:2]
-            out = t * out + init
+            out = out + t * initial_conditions(space, self.w0)[:,:2]
 
         return out
-    
+
 def calculateRMS(signal: np.ndarray, step_t: float, t_max: float):
     rms = 1/t_max * simpson(signal**2, dx=step_t)**1/2
     return rms

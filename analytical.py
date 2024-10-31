@@ -7,7 +7,7 @@ def obtain_analytical_free(my_beam: Beam, w0: float, tf: float,
                            n_time: int, nmode: int):
 
     prob = Prob_Solv_Modes(my_beam)
-    gamma_max = 30/1000 # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
+    gamma_max = 70/1000 # gamma_max must be increased, because spatial eigenfrequencies increase, since the beam is very short
 
     prob.pass_g_max(gamma_max)
     eig_gam = prob.find_eig()
@@ -25,7 +25,7 @@ def obtain_analytical_free(my_beam: Beam, w0: float, tf: float,
     my_beam.update_phi(phi)
     my_In_Cond = In_Cond(my_beam)
 
-    w0 = w0*(my_beam.phi[:, 0] + my_beam.phi[:, 1])
+    w0 = w0*(my_beam.phi[:, 1] + my_beam.phi[:, 4])
     wdot_0 = np.zeros(len(w0))
 
     my_In_Cond.pass_init_cond(w0, wdot_0)

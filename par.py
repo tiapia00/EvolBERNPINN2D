@@ -5,7 +5,9 @@ class Parameters:
         self.t_end = 0.25 
         self.n_space = 50 
         self.n_time = 60
-        self.dim_hidden = (1, 80) 
+        self.dim_hidden = (1, 50) 
+        self.modesx = 1
+        self.modesy = [1.5, 4.5]
         self.multux = 1
         self.multuy = 1 
         self.multhyperx = 1 
@@ -23,6 +25,8 @@ class Parameters:
             'multux': self.multux,
             'multuy': self.multuy,
             'multhyperx': self.multhyperx,
+            'modesx': self.modesx,
+            'modesy': self.modesy,
             'lr': 1e-4,
             'epochs': 2000 
         }

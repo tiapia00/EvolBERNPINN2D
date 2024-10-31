@@ -22,9 +22,9 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = True
-train = False 
-plotloss = True
+load = False
+train = True 
+plotloss = False
 getzip = False
 
 def get_step(tensors: tuple):
@@ -42,7 +42,7 @@ Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
-t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 1000, 1)
+t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 1000, 2)
 
 interpdisplbeam = make_interp_spline(t_beam, w[w.shape[0]//2,:])
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)
@@ -50,7 +50,7 @@ interpTbeam = make_interp_spline(t_beam, Ek_an, k=5)
 
 lam, mu = par.to_matpar_PINN()
 
-Lx, Ly, tmax, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, multhyperx, lr, epochs = get_params(par.pinn_par)
+Lx, Ly, tmax, n_space, n_time, w0, dim_hidden, n_hidden, multux, multuy, multhyperx, modesx, modesy, lr, epochs = get_params(par.pinn_par)
 L_tild = Lx
 x_domain = torch.linspace(0, Lx, n_space)/Lx
 y_domain = torch.linspace(0, Ly, n_space)/Lx
@@ -84,7 +84,7 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 
-pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, n_space, n_time, scaley, device).to(device)
+pinn = PINN(dim_hidden, w0, n_hidden, n_space, scaley, n_time, multux, multuy, modesx, modesy, device).to(device)
 loss_fn = Loss(
         points,
         n_space,
