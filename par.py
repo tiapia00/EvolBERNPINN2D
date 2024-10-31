@@ -27,8 +27,8 @@ class Parameters:
             'multhyperx': self.multhyperx,
             'modesx': self.modesx,
             'modesy': self.modesy,
-            'lr': 1e-3,
-            'epochs': 100 
+            'lr': 5e-4,
+            'epochs': 6000 
         }
         self.beam_par = {
             'x_end': self.x_end,
