@@ -2,16 +2,16 @@ class Parameters:
     def __init__(self):
         self.x_end = 500 
         self.y_end = 0.5
-        self.t_end = 0.4 
+        self.t_end = 0.25 
         self.n_space = 50 
-        self.n_time = 70 
-        self.dim_hidden = (1, 70) 
+        self.n_time = 50 
+        self.dim_hidden = (1, 60) 
         self.modesx = 1
-        self.modesy = [1, 6]
+        self.modesy = [1.8, 4.7]
         self.multux = 1
         self.multuy = 1 
         self.multhyperx = 3 
-        self.n_hidden : int = 2 
+        self.n_hidden : int = 3 
         self.w0 = 0.08 
         self.pinn_par = {
             'x_end': self.x_end,
@@ -28,7 +28,7 @@ class Parameters:
             'modesx': self.modesx,
             'modesy': self.modesy,
             'lr': 1e-3,
-            'epochs': 6000 
+            'epochs': 10000 
         }
         self.beam_par = {
             'x_end': self.x_end,

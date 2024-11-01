@@ -320,11 +320,11 @@ class PINN(nn.Module):
         hiddimy = multuy * 2 * n_mode_spacey
         self.hid_space_layers_y.append(nn.Linear(2 * n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy, bias=False))
+            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
             self.hid_space_layers_y.append(nn.Tanh())
 
         self.outlayerx = nn.Linear(2 * modesx**2 * n_mode_spacex, 1, bias=False)
-        self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1, bias=False)
+        self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1)
         self._initialize_weights()
         """
         weightslast = torch.from_numpy(magnFFT).float()
@@ -383,7 +383,7 @@ class PINN(nn.Module):
             y_in = ys_in[i]
             ty = tys_in[i]
             for layer in self.hid_space_layers_y:
-               y_in = layer(y_in) 
+               y_in = layer(y_in)
                ty = layer(ty)
             y_out.append(y_in)
             tys_out.append(ty)
@@ -426,7 +426,7 @@ class Loss:
         interpVbeam,
         interpEkbeam,
         t_tild: float,
-        verbose: bool = False
+        labelled: torch.Tensor
     ):
         self.points = points
         self.w0 = w0
@@ -445,6 +445,7 @@ class Loss:
         self.T0: float
         self.hyperx = hyperx
         self.tmax = torch.max(self.points['res_points'][-1]).item()
+        self.labelled = labelled
 
     def res_loss(self, pinn, use_init: bool = False):
         x, y, t = self.points['res_points']
@@ -540,6 +541,18 @@ class Loss:
 
         return loss
 
+    def data_loss(self, pinn):
+        x, y, t = self.points['all_points']
+        space = torch.cat([x, y], dim=1)
+
+        output = pinn(space, t)
+
+        output = output.reshape(self.n_space, self.n_space, self.n_time, 2)
+        criterion = nn.MSELoss()
+        loss = criterion(output[...,1], self.labelled)
+
+        return loss
+
     def initial_loss(self, pinn):
         init_points = self.points['initial_points_hyper']
         x, y, t = init_points
@@ -549,7 +562,7 @@ class Loss:
         init = initial_conditions(space, pinn.w0)
         lossgridpos = (output[:,1] - init[:,1]).reshape(self.n_space * self.hyperx, self.n_space // self.scaley)
         losspos = torch.tanh(pinn.in_penalties) * lossgridpos.pow(2)
-        losspos = losspos.mean()
+        losspos = 10 * losspos.mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -567,10 +580,11 @@ class Loss:
 
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT, kurt, skew, lossgrid = self.res_loss(pinn)
-        enloss = ((V+T)).pow(2).mean() 
+        enloss = (V - T).pow(2).mean()
+        data_loss = 10000 * self.data_loss(pinn)
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
-        loss = init_loss + res_loss
+        loss = init_loss + res_loss + data_loss
 
         if inc_enloss:
             loss += enloss
@@ -587,7 +601,8 @@ class Loss:
             "errT": errT,
             "kurt_res": kurt,
             "skew_res": skew,
-            "loss_distr": lossgrid
+            "loss_distr": lossgrid,
+            "data_loss": data_loss
         }
 
         return loss, res_loss, losses 
@@ -640,8 +655,9 @@ def train_model(
             'boundary': losses["bound_loss"].item(),
             'init': losses['in_loss'].item(),
             'enlosses': losses["enloss"].item(),
+            'dataloss': losses['data_loss'].item(),
             'V-V_an': losses["errV"],
-            'T-T_an': losses["errT"]
+            'T-T_an': losses["errT"],
         }, epoch)
 
         writer.add_scalars('Loss/Distr_res', {
