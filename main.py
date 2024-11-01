@@ -109,11 +109,11 @@ loss_fn = Loss(
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.0001_3000_(1, 60).pth'
+    filename = 'load/0.001_3000_(1, 60).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
     with np.load(f'{dir_load}/data.npz') as data:
-        loss_fn.gamma = -0.3819
+        loss_fn.gamma = data['gamma']
         
 if train:
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
@@ -168,7 +168,7 @@ freqmaxan = np.argmax(fftan)
 
 errfreq = (freqsfft[freqmaxan] - freqsfft[freqmaxpred])/freqsfft[freqmaxan]
 
-with open(f'{dir_model}/freqerr.txt', 'w') as file:
+with open(f'{dir_model}/errs.txt', 'w') as file:
     file.write(f"errfreq = {errfreq}\n"
                f"errV = {-errV}\n"
                f"errT = {-errT}\n")
@@ -188,7 +188,6 @@ data = {
 }
 
 np.savez(f'{dir_model}/data.npz', **data)
-
 
 if plotloss:
     grad_accumulation = {name: 0.0 for name, param in pinn_trained.named_parameters()}
