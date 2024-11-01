@@ -166,7 +166,7 @@ z = torch.cat([z, v], dim=1)
 
 plot_initial_conditions(z, cond0, spacein, dir_model)
 
-allpoints = torch.cat(points["all_points_eval"], dim=1)
+allpoints = torch.cat(points["all_points"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
