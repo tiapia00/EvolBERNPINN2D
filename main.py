@@ -24,7 +24,7 @@ else:
 
 load = True
 train = False 
-plotloss = True
+plotloss = False
 getzip = False
 
 def get_step(tensors: tuple):
@@ -112,7 +112,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.0001_5000_(1, 80).pth'
+    filename = 'load/0.001_5000_(1, 70).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -156,6 +156,9 @@ errV = (calculateRMS(V, dt, tmax) - calculateRMS(Van, dt, tmax))/(
 errT = (calculateRMS(T, dt, tmax) - calculateRMS(Tan, dt, tmax))/(
         calculateRMS(Tan, dt, tmax)
 ).item()
+
+print(errV)
+print(errT)
 
 sol = sol.reshape(n_space**2, n_time, 2)
 plot_sol(sol, spacein, t, dir_model)
