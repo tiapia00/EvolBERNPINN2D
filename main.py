@@ -62,9 +62,9 @@ else:
     print("Using CPU device.")
 
 load = True
-train = True
+train = False 
 plotloss = False
-getzip = True
+getzip = False 
 plots = False
 import_abq = True
 
@@ -102,10 +102,18 @@ if plots:
 
     ani = animation.FuncAnimation(fig=fig, func=update, frames=40, interval=100)
     plt.show()
+
 if import_abq:
     path_abq = 'load/ABQres.rpt'
     data_abq = read_multi_section_table(path_abq)
-    print(data_abq)
+    keys = list(data_abq)
+    interps = dict.fromkeys(keys, None)
+    for i, data in enumerate(data_abq.items()):
+        key = keys[i]
+        data_abq[key] = data_abq[key].drop_duplicates(subset='X')
+        interpi = make_interp_spline(data_abq[key]['X'], data_abq[key][key], k=5)
+        interps[key] = interpi
+
 
 interpdispbeam = RegularGridInterpolator((my_beam.xi, t_beam), w)
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)
@@ -184,7 +192,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.001_10000_(1, 60).pth'
+    filename = 'load/1e-05_10000_(1, 60).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -212,12 +220,18 @@ allpoints = torch.cat(points["all_points"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
-sol, V, T = obtainsolt_u(pinn_trained, space, t, nsamples, 1, par, steps, device)
+sol, V, T, vmid, amid = obtainsolt_u(pinn_trained, space, t, nsamples, 1, par, steps, device)
+Vmax = np.max(V)
+Tmax = np.max(T)
+vmidmax = np.max(vmid)
+amidmax = np.max(amid)
+
+maxscale = [Tmax, Vmax, vmidmax, amidmax]
 
 Van = interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
-Van *= np.max(V)/np.max(Van)
+Van *= Vmax/np.max(Van)
 Tan = interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
-Tan *= np.max(T)/np.max(Tan)
+Tan *= Tmax/np.max(Tan)
 
 plt.figure()
 plt.plot(torch.unique(t).detach().cpu().numpy(), V, label=r'$\hat{V}$')
@@ -302,6 +316,44 @@ if plotloss:
     plt.ylabel(r'$\beta$')
     plt.tight_layout()
     plt.savefig(f'{dir_model}/loss_map.png')
+
+ev_interp = {}
+if import_abq:
+    t = torch.unique(t).detach().cpu().numpy()
+    for key, interpolator in interps.items():
+       ev_interp[key] = interpolator(t * 10 * t_tild) 
+    scale_keys = ['Kinetic', 'Strain', 'AVGV', 'AVGA']
+    for i, key in enumerate(scale_keys):
+        ev_interp[key] *= maxscale[i]/np.max(ev_interp[key])
+
+    plt.figure()
+    plt.plot(t, ev_interp['AVGU'], label='FEM')
+    plt.plot(t, sol1D, label='NN')
+    plt.xlabel(r'$\hat{t}$')
+
+    plt.figure()
+    plt.plot(t, ev_interp['AVGV'], label='FEM')
+    plt.plot(t, vmid, label='NN')
+    plt.xlabel(r'$\hat{t}$')
+
+    plt.figure()
+    plt.plot(t, ev_interp['AVGA'], label='FEM')
+    plt.plot(t, amid, label='NN')
+    plt.xlabel(r'$\hat{t}$')
+
+    plt.figure()
+    plt.plot(t, ev_interp['Kinetic'], label='FEM')
+    plt.plot(t, T, label='NN')
+    plt.xlabel(r'$\hat{t}$')
+
+    plt.figure()
+    plt.plot(t, ev_interp['Strain'], label='FEM')
+    plt.plot(t, V, label='NN')
+    plt.xlabel(r'$\hat{t}$')
+
+    plt.legend()
+    plt.show()
+
 
 if getzip:
     import os

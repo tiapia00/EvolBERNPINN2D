@@ -741,6 +741,8 @@ def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tup
             create_graph=True, retain_graph=True)[0]
     vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=device),
             create_graph=True, retain_graph=True)[0]
+    ay = torch.autograd.grad(vy, t, torch.ones_like(t, device=device),
+            create_graph=True, retain_graph=True)[0]
 
     eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1).detach()
     dV = ((par['w0']/par['Lx'])**2*(par['mu']*torch.sum(eps**2, dim=1)) + par['lam']/2 * torch.sum(eps, dim=1)**2).detach()
@@ -769,7 +771,16 @@ def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tup
     if not check:
         raise ValueError('Extracted space tensors not matching')
     
-    return sol.detach().cpu().numpy(), V.detach().cpu().numpy(), T.detach().cpu().numpy()
+    vgrid = vy.detach().reshape(nx, ny, nt).cpu().numpy()
+    vmid = np.mean(vgrid, axis=1)
+    vmid = vmid[vmid.shape[0] // 2, :]
+
+    agrid = ay.detach().reshape(nx, ny, nt).cpu().numpy()
+    amid = np.mean(agrid, axis=1)
+    amid = amid[vmid.shape[0] // 2, :]
+
+    
+    return sol.detach().cpu().numpy(), V.detach().cpu().numpy(), T.detach().cpu().numpy(), vmid, amid
 
 def df_num_torch(dx: float, y: torch.tensor):
     dy = torch.diff(y)
