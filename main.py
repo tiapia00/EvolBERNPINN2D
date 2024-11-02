@@ -321,7 +321,7 @@ ev_interp = {}
 if import_abq:
     t = torch.unique(t).detach().cpu().numpy()
     for key, interpolator in interps.items():
-       ev_interp[key] = interpolator(t * 10 * t_tild) 
+       ev_interp[key] = interpolator(t * t_tild) 
     scale_keys = ['Kinetic', 'Strain', 'AVGV', 'AVGA']
     for i, key in enumerate(scale_keys):
         ev_interp[key] *= maxscale[i]/np.max(ev_interp[key])
