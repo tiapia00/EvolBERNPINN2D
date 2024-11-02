@@ -24,8 +24,8 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True 
+load = True
+train = True
 plotloss = False
 getzip = True
 plots = False
@@ -142,7 +142,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.0001_5000_(1, 80).pth'
+    filename = 'load/0.001_10000_(1, 60).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -184,11 +184,11 @@ plt.xlabel(r'$\hat{t}$')
 plt.legend()
 plt.savefig(f'{dir_model}/anhatencomp.png')
 
-sol1D = sol[sol.shape[1]//2,sol.shape[1]//2,:,1]
+sol1D = sol[sol.shape[0] // 2,sol.shape [1] //2,:,1]
 nfft = sol1D.shape[0]
 middispl = labelled[labelled.shape[0] // 2, labelled.shape[1] // 2, :]
 plt.figure()
-plt.plot(t_domain.detach().cpu().numpy(), middispl, label=r'$w$')
+plt.plot(t_domain.detach().cpu().numpy(), middispl.detach().cpu().numpy(), label=r'$w$')
 plt.plot(t_domain.detach().cpu().numpy(), sol1D, label=r'$\hat{w}$')
 plt.xlabel(r'$\hat{t}$')
 plt.legend()
