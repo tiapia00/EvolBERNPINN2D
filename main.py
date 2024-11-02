@@ -11,8 +11,45 @@ from scipy.interpolate import make_interp_spline
 import scipy.fft as fft
 import matplotlib.animation as animation
 from scipy.interpolate import RegularGridInterpolator
+import pandas as pd
 
 torch.set_default_dtype(torch.float32)
+
+def read_multi_section_table(file_path):
+    # Read the entire file into a list of lines
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+    
+    # Initialize variables
+    current_header = None
+    sections = {}  # Dictionary to store data by section
+    
+    # Process each line
+    for line in lines:
+        line = line.strip()  # Remove any leading/trailing whitespace
+        # Check if the line is a section header (e.g., contains 'X' and a label)
+        if "X" in line:
+            # Extract only the section name (last part of the header)
+            current_header = line.split()[-1]  # Take the last word as the section label, e.g., 'AVGA'
+            sections[current_header] = []  # Initialize a new list for this section
+        elif current_header:
+            # Split line into columns and add to the current section list
+            sections[current_header].append(line.split())
+    
+    # Create a DataFrame for each section
+    dataframes = {}
+    for header, rows in sections.items():
+        # Define column names
+        columns = ['X', header]  # Use 'X' and the section name as column headers
+        df = pd.DataFrame(rows, columns=columns)
+        
+        # Convert data to numeric types and drop rows with NaN values
+        df = df.apply(pd.to_numeric, errors='coerce').dropna()
+        
+        # Store in the dictionary of DataFrames
+        dataframes[header] = df
+    
+    return dataframes
 
 if torch.backends.mps.is_available():
     device = torch.device("mps")
@@ -29,6 +66,7 @@ train = True
 plotloss = False
 getzip = True
 plots = False
+import_abq = True
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -64,6 +102,10 @@ if plots:
 
     ani = animation.FuncAnimation(fig=fig, func=update, frames=40, interval=100)
     plt.show()
+if import_abq:
+    path_abq = 'load/ABQres.rpt'
+    data_abq = read_multi_section_table(path_abq)
+    print(data_abq)
 
 interpdispbeam = RegularGridInterpolator((my_beam.xi, t_beam), w)
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)
