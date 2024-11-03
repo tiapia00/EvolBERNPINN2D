@@ -75,7 +75,7 @@ def simps(y, dx, dim=0):
 def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0*(torch.sin(2*torch.pi*x))
+    uy0 = w0*(torch.sin(2*torch.pi*x) + torch.sin(5*torch.pi*x))
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -290,7 +290,7 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
         self.in_penalties = nn.Parameter(torch.ones(n_space * hyperx, n_space // scaley))
-        self.data_penalties = nn.Parameter(torch.ones(n_space, n_space, n_time))
+        self.data_penalties = nn.Parameter(torch.ones_like(self.res_penalties))
 
         for i in range(modesx):
             Bx = torch.randn([2, n_mode_spacex], device=device)
@@ -562,12 +562,12 @@ class Loss:
         return lossv
 
     def data_loss(self, pinn):
-        x, y, t = self.points['all_points']
+        x, y, t = self.points['res_points']
         space = torch.cat([x, y], dim=1)
 
         output = pinn(space, t)
 
-        output = output.reshape(self.n_space, self.n_space, self.n_time, 2)
+        output = output.reshape(self.n_space - 2, (self.n_space - 2) // self.scaley, self.n_time - 1, 2)
         loss = torch.tanh(pinn.data_penalties) * (output[...,1] - self.labelled).pow(2)
         loss = loss.mean()
 

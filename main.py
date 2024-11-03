@@ -104,16 +104,20 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 
-points_interp = np.array(np.meshgrid(x_domain.detach().cpu().numpy() * Lx, t_domain.detach().cpu().numpy() * t_tild)).T.reshape(-1,2)
+x_res = x_domain[1:-1].detach().cpu().numpy()
+t_res = t_domain[1:].detach().cpu().numpy()
+points_interp = np.array(np.meshgrid(x_res * Lx, t_res * t_tild)).T.reshape(-1,2)
 labelled = interpdispbeam(points_interp)
-labelled = labelled.reshape(n_space, n_time)
+labelled = labelled.reshape(n_space - 2, n_time - 1)
+labelled = np.expand_dims(labelled, axis=1)
+labelled = np.repeat(labelled, repeats=labelled.shape[0] // scaley, axis=1)
+noise = np.random.normal(0, 0.005, labelled.shape)
+labelled_noise = labelled + noise
 if plots:
     plt.figure()
-    plt.plot(x_domain.detach().cpu().numpy(), labelled[:,0])
+    plt.plot(x_res, labelled_noise[:,0,0])
     plt.show()
-labelled = np.expand_dims(labelled, axis=1)
-labelled = np.repeat(labelled, repeats=n_space, axis=1)
-labelled = torch.tensor(labelled, device=device, dtype=torch.float32)
+labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
 
 pinn = PINN(dim_hidden, w0, n_hidden, n_space, scaley, n_time, multux, multuy, modesx, modesy, multhyperx, device).to(device)
 loss_fn = Loss(
