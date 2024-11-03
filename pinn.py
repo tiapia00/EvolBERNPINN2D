@@ -570,7 +570,7 @@ class Loss:
 
         output = output.reshape(self.n_space - 2, (self.n_space - 2) // self.scaley, self.n_time - 1, 2)
         loss = torch.tanh(pinn.data_penalties) * (output[...,1] - self.labelled).pow(2)
-        loss = loss.mean()
+        loss = 10000 * loss.mean()
 
         return loss
 
@@ -597,7 +597,8 @@ class Loss:
             "errT": errT,
             "kurt_res": kurt,
             "skew_res": skew,
-            "loss_distr": lossgrid
+            "loss_distr": lossgrid,
+            "data_loss": data_loss
         }
 
         return loss, res_loss, losses 
@@ -650,6 +651,7 @@ def train_model(
             'boundary': losses["bound_loss"].item(),
             'init': losses['in_loss'].item(),
             'enlosses': losses["enloss"].item(),
+            'dataloss': losses["data_loss"].item()
         }, epoch)
 
         writer.add_scalars('Loss/Distr_res', {
