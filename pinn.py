@@ -86,8 +86,8 @@ class Grid:
         self.x_domain = x_domain
         self.y_domain = y_domain
         self.t_domain = t_domain
-        self.device = device
         self.multx_in = multx_in
+        self.device = device
         self.requires_grad = True
         self.grid_init = self.generate_grid_init()
         self.grid_init_hyper = self.generate_grid_init_hyper()
@@ -290,6 +290,7 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
         self.in_penalties = nn.Parameter(torch.ones(n_space * hyperx, n_space // scaley))
+        self.data_penalties = nn.Parameter(torch.ones(n_space, n_space, n_time))
 
         for i in range(modesx):
             Bx = torch.randn([2, n_mode_spacex], device=device)
@@ -548,11 +549,17 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        lossgridpos = (output[:,1] - init[:,1]).reshape(self.n_space * self.hyperx, self.n_space // self.scaley)
-        losspos = torch.tanh(pinn.in_penalties) * lossgridpos.pow(2)
-        losspos = losspos.mean()
+        vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
+                create_graph=True, retain_graph=True)[0]
+        
+        v = torch.cat([vx, vy], dim=1)
 
-        return losspos
+        lossv = torch.tanh(pinn.in_penalties.unsqueeze(2)) * (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(self.hyperx * self.n_space, self.n_space // self.scaley, 2).pow(2)
+        lossv = lossv.mean()
+
+        return lossv
 
     def data_loss(self, pinn):
         x, y, t = self.points['all_points']
@@ -561,8 +568,8 @@ class Loss:
         output = pinn(space, t)
 
         output = output.reshape(self.n_space, self.n_space, self.n_time, 2)
-        criterion = nn.MSELoss()
-        loss = criterion(output[...,1], self.labelled)
+        loss = torch.tanh(pinn.data_penalties) * (output[...,1] - self.labelled).pow(2)
+        loss = loss.mean()
 
         return loss
 
@@ -610,7 +617,7 @@ def train_model(
 
     from plots import plot_energy
 
-    exclude_params = ['res_penalties', 'in_penalties']
+    exclude_params = ['res_penalties', 'in_penalties', 'data_penalties']
     params_to_optimize = [
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
         {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-3}
