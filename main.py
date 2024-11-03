@@ -111,7 +111,7 @@ if import_abq:
     for i, data in enumerate(data_abq.items()):
         key = keys[i]
         data_abq[key] = data_abq[key].drop_duplicates(subset='X')
-        interpi = make_interp_spline(data_abq[key]['X'], data_abq[key][key], k=5)
+        interpi = make_interp_spline(data_abq[key]['X'] - 1, data_abq[key][key], k=5)
         interps[key] = interpi
 
 
@@ -330,30 +330,36 @@ if import_abq:
     plt.plot(t, ev_interp['AVGU'], label='FEM')
     plt.plot(t, sol1D, label='NN')
     plt.xlabel(r'$\hat{t}$')
+    plt.legend()
+    plt.savefig(f'{dir_model}/FEMNNu.png')
 
     plt.figure()
     plt.plot(t, ev_interp['AVGV'], label='FEM')
     plt.plot(t, vmid, label='NN')
     plt.xlabel(r'$\hat{t}$')
+    plt.legend()
+    plt.savefig(f'{dir_model}/FEMNNv.png')
 
     plt.figure()
     plt.plot(t, ev_interp['AVGA'], label='FEM')
     plt.plot(t, amid, label='NN')
     plt.xlabel(r'$\hat{t}$')
+    plt.legend()
+    plt.savefig(f'{dir_model}/FEMNNa.png')
 
     plt.figure()
     plt.plot(t, ev_interp['Kinetic'], label='FEM')
     plt.plot(t, T, label='NN')
+    plt.legend()
     plt.xlabel(r'$\hat{t}$')
+    plt.savefig(f'{dir_model}/FEMNNT.png')
 
     plt.figure()
     plt.plot(t, ev_interp['Strain'], label='FEM')
     plt.plot(t, V, label='NN')
-    plt.xlabel(r'$\hat{t}$')
-
     plt.legend()
-    plt.show()
-
+    plt.xlabel(r'$\hat{t}$')
+    plt.savefig(f'{dir_model}/FEMNNPot.png')
 
 if getzip:
     import os
