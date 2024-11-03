@@ -549,6 +549,7 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
+        lossp = (output[:,1] - init[:,1]).pow(2).mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -559,7 +560,7 @@ class Loss:
         lossv = torch.tanh(pinn.in_penalties.unsqueeze(2)) * (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(self.hyperx * self.n_space, self.n_space // self.scaley, 2).pow(2)
         lossv = lossv.mean()
 
-        return lossv
+        return lossv, lossp
 
     def data_loss(self, pinn):
         x, y, t = self.points['res_points']
@@ -578,15 +579,15 @@ class Loss:
         res_loss, V, T, errV, errT, kurt, skew, lossgrid = self.res_loss(pinn)
         enloss = ((V+T)).pow(2).mean() 
         boundloss = self.bound_N_loss(pinn)
-        init_loss = self.initial_loss(pinn)
+        lossv0, lossp0 = self.initial_loss(pinn)
         data_loss = self.data_loss(pinn)
-        loss = init_loss + res_loss + data_loss
+        loss = lossv0 + res_loss + data_loss
 
         if inc_enloss:
             loss += enloss
 
         losses = {
-            "in_loss": init_loss,
+            "in_loss": lossp0,
             "bound_loss": boundloss,
             "V": V,
             "T": T,
@@ -649,8 +650,6 @@ def train_model(
             'boundary': losses["bound_loss"].item(),
             'init': losses['in_loss'].item(),
             'enlosses': losses["enloss"].item(),
-            'V-V_an': losses["errV"],
-            'T-T_an': losses["errT"]
         }, epoch)
 
         writer.add_scalars('Loss/Distr_res', {
@@ -664,57 +663,12 @@ def train_model(
             'T': losses["T"].mean().detach().item(),
         }, epoch)
         
-        if epoch % 200 == 0 :
-            fig, ax = plt.subplots()
-            cax = ax.imshow(nn_approximator.res_penalties[:,:,0].detach().cpu().numpy(), cmap='viridis')
-            fig.colorbar(cax)
-            ax.axis('off')
-            plt.tight_layout()
-            fig.canvas.draw()
-            plt.close()
-            img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-            img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-            writer.add_image('Penalty res t=0', img, global_step=epoch, dataformats='HWC')
-            fig, ax = plt.subplots()
-            cax = ax.imshow(nn_approximator.in_penalties[:,:].detach().cpu().numpy(), cmap='viridis')
-            fig.colorbar(cax)
-            ax.axis('off')
-            plt.tight_layout()
-            fig.canvas.draw()
-            plt.close()
-            img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-            img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-            writer.add_image('Penalty init', img, global_step=epoch, dataformats='HWC')
-
-        if epoch % 500 == 0:
-            t = loss_fn.points['res_points'][-1].unsqueeze(1)
-            t = torch.unique(t, sorted=True)
-            plot_energy(t.detach().cpu().numpy(), losses["V"].detach().cpu().numpy(), losses["T"].detach().cpu().numpy(), epoch, modeldir) 
-
         pbar.update(1)
 
     pbar.update(1)
     pbar.close()
 
     writer.close()
-
-    x, y, t = loss_fn.points['res_points']
-    ny = (loss_fn.n_space - 2) // loss_fn.scaley
-    x = x.reshape(loss_fn.n_space - 2, ny, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
-    t = t.reshape(loss_fn.n_space - 2, ny, loss_fn.n_time - 1).detach().cpu().numpy()[:,0,:]
-    loss, res_loss, losses = loss_fn(nn_approximator, True)
-    lossesdistr = losses['loss_distr'].reshape(loss_fn.n_space - 2, ny, loss_fn.n_time - 1)
-    lossesdistr = lossesdistr.detach().cpu().numpy()
-    lossesdistr = np.abs(np.mean(lossesdistr, axis=1))
-    fig, ax = plt.subplots()
-    norm = mcolors.LogNorm(vmin=np.min(lossesdistr), vmax=np.max(lossesdistr))
-    heatmap = ax.imshow(lossesdistr, extent=[t.min(), t.max(), x.min(), x.max()], origin='lower', 
-                    aspect='auto', cmap='inferno', norm=norm)
-    plt.colorbar(heatmap, ax=ax)
-    ax.set_title(r'PDE Residuals')
-    ax.set_xlabel(r'$t$')
-    ax.set_ylabel(r'$x$')
-    plt.savefig(f'{modeldir}/PDEres.png')
 
     return nn_approximator
 
