@@ -27,7 +27,7 @@ load = False
 train = True
 plotloss = False
 getzip = True
-plots = True 
+plots = False
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -46,6 +46,12 @@ my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
 t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 3000, 2)
 if plots:
+    plt.figure()
+    plt.plot(my_beam.xi, w[:,0])
+    plt.xlabel(r'$x$')
+    plt.ylabel(r'$w(x, t_0)$')
+    plt.savefig('displ_init.png')
+
     plt.figure()
     plt.plot(t_beam, V_an, label='Potential Energy')
     plt.plot(t_beam, Ek_an, label='Kinetic Energy')
@@ -116,15 +122,22 @@ condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 
 x_res = x_interp[1:-1].detach().cpu().numpy()
-t_res = t_interp[1:].detach().cpu().numpy()
+t_res = t_interp.detach().cpu().numpy()
 points_interp = np.array(np.meshgrid(x_res * Lx, t_res * t_tild)).T.reshape(-1,2)
 labelled = interpdispbeam(points_interp)
-labelled = labelled.reshape(n_space // scale_interp - 2 , n_time // scale_interp - 1)
+labelled = labelled.reshape(n_space // scale_interp - 2 , n_time // scale_interp)
 labelled = np.expand_dims(labelled, axis=1)
 labelled = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
 noise = np.random.normal(0, 0.1, labelled.shape)
 labelled_noise = labelled + noise
 labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
+if plots:
+    plt.figure()
+    plt.plot(x_res, labelled_noise[:,0,0])
+    plt.xlabel(r'$x$')
+    plt.ylabel(r'$w(x, t_0)$')
+    plt.savefig('displ_noise.png')
+labelled = labelled[...,1:]
 
 pinn = PINN(dim_hidden, w0, n_hidden, n_space, scaley, n_time, multux, multuy, modesx, modesy, multhyperx, scale_interp, device).to(device)
 loss_fn = Loss(
@@ -156,12 +169,6 @@ loss_fn.T0 = T0
 
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
-if plots:
-    plt.figure()
-    plt.plot(x_res, labelled_noise[:,0,0])
-    plt.xlabel(r'$x$')
-    plt.ylabel(r'$w_0$')
-    plt.savefig(f'{dir_model}/displ_noise.png')
 if load:
     filename = 'model/11-04/1021/0.001_8000_(1, 60).pth'
     dir_load = os.path.dirname(filename)
