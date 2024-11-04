@@ -7,11 +7,10 @@ from pinn import PINN
 import numpy as np
 
 
-def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tensor, path: str):
+def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tensor, path: str, justplotdisp: bool = False):
     """Plot initial conditions.
     z0: tensor describing analytical initial conditions
     z: tensor describing predicted initial conditions"""
-    fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(18, 8))
     x = space[:,0]
     y = space[:,1]
 
@@ -24,51 +23,63 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tens
     X = x_raw
     Y = y_raw
 
-    cmap = 'coolwarm'
+    if justplotdisp:
+        plt.figure()
+        scatter = plt.scatter(X.reshape(-1)+z0[:, 0],
+                                    Y.reshape(-1)+z0[:, 1], c=z0[:,3], cmap='coolwarm')
+        plt.xlabel('$\\hat{x}$')
+        plt.ylabel('$\\hat{y}$')
+        plt.colorbar(scatter, label=r'$v_y$')
+        plt.clim(0.004, -0.004)
+        plt.savefig(f'{path}/init.png')
 
-    ax[0, 0].scatter(X.reshape(-1)+z0[:, 0],
-                                 Y.reshape(-1)+z0[:, 1])
-    ax[0, 0].set_xlabel('$\\hat{x}$')
-    ax[0, 0].set_ylabel('$\\hat{y}$')
+    else:
+        fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(18, 8))
+        cmap = 'coolwarm'
 
-    vx_a_scatter = ax[0, 1].scatter(X.reshape(-1)+z0[:, 0],
-                                 Y.reshape(-1)+z0[:, 1], c=z0[:,2], cmap=cmap)
-    ax[0, 1].set_xlabel('$\\hat{x}$')
-    ax[0, 1].set_ylabel('$\\hat{y}$')
-    cbar1 = fig.colorbar(vx_a_scatter, ax=ax[0, 1], orientation='vertical')
-    cbar1.set_label('$v_x$')
-    
-    vy_a_scatter = ax[0, 2].scatter(X.reshape(-1)+z0[:, 0],
-                                 Y.reshape(-1)+z0[:, 1], c=z0[:,3], cmap=cmap)
-    ax[0, 2].set_xlabel('$\\hat{x}$')
-    ax[0, 2].set_ylabel('$\\hat{y}$')
-    cbar2 = fig.colorbar(vy_a_scatter, ax=ax[0, 2], orientation='vertical')
-    cbar2.set_label('$v_y$')
-    
-    ax[1, 0].scatter(X.reshape(-1)+z[:, 0],
-                                 Y.reshape(-1)+z[:, 1])
-    ax[1, 0].set_xlabel('$\\hat{x}$')
-    ax[1, 0].set_ylabel('$\\hat{y}$')
+        ax[0, 0].scatter(X.reshape(-1)+z0[:, 0],
+                                    Y.reshape(-1)+z0[:, 1])
+        ax[0, 0].set_xlabel('$\\hat{x}$')
+        ax[0, 0].set_ylabel('$\\hat{y}$')
 
-    vx_nn_scatter = ax[1, 1].scatter(X.reshape(-1)+z[:, 0],
-            Y.reshape(-1)+z[:, 1], c=z[:, 2], cmap=cmap)
-    ax[1, 1].set_xlabel('$\\hat{x}$')
-    ax[1, 1].set_xlabel('$\\hat{y}$')
-    cbar3 = fig.colorbar(vx_nn_scatter, ax=ax[1, 1], orientation='vertical')
-    cbar3.set_label('$v_x$')
-    
-    vy_nn_scatter = ax[1, 2].scatter(X.reshape(-1)+z[:, 0],
-            Y.reshape(-1)+z[:, 1], c=z[:, 3], cmap=cmap)
-    ax[1, 2].set_xlabel('$\\hat{x}$')
-    ax[1, 2].set_xlabel('$\\hat{y}$')
-    cbar4 = fig.colorbar(vy_nn_scatter, ax=ax[1, 2], orientation='vertical')
-    cbar4.set_label('$v_y$')
+        vx_a_scatter = ax[0, 1].scatter(X.reshape(-1)+z0[:, 0],
+                                    Y.reshape(-1)+z0[:, 1], c=z0[:,2], cmap=cmap)
+        ax[0, 1].set_xlabel('$\\hat{x}$')
+        ax[0, 1].set_ylabel('$\\hat{y}$')
+        cbar1 = fig.colorbar(vx_a_scatter, ax=ax[0, 1], orientation='vertical')
+        cbar1.set_label('$v_x$')
+        
+        vy_a_scatter = ax[0, 2].scatter(X.reshape(-1)+z0[:, 0],
+                                    Y.reshape(-1)+z0[:, 1], c=z0[:,3], cmap=cmap)
+        ax[0, 2].set_xlabel('$\\hat{x}$')
+        ax[0, 2].set_ylabel('$\\hat{y}$')
+        cbar2 = fig.colorbar(vy_a_scatter, ax=ax[0, 2], orientation='vertical')
+        cbar2.set_label('$v_y$')
+        
+        ax[1, 0].scatter(X.reshape(-1)+z[:, 0],
+                                    Y.reshape(-1)+z[:, 1])
+        ax[1, 0].set_xlabel('$\\hat{x}$')
+        ax[1, 0].set_ylabel('$\\hat{y}$')
 
-    fig.text(0.5, 0.96, 'Analytical', ha='center', va='center', fontsize=16)
-    fig.text(0.5, 0.48, 'Predicted', ha='center', va='center', fontsize=16)
+        vx_nn_scatter = ax[1, 1].scatter(X.reshape(-1)+z[:, 0],
+                Y.reshape(-1)+z[:, 1], c=z[:, 2], cmap=cmap)
+        ax[1, 1].set_xlabel('$\\hat{x}$')
+        ax[1, 1].set_xlabel('$\\hat{y}$')
+        cbar3 = fig.colorbar(vx_nn_scatter, ax=ax[1, 1], orientation='vertical')
+        cbar3.set_label('$v_x$')
+        
+        vy_nn_scatter = ax[1, 2].scatter(X.reshape(-1)+z[:, 0],
+                Y.reshape(-1)+z[:, 1], c=z[:, 3], cmap=cmap)
+        ax[1, 2].set_xlabel('$\\hat{x}$')
+        ax[1, 2].set_xlabel('$\\hat{y}$')
+        cbar4 = fig.colorbar(vy_nn_scatter, ax=ax[1, 2], orientation='vertical')
+        cbar4.set_label('$v_y$')
 
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
-    plt.savefig(f'{path}/init.png')
+        fig.text(0.5, 0.96, 'Analytical', ha='center', va='center', fontsize=16)
+        fig.text(0.5, 0.48, 'Predicted', ha='center', va='center', fontsize=16)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.savefig(f'{path}/init.png')
 
 def plot_average_displ(sol: torch.Tensor, t: torch.Tensor, path: str):
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 8))

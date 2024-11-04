@@ -23,10 +23,10 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True
+load = True
+train = False
 plotloss = False
-getzip = True
+getzip = False 
 plots = False
 
 def get_step(tensors: tuple):
@@ -170,7 +170,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'model/11-04/1021/0.001_8000_(1, 60).pth'
+    filename = 'load/0.001_8000_(1, 60).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -191,7 +191,7 @@ z = pinn_trained(spacein, tin)
 v = calculate_speed(z, tin, par)
 z = torch.cat([z, v], dim=1)
 
-plot_initial_conditions(z, cond0, spacein, dir_model)
+plot_initial_conditions(z, cond0, spacein, dir_model, justplotdisp=True)
 
 allpoints = torch.cat(points["all_points"], dim=1)
 space = allpoints[:,:2]
