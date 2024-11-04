@@ -75,7 +75,7 @@ def simps(y, dx, dim=0):
 def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0 * (torch.sin(2*torch.pi*x) + 2 * torch.sin(5*torch.pi*x))
+    uy0 = w0 * (torch.sin(2*torch.pi*x) + 2 * torch.sin(8*torch.pi*x) + 4 * torch.sin(10*torch.pi*x))
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
