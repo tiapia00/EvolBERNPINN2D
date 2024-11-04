@@ -66,7 +66,8 @@ train = False
 plotloss = False
 getzip = False 
 plots = False
-import_abq = True
+plot_comp = True
+import_abq = False
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -261,6 +262,23 @@ errT = (calculateRMS(T, dt, tmax) - calculateRMS(Tan, dt, tmax))/(
 sol = sol.reshape(n_space**2, n_time, 2)
 plot_sol(sol, spacein, t, dir_model)
 plot_average_displ(sol, t, dir_model)
+
+if plot_comp:
+    space_in = spacein.detach().cpu().numpy()
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    ax1.plot(x_domain, labelled[:,0,23].detach().cpu().numpy(), label='Analytical', color='red')
+    ax1.scatter(space_in[:,0] + sol[:,23,0], space_in[:,1] + sol[:,23,1], label='NN')
+    ax1.set_xlabel(r'$\hat{x}$')
+    ax1.set_title(r'$\hat{t} = 0.115$')
+
+    ax2.plot(x_domain, labelled[:,0,43].detach().cpu().numpy(), label='Analytical', color='red')
+    ax2.scatter(space_in[:,0] + sol[:,43,0], space_in[:,1] + sol[:,43,1], label='NN')
+    ax2.set_xlabel(r'$\hat{x}$')
+    ax2.set_title(r'$\hat{t} = 0.215$')
+    ax2.legend(loc='upper right')
+
+    plt.tight_layout()
+    plt.savefig(f'{dir_model}/disp_comp.png')
 
 if plotloss:
     grad_accumulation = {name: 0.0 for name, param in pinn_trained.named_parameters()}
