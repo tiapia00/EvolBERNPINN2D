@@ -24,10 +24,10 @@ else:
     print("Using CPU device.")
 
 load = False
-train = True 
+train = True
 plotloss = False
-getzip = False
-plots = False
+getzip = True
+plots = True 
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -80,6 +80,16 @@ steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
 scaley = 2
+scale_interp = 2
+x_interp = torch.linspace(0, Lx, n_space // scale_interp)/Lx
+y_interp = torch.linspace(0, Ly, n_space // scale_interp)/Lx
+t_interp = torch.linspace(0, tmax, n_time // scale_interp)
+
+x_grid, y_grid, t_grid = torch.meshgrid(x_interp[1:-1], y_interp[1:-1], t_interp[1:], indexing='ij')
+x_grid = x_grid.reshape(-1,1).to(device)
+y_grid = y_grid.reshape(-1,1).to(device)
+t_grid = t_grid.reshape(-1,1).to(device)
+interp_points = (x_grid, y_grid, t_grid)
 
 points = {
     'res_points': grid.get_interior_points_train(scaley),
@@ -87,6 +97,7 @@ points = {
     'boundary_points': grid.generate_grid_bound(),
     'initial_points_hyper': grid.get_initial_points_hyper(),
     'all_points': grid.get_all_points(),
+    'interp_points': interp_points
 }
 
 adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
@@ -104,22 +115,18 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 
-x_res = x_domain[1:-1].detach().cpu().numpy()
-t_res = t_domain[1:].detach().cpu().numpy()
+x_res = x_interp[1:-1].detach().cpu().numpy()
+t_res = t_interp[1:].detach().cpu().numpy()
 points_interp = np.array(np.meshgrid(x_res * Lx, t_res * t_tild)).T.reshape(-1,2)
 labelled = interpdispbeam(points_interp)
-labelled = labelled.reshape(n_space - 2, n_time - 1)
+labelled = labelled.reshape(n_space // scale_interp - 2 , n_time // scale_interp - 1)
 labelled = np.expand_dims(labelled, axis=1)
-labelled = np.repeat(labelled, repeats=labelled.shape[0] // scaley, axis=1)
-noise = np.random.normal(0, 0.005, labelled.shape)
+labelled = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
+noise = np.random.normal(0, 0.1, labelled.shape)
 labelled_noise = labelled + noise
-if plots:
-    plt.figure()
-    plt.plot(x_res, labelled_noise[:,0,0])
-    plt.show()
 labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
 
-pinn = PINN(dim_hidden, w0, n_hidden, n_space, scaley, n_time, multux, multuy, modesx, modesy, multhyperx, device).to(device)
+pinn = PINN(dim_hidden, w0, n_hidden, n_space, scaley, n_time, multux, multuy, modesx, modesy, multhyperx, scale_interp, device).to(device)
 loss_fn = Loss(
         points,
         n_space,
@@ -135,7 +142,8 @@ loss_fn = Loss(
         interpVbeam,
         interpTbeam,
         t_tild,
-        labelled
+        labelled,
+        scale_interp
     )
 
 _, V, T, _, _, _, _, _ = loss_fn.res_loss(pinn, True)
@@ -148,8 +156,14 @@ loss_fn.T0 = T0
 
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
+if plots:
+    plt.figure()
+    plt.plot(x_res, labelled_noise[:,0,0])
+    plt.xlabel(r'$x$')
+    plt.ylabel(r'$w_0$')
+    plt.savefig(f'{dir_model}/displ_noise.png')
 if load:
-    filename = 'load/1e-05_10000_(1, 60).pth'
+    filename = 'model/11-04/1021/0.001_8000_(1, 60).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -172,7 +186,7 @@ z = torch.cat([z, v], dim=1)
 
 plot_initial_conditions(z, cond0, spacein, dir_model)
 
-allpoints = torch.cat(points["all_points_eval"], dim=1)
+allpoints = torch.cat(points["all_points"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
@@ -185,7 +199,7 @@ Tan *= np.max(T)/np.max(Tan)
 
 plt.figure()
 plt.plot(torch.unique(t).detach().cpu().numpy(), V, label=r'$\hat{V}$')
-plt.plot(torch.unique(t).detach().cpu().numpy(), Tan, label=r'$V$')
+plt.plot(torch.unique(t).detach().cpu().numpy(), Van, label=r'$V$')
 plt.xlabel(r'$\hat{t}$')
 plt.legend()
 plt.savefig(f'{dir_model}/anhatencomp.png')

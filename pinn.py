@@ -280,6 +280,7 @@ class PINN(nn.Module):
                  modesx: int,
                  modesy: list,
                  hyperx: int,
+                 scaleinterp: int,
                  device,
                  ):
 
@@ -290,7 +291,7 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
         self.in_penalties = nn.Parameter(torch.ones(n_space * hyperx, n_space // scaley))
-        self.data_penalties = nn.Parameter(torch.ones_like(self.res_penalties))
+        self.data_penalties = nn.Parameter(torch.ones(n_space // scaleinterp - 2, n_space // scaleinterp - 2, n_time // scaleinterp - 1))
 
         for i in range(modesx):
             Bx = torch.randn([2, n_mode_spacex], device=device)
@@ -427,7 +428,8 @@ class Loss:
         interpVbeam,
         interpEkbeam,
         t_tild: float,
-        labelled: torch.Tensor
+        labelled: torch.Tensor,
+        scale_interp: int
     ):
         self.points = points
         self.w0 = w0
@@ -447,6 +449,7 @@ class Loss:
         self.hyperx = hyperx
         self.tmax = torch.max(self.points['res_points'][-1]).item()
         self.labelled = labelled
+        self.scale_interp = scale_interp
 
     def res_loss(self, pinn, use_init: bool = False):
         x, y, t = self.points['res_points']
@@ -563,14 +566,14 @@ class Loss:
         return lossv, lossp
 
     def data_loss(self, pinn):
-        x, y, t = self.points['res_points']
+        x, y, t = self.points['interp_points']
         space = torch.cat([x, y], dim=1)
 
         output = pinn(space, t)
 
-        output = output.reshape(self.n_space - 2, (self.n_space - 2) // self.scaley, self.n_time - 1, 2)
+        output = output.reshape(self.n_space // self.scale_interp - 2, self.n_space // self.scale_interp - 2, self.n_time // self.scale_interp - 1, 2)
         loss = torch.tanh(pinn.data_penalties) * (output[...,1] - self.labelled).pow(2)
-        loss = 10000 * loss.mean()
+        loss = 1000 * loss.mean()
 
         return loss
 
