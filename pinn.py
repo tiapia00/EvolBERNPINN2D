@@ -573,7 +573,7 @@ class Loss:
 
         output = output.reshape(self.n_space // self.scale_interp - 2, self.n_space // self.scale_interp - 2, self.n_time // self.scale_interp - 1, 2)
         loss = torch.tanh(pinn.data_penalties) * (output[...,1] - self.labelled).pow(2)
-        loss = 1000 * loss.mean()
+        loss = 100 * loss.mean()
 
         return loss
 
