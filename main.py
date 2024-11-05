@@ -27,7 +27,7 @@ load = False
 train = False
 plotloss = False
 getzip = False 
-plots = False
+plots = True
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -128,7 +128,7 @@ labelled = interpdispbeam(points_interp)
 labelled = labelled.reshape(n_space // scale_interp - 2 , n_time // scale_interp)
 labelled = np.expand_dims(labelled, axis=1)
 labelled = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
-noise = np.random.normal(0, 0.5, labelled.shape)
+noise = np.random.normal(0, 0.8, labelled.shape)
 labelled_noise = labelled + noise
 labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
 if plots:
