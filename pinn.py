@@ -75,7 +75,7 @@ def simps(y, dx, dim=0):
 def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0 * (torch.sin(2*torch.pi*x) + 2 * torch.sin(8*torch.pi*x) + 4 * torch.sin(10*torch.pi*x))
+    uy0 = w0 * (torch.sin(2*torch.pi*x) + 2 * torch.sin(4*torch.pi*x) + 4 * torch.sin(5*torch.pi*x))
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -326,7 +326,7 @@ class PINN(nn.Module):
             self.hid_space_layers_y.append(nn.Tanh())
 
         self.outlayerx = nn.Linear(2 * modesx**2 * n_mode_spacex, 1, bias=False)
-        self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1, bias=False)
+        self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1)
         self._initialize_weights()
         """
         weightslast = torch.from_numpy(magnFFT).float()
@@ -573,7 +573,7 @@ class Loss:
 
         output = output.reshape(self.n_space // self.scale_interp - 2, self.n_space // self.scale_interp - 2, self.n_time // self.scale_interp - 1, 2)
         loss = torch.tanh(pinn.data_penalties) * (output[...,1] - self.labelled).pow(2)
-        loss = 100 * loss.mean()
+        loss = loss.mean()
 
         return loss
 
@@ -584,7 +584,7 @@ class Loss:
         boundloss = self.bound_N_loss(pinn)
         lossv0, lossp0 = self.initial_loss(pinn)
         data_loss = self.data_loss(pinn)
-        loss = lossv0 + res_loss + data_loss
+        loss = lossv0 + 1e-4 * res_loss + data_loss
 
         if inc_enloss:
             loss += enloss
@@ -624,7 +624,7 @@ def train_model(
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
         {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-3}
     ]
-    optimizer = optim.AdamW(params_to_optimize, weight_decay=0.1)
+    optimizer = optim.AdamW(params_to_optimize)
     #scheduler = lr_scheduler.ExponentialLR(optimizer, 0.997)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
