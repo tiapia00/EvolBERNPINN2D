@@ -25,10 +25,10 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tens
 
     if justplotdisp:
         plt.figure()
-        scatter = plt.scatter(X.reshape(-1)+z[:, 0],
-                                    Y.reshape(-1)+z[:, 1], c=z[:,3], cmap='coolwarm')
-        plt.xlabel('$\\hat{x}$')
-        plt.ylabel('$w$')
+        scatter = plt.scatter(X.reshape(-1),
+                                    Y.reshape(-1), c=z[:,3], cmap='coolwarm')
+        plt.xlabel(r'$\hat{x}$')
+        plt.ylabel(r'$\hat{y}$')
         plt.colorbar(scatter, label=r'$v_y$')
         plt.savefig(f'{path}/init.png')
 
