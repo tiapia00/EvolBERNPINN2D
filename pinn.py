@@ -584,7 +584,7 @@ class Loss:
         boundloss = self.bound_N_loss(pinn)
         lossp, lossv = self.initial_loss(pinn)
         data_loss = self.data_loss(pinn)
-        loss = lossp + res_loss + data_loss
+        loss = lossp + 1e-4 * res_loss + data_loss
 
         if inc_enloss:
             loss += enloss

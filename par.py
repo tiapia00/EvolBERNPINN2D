@@ -7,7 +7,7 @@ class Parameters:
         self.n_time = 50
         self.dim_hidden = (1, 60) 
         self.modesx = 1
-        self.modesy = [1.8, 7.8, 9.4]
+        self.modesy = [1.8, 4.5]
         self.multux = 1
         self.multuy = 1 
         self.multhyperx = 4 
@@ -27,7 +27,7 @@ class Parameters:
             'multhyperx': self.multhyperx,
             'modesx': self.modesx,
             'modesy': self.modesy,
-            'lr': 1e-3,
+            'lr': 1e-4,
             'epochs': 8000 
         }
         self.beam_par = {
