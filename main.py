@@ -6,7 +6,7 @@ import torch
 from utils import *
 from pinn import *
 from par import Parameters, get_params
-from analytical import obtain_analytical_free
+from analytical import obtain_analytical_free, calculateen_noise
 from scipy.interpolate import make_interp_spline
 import matplotlib.animation as animation
 from scipy.interpolate import RegularGridInterpolator
@@ -23,8 +23,8 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True
+load = True
+train = False
 plotloss = False
 getzip = False
 plots = False
@@ -170,11 +170,13 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.001_8000_(1, 60).pth'
+    filename = 'load/0.001_8000_(1, 80).pth'
     dir_load = os.path.dirname(filename)
     state_dict = torch.load(filename, map_location=device)
     if 'in_penalties' in state_dict:
         del state_dict['in_penalties']
+    if 'data_penalties' in state_dict:
+        del state_dict['data_penalties']
     pinn.load_state_dict(state_dict, strict=False)
 if train:
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
@@ -207,9 +209,11 @@ Van *= np.max(V)/np.max(Van)
 Tan = interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 Tan *= np.max(T)/np.max(Tan)
 
+Vnoisebeam, _ = calculateen_noise(my_beam, x_domain.detach().cpu().numpy(), labelled_noise[:,0,:].reshape(-1, n_time))
+Vnoisebeam *= np.max(V)/np.max(Vnoisebeam)
 plt.figure()
 plt.plot(torch.unique(t).detach().cpu().numpy(), V, label=r'$\hat{V}$')
-plt.plot(torch.unique(t).detach().cpu().numpy(), Van, label=r'$V$')
+plt.plot(torch.unique(t).detach().cpu().numpy(), Vnoisebeam, label=r'$V$')
 plt.xlabel(r'$\hat{t}$')
 plt.legend()
 plt.savefig(f'{dir_model}/anhatencomp.png')

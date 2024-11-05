@@ -57,6 +57,22 @@ def calculateen(my_beam: Beam) -> float:
 
     return V, Ek
 
+def calculateen_noise(my_beam: Beam, x: np.ndarray, w_noise: np.ndarray) -> float:
+    EJ = my_beam.E * my_beam.J
+    w = w_noise
+    w = np.vstack((np.zeros(w.shape[1]), w, np.zeros(w.shape[1])))
+
+    dw_dxx = []
+    for column in w.T:
+        dw_dxx.append(df_num(x, df_num(x, column)))
+    dw_dxx = np.stack(dw_dxx, axis=-1)
+
+    V = 1/2*EJ*integrate.simpson(y=dw_dxx**2, x=x, axis=0)
+
+    Ek = V[0] - V 
+
+    return V, Ek
+
 def df_num(x: np.ndarray, y: np.ndarray):
     dx = np.diff(x)
     dy = np.diff(y)
