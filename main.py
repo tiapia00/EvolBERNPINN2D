@@ -170,10 +170,12 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.0001_8000_(1, 80).pth'
+    filename = 'load/0.001_8000_(1, 60).pth'
     dir_load = os.path.dirname(filename)
     state_dict = torch.load(filename, map_location=device)
-    pinn.load_state_dict(state_dict)
+    if 'in_penalties' in state_dict:
+        del state_dict['in_penalties']
+    pinn.load_state_dict(state_dict, strict=False)
 if train:
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
         max_epochs=epochs, path_logs=dir_logs, modeldir=dir_model)
