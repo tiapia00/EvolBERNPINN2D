@@ -75,9 +75,9 @@ def simps(y, dx, dim=0):
 def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0 * (torch.sin(2*torch.pi*x) + 2 * torch.sin(8*torch.pi*x) + 4 * torch.sin(10*torch.pi*x))
+    uy0 = w0 * (torch.sin(2*torch.pi*x) + 2 * torch.sin(5*torch.pi*x))
     dotux0 = torch.zeros_like(x)
-    dotuy0 = torch.zeros_like(x)
+    dotuy0 = torch.ones_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
 
 
@@ -563,7 +563,7 @@ class Loss:
         lossv = torch.tanh(pinn.in_penalties.unsqueeze(2)) * (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(self.hyperx * self.n_space, self.n_space // self.scaley, 2).pow(2)
         lossv = lossv.mean()
 
-        return lossv, lossp
+        return lossp, lossv
 
     def data_loss(self, pinn):
         x, y, t = self.points['interp_points']
@@ -582,15 +582,15 @@ class Loss:
         res_loss, V, T, errV, errT, kurt, skew, lossgrid = self.res_loss(pinn)
         enloss = ((V+T)).pow(2).mean() 
         boundloss = self.bound_N_loss(pinn)
-        lossv0, lossp0 = self.initial_loss(pinn)
+        lossp, lossv = self.initial_loss(pinn)
         data_loss = self.data_loss(pinn)
-        loss = lossv0 + res_loss + data_loss
+        loss = lossp + res_loss + data_loss
 
         if inc_enloss:
             loss += enloss
 
         losses = {
-            "in_loss": lossp0,
+            "in_loss": lossv,
             "bound_loss": boundloss,
             "V": V,
             "T": T,
