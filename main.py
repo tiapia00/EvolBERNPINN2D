@@ -23,10 +23,10 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True
+load = True
+train = False
 plotloss = False
-getzip =  True
+getzip = False
 plots = False
 
 def get_step(tensors: tuple):
@@ -170,7 +170,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.001_8000_(1, 60).pth'
+    filename = 'load/0.0001_8000_(1, 80).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
