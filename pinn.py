@@ -615,12 +615,9 @@ def train_model(
     learning_rate: int,
     max_epochs: int,
     path_logs: str,
-    modeldir: str,
 ) -> PINN:
 
     writer = SummaryWriter(log_dir=path_logs)
-
-    from plots import plot_energy
 
     exclude_params = ['res_penalties', 'in_penalties', 'data_penalties']
     params_to_optimize = [

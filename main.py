@@ -23,8 +23,8 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = True
-train = False
+load = False
+train = True
 plotloss = False
 getzip = False
 plots = False
@@ -86,7 +86,7 @@ steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
 scaley = 2
-scale_interp = 2
+scale_interp = 1 
 x_interp = torch.linspace(0, Lx, n_space // scale_interp)/Lx
 y_interp = torch.linspace(0, Ly, n_space // scale_interp)/Lx
 t_interp = torch.linspace(0, tmax, n_time // scale_interp)
@@ -178,7 +178,7 @@ if load:
     pinn.load_state_dict(state_dict, strict=False)
 if train:
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
-        max_epochs=epochs, path_logs=dir_logs, modeldir=dir_model)
+        max_epochs=epochs, path_logs=dir_logs)
     model_name = f'{lr}_{epochs}_{dim_hidden}.pth'
     model_path = os.path.join(dir_model, model_name)
     torch.save(pinn_trained.state_dict(), model_path)
