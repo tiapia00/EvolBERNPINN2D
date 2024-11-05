@@ -115,10 +115,10 @@ par = {"Lx": Lx,
         "rho": rho,
         "t_ast": t_tild}
 
-inpoints = torch.cat(points["initial_points"], dim=1)
+inpoints = torch.cat(points["initial_points_hyper"], dim=1)
 spacein = inpoints[:,:2]
 cond0 = initial_conditions(spacein, w0)
-condx = cond0[:,1].reshape(n_space, n_space)
+condx = cond0[:,1].reshape(n_space * multhyperx, n_space // scaley)
 condx = condx[:,0]
 
 x_res = x_interp[1:-1].detach().cpu().numpy()
@@ -172,7 +172,8 @@ dir_logs = pass_folder('model/logs')
 if load:
     filename = 'load/0.0001_8000_(1, 80).pth'
     dir_load = os.path.dirname(filename)
-    pinn.load_state_dict(torch.load(filename, map_location=device))
+    state_dict = torch.load(filename, map_location=device)
+    pinn.load_state_dict(state_dict)
 if train:
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
         max_epochs=epochs, path_logs=dir_logs, modeldir=dir_model)
@@ -223,6 +224,8 @@ errT = (calculateRMS(T, dt, tmax) - calculateRMS(Tan, dt, tmax))/(
 ).item()
 
 sol = sol.reshape(n_space**2, n_time, 2)
+inpoints = torch.cat(points['initial_points'], dim=1)
+spacein = inpoints[:,:2]
 plot_sol(sol, spacein, t, dir_model)
 plot_average_displ(sol, t, dir_model)
 
