@@ -23,8 +23,8 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True
+load = True
+train = False
 plotloss = False
 getzip = False
 plots = False
@@ -170,7 +170,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'model/11-06/1125/1e-05_10000_(1, 70).pth'
+    filename = 'load/0.0001_5000_(1, 60).pth'
     dir_load = os.path.dirname(filename)
     state_dict = torch.load(filename, map_location=device)
     if 'in_penalties' in state_dict:

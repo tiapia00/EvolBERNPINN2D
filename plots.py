@@ -29,6 +29,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tens
                                     Y.reshape(-1), c=z[:,3], cmap='coolwarm')
         plt.xlabel(r'$\hat{x}$')
         plt.ylabel(r'$\hat{y}$')
+        plt.tight_layout()
         plt.colorbar(scatter, label=r'$v_y$')
         plt.savefig(f'{path}/init.png')
 
