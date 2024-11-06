@@ -323,7 +323,7 @@ class PINN(nn.Module):
         self.hid_space_layers_y.append(nn.Linear(2 * n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy, bias=False))
-            self.hid_space_layers_y.append(nn.Tanh())
+            self.hid_space_layers_y.append(nn.GELU())
 
         self.outlayerx = nn.Linear(2 * modesx**2 * n_mode_spacex, 1, bias=False)
         self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1, bias=False)
@@ -622,9 +622,9 @@ def train_model(
     exclude_params = ['res_penalties', 'in_penalties', 'data_penalties']
     params_to_optimize = [
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
-        {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-3}
+        {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-5}
     ]
-    optimizer = optim.AdamW(params_to_optimize, weight_decay=0.1)
+    optimizer = optim.AdamW(params_to_optimize)
     #scheduler = lr_scheduler.ExponentialLR(optimizer, 0.997)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
