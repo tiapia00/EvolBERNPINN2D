@@ -170,7 +170,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.001_8000_(1, 80).pth'
+    filename = 'load/0.001_8000_(1, 60).pth'
     dir_load = os.path.dirname(filename)
     state_dict = torch.load(filename, map_location=device)
     if 'in_penalties' in state_dict:
@@ -215,6 +215,7 @@ plt.figure()
 plt.plot(torch.unique(t).detach().cpu().numpy(), V, label='NN')
 plt.plot(torch.unique(t).detach().cpu().numpy(), Vnoisebeam, label='Analytical + Noise')
 plt.plot(torch.unique(t).detach().cpu().numpy(), Van, label='Analytical')
+plt.ylabel(r'$V$')
 plt.xlabel(r'$\hat{t}$')
 plt.legend()
 plt.savefig(f'{dir_model}/anhatencomp.png')
