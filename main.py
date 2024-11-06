@@ -23,7 +23,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = True
+load = False
 train = True
 plotloss = False
 getzip = False
