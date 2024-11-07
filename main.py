@@ -107,7 +107,6 @@ points = {
 }
 
 adim = (mu/lam, (lam+mu)/lam, rho/(lam*t_tild.item()**2)*Lx**2)
-print(mu/lam)
 par = {"Lx": Lx,
         "w0": w0,
         "b": h/3,
