@@ -292,6 +292,7 @@ class PINN(nn.Module):
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
         self.in_penalties = nn.Parameter(torch.ones(n_space * hyperx, n_space // scaley))
         self.data_penalties = nn.Parameter(torch.ones(n_space // scaleinterp - 2, n_space // scaleinterp - 2, n_time // scaleinterp - 1))
+        self.mu_lam = nn.Parameter(torch.tensor(1, dtype=torch.float32))
 
         for i in range(modesx):
             Bx = torch.randn([2, n_mode_spacex], device=device)
@@ -490,7 +491,7 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         """
-        lossesall = (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
+        lossesall = (pinn.mu_lam * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
         
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
@@ -552,7 +553,8 @@ class Loss:
         output = pinn(space, t)
 
         init = initial_conditions(space, pinn.w0)
-        lossp = (output[:,1] - init[:,1]).pow(2).mean()
+        lossp = torch.tanh(pinn.in_penalties) * (output[:,1] - init[:,1]).reshape(self.hyperx * self.n_space, self.n_space // self.scaley).pow(2)
+        lossp = lossp.mean()
         vx = torch.autograd.grad(output[:,0].unsqueeze(1), t, torch.ones_like(t, device=self.device),
                 create_graph=True, retain_graph=True)[0]
         vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=self.device),
@@ -563,7 +565,9 @@ class Loss:
         lossv = torch.tanh(pinn.in_penalties.unsqueeze(2)) * (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(self.hyperx * self.n_space, self.n_space // self.scaley, 2).pow(2)
         lossv = lossv.mean()
 
-        return lossp, lossv
+        loss = lossv + lossp
+
+        return loss
 
     def data_loss(self, pinn):
         x, y, t = self.points['interp_points']
@@ -577,20 +581,19 @@ class Loss:
 
         return loss
 
-        
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT, kurt, skew, lossgrid = self.res_loss(pinn)
         enloss = ((V+T)).pow(2).mean() 
         boundloss = self.bound_N_loss(pinn)
-        lossp, lossv = self.initial_loss(pinn)
+        lossin = self.initial_loss(pinn)
         data_loss = self.data_loss(pinn)
-        loss = lossp + res_loss + data_loss
+        loss = lossin + res_loss + data_loss
 
         if inc_enloss:
             loss += enloss
 
         losses = {
-            "in_loss": lossv,
+            "in_loss": lossin,
             "bound_loss": boundloss,
             "V": V,
             "T": T,
@@ -657,6 +660,11 @@ def train_model(
         writer.add_scalars('Loss/Distr_res', {
             "kurt_res": losses['kurt_res'],
             "skew_res": losses['skew_res'],
+        }, epoch)
+
+        writer.add_scalars('Loss/mu_lam', {
+            "ana": loss_fn.adim[0],
+            "pred": nn_approximator.mu_lam.item()
         }, epoch)
 
         writer.add_scalars('Energy', {
