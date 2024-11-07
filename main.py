@@ -86,7 +86,7 @@ steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
 scaley = 2
-scale_interp = 2 
+scale_interp = 1 
 x_interp = torch.linspace(0, Lx, n_space // scale_interp)/Lx
 y_interp = torch.linspace(0, Ly, n_space // scale_interp)/Lx
 t_interp = torch.linspace(0, tmax, n_time // scale_interp)
@@ -113,7 +113,8 @@ par = {"Lx": Lx,
         "lam": lam,
         "mu":mu,
         "rho": rho,
-        "t_ast": t_tild}
+        "t_ast": t_tild,
+        }
 
 inpoints = torch.cat(points["initial_points_hyper"], dim=1)
 spacein = inpoints[:,:2]
@@ -128,7 +129,7 @@ labelled = interpdispbeam(points_interp)
 labelled = labelled.reshape(n_space // scale_interp - 2 , n_time // scale_interp)
 labelled = np.expand_dims(labelled, axis=1)
 labelled = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
-noise = np.random.normal(0, 0.1, labelled.shape)
+noise = np.random.normal(0, 0.05, labelled.shape)
 labelled_noise = labelled + noise
 labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
 if plots:

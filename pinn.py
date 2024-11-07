@@ -292,7 +292,7 @@ class PINN(nn.Module):
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
         self.in_penalties = nn.Parameter(torch.ones(n_space * hyperx, n_space // scaley))
         self.data_penalties = nn.Parameter(torch.ones(n_space // scaleinterp - 2, n_space // scaleinterp - 2, n_time // scaleinterp - 1))
-        self.mu_lam = nn.Parameter(torch.tensor(1, dtype=torch.float32))
+        self.lam = nn.Parameter(torch.tensor(1e4, dtype=torch.float32))
 
         for i in range(modesx):
             Bx = torch.randn([2, n_mode_spacex], device=device)
@@ -324,7 +324,7 @@ class PINN(nn.Module):
         self.hid_space_layers_y.append(nn.Linear(2 * n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy, bias=False))
-            self.hid_space_layers_y.append(nn.GELU())
+            self.hid_space_layers_y.append(nn.Tanh())
 
         self.outlayerx = nn.Linear(2 * modesx**2 * n_mode_spacex, 1, bias=False)
         self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1, bias=False)
@@ -491,7 +491,7 @@ class Loss:
         loss += (self.adim[0] * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2ux[:,0] + dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze()).pow(2).mean()
         """
-        lossesall = (pinn.mu_lam * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
+        lossesall = (self.par['mu']/pinn.lam * (dxx_xy2uy[:,0] + dyx_yy2uy[:,1]) + self.adim[1] * 
                 (dyx_yy2uy[:,1]) - self.adim[2] * ay.squeeze())
         
         loss_skew = skew(lossesall.detach().cpu().numpy()) 
@@ -522,7 +522,7 @@ class Loss:
         errV = (calculateRMS(V.detach().cpu().numpy(), self.steps[2], self.tmax) - calculateRMS(Vbeam, self.steps[2], self.tmax)) / calculateRMS(Vbeam, self.steps[2], self.tmax)
         errT = (calculateRMS(T.detach().cpu().numpy(), self.steps[2], self.tmax) - calculateRMS(Ekbeam, self.steps[2], self.tmax)) / calculateRMS(Ekbeam, self.steps[2], self.tmax)
          
-        return 3e-5 * loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall.detach()
+        return loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall.detach()
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -662,9 +662,9 @@ def train_model(
             "skew_res": losses['skew_res'],
         }, epoch)
 
-        writer.add_scalars('Loss/mu_lam', {
-            "ana": loss_fn.adim[0],
-            "pred": nn_approximator.mu_lam.item()
+        writer.add_scalars('Loss/lam', {
+            "ana": loss_fn.par['lam'],
+            "pred": nn_approximator.lam.item()
         }, epoch)
 
         writer.add_scalars('Energy', {
