@@ -211,7 +211,7 @@ plot_average_displ(sol, t, dir_model)
 
 labelled = labelled_no_noise
 fig, ax = plt.subplots()
-line, = ax.plot(x_domain[1:-1], labelled[:,0,0])
+line, = ax.plot(x_domain[1:-1].detach().cpu().numpy(), labelled[:,0,0])
 ax.legend()
 
 def update(frame):
