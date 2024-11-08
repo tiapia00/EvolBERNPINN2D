@@ -8,6 +8,8 @@ from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
 from scipy.interpolate import make_interp_spline
+from scipy.interpolate import RegularGridInterpolator
+import matplotlib.animation as animation
 import scipy.fft as fft
 
 torch.set_default_dtype(torch.float32)
@@ -26,6 +28,7 @@ load = True
 train = False 
 plotloss = False
 getzip = False
+plot_comp = True
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -44,7 +47,7 @@ my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
 t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 1000, 1)
 
-interpdisplbeam = make_interp_spline(t_beam, w[w.shape[0]//2,:])
+interpdispbeam = RegularGridInterpolator((my_beam.xi, t_beam), w)
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)
 interpTbeam = make_interp_spline(t_beam, Ek_an, k=5)
 
@@ -140,14 +143,46 @@ space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
 sol, V, T = obtainsolt_u(pinn_trained, space, t, nsamples, 1, par, steps, device)
+sol = sol.reshape(n_space * n_space, n_time, 2)
 
-sol1D = sol[sol.shape[1]//2,sol.shape[1]//2,:,1]
-nfft = sol1D.shape[0]
-beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+points_interp = np.array(np.meshgrid(x_domain.detach().cpu().numpy() * Lx, t_domain.detach().cpu().numpy() * t_tild)).T.reshape(-1,2)
+labelled = interpdispbeam(points_interp)
+labelled = labelled.reshape(n_space, n_time)
+labelled = np.expand_dims(labelled, axis=1)
+labelled = np.repeat(labelled, repeats=n_space, axis=1)
 Van = interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 Van *= np.max(V)/np.max(Van)
 Tan = interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 Tan *= np.max(T)/np.max(Tan)
+
+fig, ax = plt.subplots()
+line, = ax.plot(x_domain, labelled[:,0,0])
+ax.legend()
+
+def update(frame):
+    line.set_ydata(labelled[:,0,frame])
+    ax.set_title(f'$\\hat{{t}} = {frame * steps[2].item()}$')
+    return line, 
+
+ani = animation.FuncAnimation(fig=fig, func=update, frames=labelled.shape[2], interval=100)
+if plot_comp:
+    space_in = spacein.detach().cpu().numpy()
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    n1 = 10
+    ax1.plot(x_domain, labelled[:,0,n1], label='Analytical', color='red')
+    ax1.scatter(space_in[:,0] + sol[:,n1,0], space_in[:,1] + sol[:,n1,1], label='NN')
+    ax1.set_xlabel(r'$\hat{x}$')
+    ax1.set_title(f'$\\hat{{t}} = {n1 * steps[2].item():.2f}$')
+
+    n2 = 55
+    ax2.plot(x_domain, labelled[:,0,n2], label='Analytical', color='red')
+    ax2.scatter(space_in[:,0] + sol[:,n2,0], space_in[:,1] + sol[:,n2,1], label='NN')
+    ax2.set_xlabel(r'$\hat{x}$')
+    ax2.set_title(f'$\\hat{{t}} = {n2 * steps[2].item():.2f}$')
+    ax2.legend(loc='upper right')
+
+    plt.tight_layout()
+    plt.savefig(f'{dir_model}/disp_comp.png')
 
 dt = steps[2].item()
 errV = (calculateRMS(V, dt, tmax) - calculateRMS(Van, dt, tmax))/(
@@ -156,9 +191,6 @@ errV = (calculateRMS(V, dt, tmax) - calculateRMS(Van, dt, tmax))/(
 errT = (calculateRMS(T, dt, tmax) - calculateRMS(Tan, dt, tmax))/(
         calculateRMS(Tan, dt, tmax)
 ).item()
-
-print(errV)
-print(errT)
 
 sol = sol.reshape(n_space**2, n_time, 2)
 plot_sol(sol, spacein, t, dir_model)
