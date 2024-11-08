@@ -8,6 +8,8 @@ from pinn import *
 from par import Parameters, get_params
 from analytical import obtain_analytical_free
 from scipy.interpolate import make_interp_spline
+from scipy.interpolate import RegularGridInterpolator
+import matplotlib.animation as animation
 
 torch.set_default_dtype(torch.float32)
 
@@ -25,6 +27,7 @@ load = True
 train = False 
 plotloss = False
 getzip = False
+plot_comp = True
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -43,7 +46,7 @@ my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
 t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 2000, 1)
 
-interpdisplbeam = make_interp_spline(t_beam, w[w.shape[0]//2,:])
+interpdispbeam = RegularGridInterpolator((my_beam.xi, t_beam), w)
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)
 interpTbeam = make_interp_spline(t_beam, Ek_an, k=5)
 
@@ -86,6 +89,12 @@ condx = cond0[:,1].reshape(n_space, n_space)
 condx = condx[:,0]
 
 pinn = PINN(dim_hidden, w0, n_hidden, multux, multuy, device).to(device)
+
+points_interp = np.array(np.meshgrid(x_domain.detach().cpu().numpy() * Lx, t_domain.detach().cpu().numpy() * t_tild)).T.reshape(-1,2)
+labelled = interpdispbeam(points_interp)
+labelled = labelled.reshape(n_space, n_time)
+labelled = np.expand_dims(labelled, axis=1)
+labelled = np.repeat(labelled, repeats=n_space, axis=1)
 
 in_penalty = torch.tensor([1., 1., 1., 1.])
 in_penalty.requires_grad_(False)
@@ -147,7 +156,7 @@ plot_energy(torch.unique(t, sorted=True).detach().cpu().numpy(), V, T, dir_model
 sol1D = sol[sol.shape[1]//2,sol.shape[1]//2,:,1]
 nfft = sol1D.shape[0]
 window = np.hanning(nfft)
-beamdispl = interpdisplbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
+beamdispl = interpdispbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 Van = interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 Van *= np.max(V)/np.max(Van)
 Tan = interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
@@ -162,20 +171,44 @@ errT = (calculateRMS(T, steps[2], tmax) - calculateRMS(Tan, steps[2], tmax))/(
 
 freqsfft = np.fft.rfftfreq(nfft, steps[2].item())
 fftpredicted = np.fft.rfft(window * sol1D)
-fftan = np.fft.rfft(window * beamdispl)
-freqmaxpred = np.argmax(fftpredicted)
-freqmaxan = np.argmax(fftan)
-
-errfreq = (freqsfft[freqmaxan] - freqsfft[freqmaxpred])/freqsfft[freqmaxan]
-
-with open(f'{dir_model}/errs.txt', 'w') as file:
-    file.write(f"errfreq = {errfreq}\n"
-               f"errV = {-errV}\n"
-               f"errT = {-errT}\n")
 
 sol = sol.reshape(n_space**2, n_time * hypert, 2)
 plot_sol(sol, spacein, t, dir_model)
 plot_average_displ(sol, t, dir_model)
+
+plt.figure()
+plt.xlim((0, 0.05))
+plt.legend()
+
+plt.show()
+fig, ax = plt.subplots()
+line, = ax.plot(x_domain, labelled[:,0,0])
+ax.legend()
+
+def update(frame):
+    line.set_ydata(labelled[:,0,frame])
+    ax.set_title(f'$\\hat{{t}} = {frame * steps[2].item()}$')
+    return line, 
+
+ani = animation.FuncAnimation(fig=fig, func=update, frames=40, interval=100)
+plt.show()
+if plot_comp:
+    space_in = spacein.detach().cpu().numpy()
+    plt.figure()
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    ax1.plot(x_domain, labelled[:,0,1], label='Analytical', color='red')
+    ax1.scatter(space_in[:,0] + sol[:,10,0], space_in[:,1] + sol[:,10,1], label='NN')
+    ax1.set_xlabel(r'$\hat{x}$')
+    ax1.set_title(r'$\hat{t} = 0.2$')
+
+    ax2.plot(x_domain, labelled[:,0,43], label='Analytical', color='red')
+    ax2.scatter(space_in[:,0] + sol[:,43,0], space_in[:,1] + sol[:,43,1], label='NN')
+    ax2.set_xlabel(r'$\hat{x}$')
+    ax2.set_title(r'$\hat{t} = 0.215$')
+    ax2.legend(loc='upper right')
+
+    plt.tight_layout()
+    plt.savefig(f'{dir_model}/disp_comp.png')
 
 data = {
     'hatw_mid': sol1D,

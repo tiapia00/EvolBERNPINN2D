@@ -2,7 +2,7 @@ class Parameters:
     def __init__(self):
         self.x_end = 500 
         self.y_end = 0.5
-        self.t_end = 0.5 
+        self.t_end = 1 
         self.n_space = 50 
         self.n_time = 50 
         self.dim_hidden = (1, 60) 
@@ -10,7 +10,7 @@ class Parameters:
         self.multuy = 1 
         self.multhyperx = 1 
         self.n_hidden : int = 2 
-        self.w0 = 0.08 
+        self.w0 = 0.02 
         self.pinn_par = {
             'x_end': self.x_end,
             'y_end': self.y_end,
