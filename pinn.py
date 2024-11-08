@@ -77,7 +77,7 @@ def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     ux0 = torch.zeros_like(x)
     uy0 = w0 * (torch.sin(2*torch.pi*x))
     dotux0 = torch.zeros_like(x)
-    dotuy0 = -100*w0 * (torch.sin(2*torch.pi*x))
+    dotuy0 = -10*w0 * (torch.sin(2*torch.pi*x))
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
 
 
@@ -560,7 +560,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        lossv = (v - init[:,2:]).reshape(self.hyperx * self.n_space, self.n_space // self.scaley, 2).pow(2)
+        lossv = (v/self.par['t_ast'] - init[:,2:]).reshape(self.hyperx * self.n_space, self.n_space // self.scaley, 2).pow(2)
         lossv = lossv.mean()
 
         return lossp, lossv
@@ -774,6 +774,6 @@ def calculate_speed(output: torch.Tensor, t: torch.Tensor, par: dict):
     vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=device),
             create_graph=True, retain_graph=True)[0]
     
-    v = torch.cat([vx, vy], dim=1)
+    v = torch.cat([vx, vy], dim=1)/par['t_ast']
 
     return v
