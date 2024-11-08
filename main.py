@@ -26,7 +26,7 @@ else:
 load = False
 train = True
 plotloss = False
-getzip = False
+getzip = True
 plots = False
 
 def get_step(tensors: tuple):
@@ -86,7 +86,7 @@ steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
 scaley = 2
-scale_interp = 1 
+scale_interp = 2 
 x_interp = torch.linspace(0, Lx, n_space // scale_interp)/Lx
 y_interp = torch.linspace(0, Ly, n_space // scale_interp)/Lx
 t_interp = torch.linspace(0, tmax, n_time // scale_interp)
@@ -128,7 +128,7 @@ labelled = interpdispbeam(points_interp)
 labelled = labelled.reshape(n_space // scale_interp - 2 , n_time // scale_interp)
 labelled = np.expand_dims(labelled, axis=1)
 labelled = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
-noise = np.random.normal(0, 0.01, labelled.shape)
+noise = np.random.normal(0, 0.05, labelled.shape)
 labelled_noise = labelled + noise
 labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
 if plots:
@@ -170,7 +170,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.0001_6000_(1, 60).pth'
+    filename = 'model/11-08/1634/0.0001_4000_(1, 20).pth'
     dir_load = os.path.dirname(filename)
     state_dict = torch.load(filename, map_location=device)
     if 'in_penalties' in state_dict:
