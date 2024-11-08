@@ -23,10 +23,10 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True
+load = True
+train = False
 plotloss = False
-getzip = True
+getzip = False
 plots = False
 
 def get_step(tensors: tuple):
@@ -45,30 +45,6 @@ E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
 t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 3000, 2)
-if plots:
-    plt.figure()
-    plt.plot(my_beam.xi, w[:,0])
-    plt.xlabel(r'$x$')
-    plt.ylabel(r'$w(x, t_0)$')
-    plt.savefig('displ_init.png')
-
-    plt.figure()
-    plt.plot(t_beam, V_an, label='Potential Energy')
-    plt.plot(t_beam, Ek_an, label='Kinetic Energy')
-    plt.xlim((0, 0.05))
-    plt.legend()
-
-    plt.show()
-    fig, ax = plt.subplots()
-    line, = ax.plot(my_beam.xi, w[:,0])
-    ax.legend()
-
-    def update(frame):
-        line.set_ydata(w[:,frame])
-        return line, 
-
-    ani = animation.FuncAnimation(fig=fig, func=update, frames=t_beam.shape[0], interval=30)
-    plt.show()
 
 interpdispbeam = RegularGridInterpolator((my_beam.xi, t_beam), w)
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)
@@ -85,8 +61,8 @@ t_domain = torch.linspace(0, tmax, n_time)
 steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
-scaley = 2
-scale_interp = 2 
+scaley = 2 
+scale_interp = 1 
 x_interp = torch.linspace(0, Lx, n_space // scale_interp)/Lx
 y_interp = torch.linspace(0, Ly, n_space // scale_interp)/Lx
 t_interp = torch.linspace(0, tmax, n_time // scale_interp)
@@ -121,15 +97,15 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space * multhyperx, n_space // scaley)
 condx = condx[:,0]
 
-x_res = x_interp[1:-1].detach().cpu().numpy()
+x_res = x_interp.detach().cpu().numpy()
 t_res = t_interp.detach().cpu().numpy()
 points_interp = np.array(np.meshgrid(x_res * Lx, t_res * t_tild)).T.reshape(-1,2)
 labelled = interpdispbeam(points_interp)
-labelled = labelled.reshape(n_space // scale_interp - 2 , n_time // scale_interp)
+labelled = labelled.reshape(n_space // scale_interp, n_time // scale_interp)
 labelled = np.expand_dims(labelled, axis=1)
-labelled = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
+labelled_no_noise = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
 noise = np.random.normal(0, 0.05, labelled.shape)
-labelled_noise = labelled + noise
+labelled_noise = labelled_no_noise + noise
 labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
 if plots:
     plt.figure()
@@ -137,7 +113,6 @@ if plots:
     plt.xlabel(r'$x$')
     plt.ylabel(r'$w(x, t_0)$')
     plt.savefig('displ_noise.png')
-labelled = labelled[...,1:]
 
 pinn = PINN(dim_hidden, w0, n_hidden, n_space, scaley, n_time, multux, multuy, modesx, modesy, multhyperx, scale_interp, device).to(device)
 loss_fn = Loss(
@@ -170,11 +145,13 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'model/11-08/1634/0.0001_4000_(1, 20).pth'
+    filename = 'load/0.001_8000_(1, 50).pth'
     dir_load = os.path.dirname(filename)
     state_dict = torch.load(filename, map_location=device)
     if 'in_penalties' in state_dict:
         del state_dict['in_penalties']
+    if 'data_penalties' in state_dict:
+        del state_dict['data_penalties']
     pinn.load_state_dict(state_dict, strict=False)
 if train:
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
@@ -230,6 +207,19 @@ inpoints = torch.cat(points['initial_points'], dim=1)
 spacein = inpoints[:,:2]
 plot_sol(sol, spacein, t, dir_model)
 plot_average_displ(sol, t, dir_model)
+
+labelled = labelled_no_noise
+fig, ax = plt.subplots()
+line, = ax.plot(x_domain, labelled[:,0,0])
+ax.legend()
+
+def update(frame):
+    line.set_ydata(labelled[:,0,frame])
+    ax.set_title(f'$\\hat{{t}} = {frame * steps[2].item():.2f}$')
+    return line, 
+
+ani = animation.FuncAnimation(fig=fig, func=update, frames=labelled.shape[2], interval=100)
+plt.show()
 
 if plotloss:
     grad_accumulation = {name: 0.0 for name, param in pinn_trained.named_parameters()}
