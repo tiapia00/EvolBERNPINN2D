@@ -24,7 +24,7 @@ else:
     print("Using CPU device.")
 
 load = True 
-train = False
+train = True
 plotloss = False
 getzip = False
 plots = False
