@@ -104,7 +104,7 @@ labelled = interpdispbeam(points_interp)
 labelled = labelled.reshape(n_space // scale_interp, n_time // scale_interp)
 labelled = np.expand_dims(labelled, axis=1)
 labelled_no_noise = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
-noise = np.random.normal(0, 0.05, labelled.shape)
+noise = np.random.normal(0, 0.1, labelled.shape)
 labelled_noise = labelled_no_noise + noise
 labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
 if plots:
@@ -113,6 +113,7 @@ if plots:
     plt.xlabel(r'$x$')
     plt.ylabel(r'$w(x, t_0)$')
     plt.savefig('displ_noise.png')
+labelled = labelled[...,1:]
 
 pinn = PINN(dim_hidden, w0, n_hidden, n_space, scaley, n_time, multux, multuy, modesx, modesy, multhyperx, scale_interp, device).to(device)
 loss_fn = Loss(
@@ -219,7 +220,6 @@ def update(frame):
     return line, 
 
 ani = animation.FuncAnimation(fig=fig, func=update, frames=labelled.shape[2], interval=100)
-plt.show()
 
 if plotloss:
     grad_accumulation = {name: 0.0 for name, param in pinn_trained.named_parameters()}
