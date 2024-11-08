@@ -28,7 +28,7 @@ class Parameters:
             'modesx': self.modesx,
             'modesy': self.modesy,
             'lr': 1e-3,
-            'epochs': 8000 
+            'epochs': 800 
         }
         self.beam_par = {
             'x_end': self.x_end,
