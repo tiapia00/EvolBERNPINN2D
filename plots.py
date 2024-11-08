@@ -5,6 +5,7 @@ import torch
 from matplotlib.animation import FuncAnimation
 from pinn import PINN
 import numpy as np
+import matplotlib.colors as mcolors
 
 
 def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tensor, path: str, justplotdisp: bool = False):
@@ -24,13 +25,29 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tens
     Y = y_raw
 
     if justplotdisp:
-        plt.figure()
-        scatter = plt.scatter(X.reshape(-1),
+        norm = mcolors.Normalize(vmin=0, vmax=1)
+        cmap = plt.cm.viridis
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+
+        sc1 = ax1.scatter(X.reshape(-1) + z0[:,0], Y.reshape(-1) + z0[:,1], c=z[:,3], cmap=cmap, norm=norm)
+        ax1.set_xlabel(r"$\hat{x}$")
+        ax1.set_xlabel(r"$w(x, t=0)$")
+        ax1.set_title("Predicted")
+
+        sc2 = ax2.scatter(X.reshape(-1) + z0[:,0], Y.reshape(-1) + z0[:,1], c=z0[:,3], cmap=cmap, norm=norm)
+        ax2.set_xlabel(r"$\hat{x}$")
+        ax2.set_xlabel(r"$w(x, t=0)$")
+        ax2.set_title("Scatter Plot 2")
+
+        cbar = fig.colorbar(sc1, ax=[ax1, ax2], orientation='vertical')
+        cbar.set_label(r"$v_y$")
+        fig, ax = plt.subplots(1, 2)
+        sc1 = plt.scatter(X.reshape(-1),
                                     Y.reshape(-1), c=z[:,3], cmap='coolwarm')
         plt.xlabel(r'$\hat{x}$')
         plt.ylabel(r'$\hat{y}$')
         plt.tight_layout()
-        plt.colorbar(scatter, label=r'$v_y$')
         plt.savefig(f'{path}/init.png')
 
     else:
