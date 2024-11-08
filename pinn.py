@@ -77,7 +77,7 @@ def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     ux0 = torch.zeros_like(x)
     uy0 = w0 * (torch.sin(2*torch.pi*x))
     dotux0 = torch.zeros_like(x)
-    dotuy0 = w0 * (torch.sin(2*torch.pi*x))
+    dotuy0 = -w0 * (torch.sin(2*torch.pi*x))
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
 
 
@@ -636,7 +636,7 @@ def train_model(
 
         pbar.set_description(f"Loss: {loss.item():.3e}")
         l1_penalty = sum(param.abs().sum() for param in nn_approximator.parameters())
-        lam = 5e-6 
+        lam = 1e-6 
         loss += lam * l1_penalty
 
         loss.backward(retain_graph=False)
