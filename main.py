@@ -23,7 +23,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = True 
+load = False
 train = True
 plotloss = False
 getzip = False
@@ -86,7 +86,7 @@ steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
 scaley = 2
-scale_interp = 2 
+scale_interp = 1 
 x_interp = torch.linspace(0, Lx, n_space // scale_interp)/Lx
 y_interp = torch.linspace(0, Ly, n_space // scale_interp)/Lx
 t_interp = torch.linspace(0, tmax, n_time // scale_interp)

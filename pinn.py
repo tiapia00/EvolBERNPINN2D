@@ -77,7 +77,7 @@ def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     ux0 = torch.zeros_like(x)
     uy0 = w0 * (torch.sin(2*torch.pi*x) + 2 * torch.sin(5*torch.pi*x))
     dotux0 = torch.zeros_like(x)
-    dotuy0 = w0/2 * torch.sin(2*torch.pi*x) 
+    dotuy0 = w0 * (torch.sin(2*torch.pi*x) + torch.sin(5*torch.pi*x))
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
 
 
@@ -322,11 +322,11 @@ class PINN(nn.Module):
         hiddimy = multuy * 2 * n_mode_spacey
         self.hid_space_layers_y.append(nn.Linear(2 * n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
-            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy, bias=False))
-            self.hid_space_layers_y.append(nn.GELU())
+            self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
+            self.hid_space_layers_y.append(nn.Sigmoid())
 
-        self.outlayerx = nn.Linear(2 * modesx**2 * n_mode_spacex, 1, bias=False)
-        self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1, bias=False)
+        self.outlayerx = nn.Linear(2 * modesx**2 * n_mode_spacex, 1)
+        self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1)
         self._initialize_weights()
         """
         weightslast = torch.from_numpy(magnFFT).float()
@@ -560,7 +560,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        lossv = (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(self.hyperx * self.n_space, self.n_space // self.scaley, 2).pow(2)
+        lossv = (v - init[:,2:]).reshape(self.hyperx * self.n_space, self.n_space // self.scaley, 2).pow(2)
         lossv = lossv.mean()
 
         return lossp, lossv
@@ -622,7 +622,7 @@ def train_model(
     exclude_params = ['res_penalties', 'in_penalties', 'data_penalties']
     params_to_optimize = [
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
-        {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-5}
+        {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': 0}
     ]
     optimizer = optim.AdamW(params_to_optimize)
     #scheduler = lr_scheduler.ExponentialLR(optimizer, 0.997)
@@ -771,6 +771,6 @@ def calculate_speed(output: torch.Tensor, t: torch.Tensor, par: dict):
     vy = torch.autograd.grad(output[:,1].unsqueeze(1), t, torch.ones_like(t, device=device),
             create_graph=True, retain_graph=True)[0]
     
-    v = par['w0']/par['t_ast']*torch.cat([vx, vy], dim=1)
+    v = torch.cat([vx, vy], dim=1)
 
     return v

@@ -35,6 +35,7 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tens
         plt.plot(x_smooth, v0_eval, label='Analytical')
         plt.plot(x_smooth, v_eval, label='Predicted')
         plt.xlabel(r'$\hat{x}$')
+        plt.ylabel(r'$v_y$')
         plt.legend()
         plt.savefig(f'{path}/init.png')
 
