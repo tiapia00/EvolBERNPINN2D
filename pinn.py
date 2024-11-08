@@ -77,7 +77,7 @@ def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     ux0 = torch.zeros_like(x)
     uy0 = w0 * (torch.sin(2*torch.pi*x) + 2 * torch.sin(5*torch.pi*x))
     dotux0 = torch.zeros_like(x)
-    dotuy0 = torch.ones_like(x)
+    dotuy0 = w0/2 * torch.sin(2*torch.pi*x) 
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
 
 
@@ -521,7 +521,7 @@ class Loss:
         errV = (calculateRMS(V.detach().cpu().numpy(), self.steps[2], self.tmax) - calculateRMS(Vbeam, self.steps[2], self.tmax)) / calculateRMS(Vbeam, self.steps[2], self.tmax)
         errT = (calculateRMS(T.detach().cpu().numpy(), self.steps[2], self.tmax) - calculateRMS(Ekbeam, self.steps[2], self.tmax)) / calculateRMS(Ekbeam, self.steps[2], self.tmax)
          
-        return 3e-5 * loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall.detach()
+        return loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall.detach()
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -560,7 +560,7 @@ class Loss:
         
         v = torch.cat([vx, vy], dim=1)
 
-        lossv = torch.tanh(pinn.in_penalties.unsqueeze(2)) * (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(self.hyperx * self.n_space, self.n_space // self.scaley, 2).pow(2)
+        lossv = (v * self.par['w0']/self.par['t_ast'] - init[:,2:]).reshape(self.hyperx * self.n_space, self.n_space // self.scaley, 2).pow(2)
         lossv = lossv.mean()
 
         return lossp, lossv
