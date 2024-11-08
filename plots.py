@@ -3,17 +3,15 @@ from matplotlib.cm import viridis
 from mpl_toolkits.mplot3d import Axes3D
 import torch
 from matplotlib.animation import FuncAnimation
-from pinn import PINN
 import numpy as np
-import matplotlib.colors as mcolors
+from scipy.interpolate import make_interp_spline
 
-
-def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tensor, path: str, justplotdisp: bool = False):
+def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tensor, nspace: int, path: str, justplotdisp: bool = False):
     """Plot initial conditions.
     z0: tensor describing analytical initial conditions
     z: tensor describing predicted initial conditions"""
-    x = space[:,0]
-    y = space[:,1]
+    x = torch.unique(space[:,0])
+    y = torch.unique(space[:,1])
 
     x_raw = x.detach().cpu().numpy()
     y_raw = y.detach().cpu().numpy()
@@ -25,23 +23,19 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tens
     Y = y_raw
 
     if justplotdisp:
-        norm = mcolors.Normalize(vmin=np.min(z0[:,3]), vmax=np.max(z0[:,3]))
-        cmap = plt.cm.coolwarm
+        v0 = make_interp_spline(x_raw, z0[:,3].reshape(nspace, -1)[:,0], k=5)
+        v = make_interp_spline(x_raw, z[:,3].reshape(nspace,-1)[:,0], k=5)
 
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+        x_smooth = np.linspace(0, np.max(x_raw), 1000)
 
-        sc1 = ax1.scatter(X.reshape(-1) + z[:,0], Y.reshape(-1) + z[:,1], c=z[:,3], cmap=cmap, norm=norm)
-        ax1.set_xlabel(r"$\hat{x}$")
-        ax1.set_ylabel(r"$w(x, t=0)$")
-        ax1.set_title("Predicted")
+        v0_eval = v0(x_smooth)
+        v_eval = v(x_smooth)
 
-        sc2 = ax2.scatter(X.reshape(-1) + z0[:,0], Y.reshape(-1) + z0[:,1], c=z0[:,3], cmap=cmap, norm=norm)
-        ax2.set_xlabel(r"$\hat{x}$")
-        ax2.set_ylabel(r"$w(x, t=0)$")
-        ax2.set_title("Analytical")
-
-        cbar = fig.colorbar(sc1, ax=[ax1, ax2], orientation='vertical')
-        cbar.set_label(r"$v_y$")
+        plt.figure()
+        plt.plot(x_smooth, v0_eval, label='Analytical')
+        plt.plot(x_smooth, v_eval, label='Predicted')
+        plt.xlabel(r'$\hat{x}$')
+        plt.legend()
         plt.savefig(f'{path}/init.png')
 
     else:
