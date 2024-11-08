@@ -97,7 +97,7 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space * multhyperx, n_space // scaley)
 condx = condx[:,0]
 
-x_res = x_interp.detach().cpu().numpy()
+x_res = x_interp[1:-1].detach().cpu().numpy()
 t_res = t_interp.detach().cpu().numpy()
 points_interp = np.array(np.meshgrid(x_res * Lx, t_res * t_tild)).T.reshape(-1,2)
 labelled = interpdispbeam(points_interp)
