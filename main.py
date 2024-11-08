@@ -23,10 +23,10 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = True
-train = False
+load = False
+train = True
 plotloss = False
-getzip = False
+getzip = True
 plots = False
 
 def get_step(tensors: tuple):
