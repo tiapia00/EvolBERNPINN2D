@@ -323,7 +323,7 @@ class PINN(nn.Module):
         self.hid_space_layers_y.append(nn.Linear(2 * n_mode_spacey, hiddimy))
         for _ in range(n_hidden - 1):
             self.hid_space_layers_y.append(nn.Linear(hiddimy, hiddimy))
-            self.hid_space_layers_y.append(nn.Sigmoid())
+            self.hid_space_layers_y.append(nn.Tanh())
 
         self.outlayerx = nn.Linear(2 * modesx**2 * n_mode_spacex, 1)
         self.outlayery = nn.Linear(2 * len(modesy)**2 * n_mode_spacey, 1)
