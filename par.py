@@ -12,7 +12,7 @@ class Parameters:
         self.multuy = 1 
         self.multhyperx = 2 
         self.n_hidden : int = 2 
-        self.w0 = 0.08 
+        self.w0 = 0.08
         self.pinn_par = {
             'x_end': self.x_end,
             'y_end': self.y_end,

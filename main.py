@@ -23,11 +23,12 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True
+load = True
+train = False
 plotloss = False
 getzip = True
 plots = False
+plot_comp = True
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -44,9 +45,18 @@ Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
-t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 3000, 2)
+t_beam, t_tild, w, V_an, v, Ek_an = obtain_analytical_free(my_beam, w0, t, 3000, 2)
+"""
+plt.figure()
+plt.plot(t_beam, V_an, label='Potential')
+plt.plot(t_beam, Ek_an, label='Kinetic')
+plt.plot(t_beam, V_an + Ek_an, label='Tot')
+plt.legend()
+plt.show()
+"""
 
 interpdispbeam = RegularGridInterpolator((my_beam.xi, t_beam), w)
+interpvbeam = RegularGridInterpolator((my_beam.xi, t_beam), v)
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)
 interpTbeam = make_interp_spline(t_beam, Ek_an, k=5)
 
@@ -104,9 +114,18 @@ labelled = interpdispbeam(points_interp)
 labelled = labelled.reshape(n_space // scale_interp - 2, n_time // scale_interp)
 labelled = np.expand_dims(labelled, axis=1)
 labelled_no_noise = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
-noise = np.random.normal(0, 0.01, labelled.shape)
-labelled_noise = labelled_no_noise + noise
+noise = np.random.normal(0, 0.1, (labelled.shape[1], labelled.shape[2]))
+labelled_noise = labelled_no_noise + np.expand_dims(noise, axis=0)
 labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
+
+x_res = x_interp.detach().cpu().numpy()
+t_res = t_interp.detach().cpu().numpy()
+points_interp = np.array(np.meshgrid(x_res * Lx, t_res * t_tild)).T.reshape(-1,2)
+labelled_speed = interpvbeam(points_interp)
+labelled_speed = labelled_speed.reshape(n_space // scale_interp, n_time // scale_interp)
+labelled_speed = np.expand_dims(labelled_speed, axis=1)
+labelled_speed_noise = labelled_speed + np.expand_dims(noise, axis=0)
+
 if plots:
     plt.figure()
     plt.plot(x_res, labelled_noise[:,0,0])
@@ -114,6 +133,7 @@ if plots:
     plt.ylabel(r'$w(x, t_0)$')
     plt.savefig('displ_noise.png')
 labelled = labelled[...,1:]
+
 
 pinn = PINN(dim_hidden, w0, n_hidden, n_space, scaley, n_time, multux, multuy, modesx, modesy, multhyperx, scale_interp, device).to(device)
 loss_fn = Loss(
@@ -178,7 +198,7 @@ allpoints = torch.cat(points["all_points"], dim=1)
 space = allpoints[:,:2]
 t = allpoints[:,-1].unsqueeze(1)
 nsamples = (n_space, n_space) + (n_time,)
-sol, V, T = obtainsolt_u(pinn_trained, space, t, nsamples, 1, par, steps, device)
+sol, V, T, v = obtainsolt_u(pinn_trained, space, t, nsamples, 1, par, steps, device)
 
 Van = interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 Van *= np.max(V)/np.max(Van)
@@ -210,6 +230,7 @@ plot_sol(sol, spacein, t, dir_model)
 plot_average_displ(sol, t, dir_model)
 
 labelled = labelled_no_noise
+"""
 fig, ax = plt.subplots()
 line, = ax.plot(x_domain[1:-1].detach().cpu().numpy(), labelled[:,0,0])
 ax.legend()
@@ -220,6 +241,28 @@ def update(frame):
     return line, 
 
 ani = animation.FuncAnimation(fig=fig, func=update, frames=labelled.shape[2], interval=100)
+"""
+if plot_comp:
+    space_in = spacein.detach().cpu().numpy()
+    plt.figure()
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    ax1.plot(x_domain, labelled_speed[:,0,10], label='Analytical', color='red')
+    ax1.plot(x_domain, labelled_speed_noise[:,0,10], label='Analytical + Noise')
+    ax1.plot(x_domain, v[:,0,10,1], label='NN')
+    ax1.set_xlabel(r'$\hat{x}$')
+    ax1.set_ylabel(r'$v_y$')
+    ax1.set_title(r'$\hat{t} = 0.2$')
+
+    ax2.plot(x_domain, labelled_speed[:,0,40], label='Analytical', color='red')
+    ax2.plot(x_domain, v[:,0,40,1], label='NN')
+    ax2.plot(x_domain, labelled_speed_noise[:,0,40], label='Analytical + Noise')
+    ax2.set_xlabel(r'$\hat{x}$')
+    ax2.set_ylabel(r'$v_y$')
+    ax2.set_title(r'$\hat{t} = 0.215$')
+    ax2.legend(loc='upper right')
+
+    plt.tight_layout()
+    plt.savefig(f'{dir_model}/disp_comp.png')
 
 if plotloss:
     grad_accumulation = {name: 0.0 for name, param in pinn_trained.named_parameters()}

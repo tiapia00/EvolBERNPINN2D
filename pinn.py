@@ -721,7 +721,7 @@ def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tup
     if not check:
         raise ValueError('Extracted space tensors not matching')
     
-    return sol.detach().cpu().numpy(), V.detach().cpu().numpy(), T.detach().cpu().numpy()
+    return sol.detach().cpu().numpy(), V.detach().cpu().numpy(), T.detach().cpu().numpy(), v.reshape(nx, ny, nt, 2).detach().cpu().numpy()
 
 def df_num_torch(dx: float, y: torch.tensor):
     dy = torch.diff(y)
