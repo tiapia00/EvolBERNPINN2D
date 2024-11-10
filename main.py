@@ -114,8 +114,8 @@ labelled = interpdispbeam(points_interp)
 labelled = labelled.reshape(n_space // scale_interp - 2, n_time // scale_interp)
 labelled = np.expand_dims(labelled, axis=1)
 labelled_no_noise = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
-noise = np.random.normal(0, 0.1, (labelled.shape[1], labelled.shape[2]))
-labelled_noise = labelled_no_noise + np.expand_dims(noise, axis=0)
+noise = np.random.normal(0, 0.1, labelled.shape)
+labelled_noise = labelled_no_noise
 labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
 
 x_res = x_interp.detach().cpu().numpy()
@@ -124,7 +124,8 @@ points_interp = np.array(np.meshgrid(x_res * Lx, t_res * t_tild)).T.reshape(-1,2
 labelled_speed = interpvbeam(points_interp)
 labelled_speed = labelled_speed.reshape(n_space // scale_interp, n_time // scale_interp)
 labelled_speed = np.expand_dims(labelled_speed, axis=1)
-labelled_speed_noise = labelled_speed + np.expand_dims(noise, axis=0)
+noise_speed = np.random.normal(0, 0.1, labelled_speed.shape)
+labelled_speed_noise = labelled_speed + noise_speed
 
 if plots:
     plt.figure()
@@ -191,8 +192,10 @@ tin = inpoints[:,-1].unsqueeze(1)
 z = pinn_trained(spacein, tin)
 v = calculate_speed(z, tin, par)
 z = torch.cat([z, v], dim=1)
+in_points_no_hyp = torch.cat(points['initial_points'], dim=1)
+spacein_no_hyp = in_points_no_hyp[:,:2]
 
-plot_initial_conditions(z, cond0, spacein, multhyperx * n_space, dir_model, justplotdisp=True)
+plot_initial_conditions(z, cond0, labelled_speed_noise, spacein, spacein_no_hyp, multhyperx * n_space, dir_model, justplotdisp=True)
 
 allpoints = torch.cat(points["all_points"], dim=1)
 space = allpoints[:,:2]
@@ -245,20 +248,22 @@ ani = animation.FuncAnimation(fig=fig, func=update, frames=labelled.shape[2], in
 if plot_comp:
     space_in = spacein.detach().cpu().numpy()
     plt.figure()
+    n1 = 5 
     fig, (ax1, ax2) = plt.subplots(1, 2)
-    ax1.plot(x_res, labelled_speed[:,0,0], label='Analytical', color='red')
-    ax1.plot(x_res, labelled_speed_noise[:,0,0], label='Analytical + Noise')
-    ax1.plot(x_domain, v[:,0,0,1], label='NN')
+    ax1.plot(x_res, labelled_speed[:,0,n1], label='Analytical', color='red')
+    ax1.plot(x_res, labelled_speed_noise[:,0,n1], label='Analytical + Noise')
+    ax1.plot(x_domain, v[:,0,n1,1], label='NN')
     ax1.set_xlabel(r'$\hat{x}$')
     ax1.set_ylabel(r'$v_y$')
-    ax1.set_title(r'$\hat{t} = 0.2$')
+    ax1.set_title(f'$\\hat{{t}} = {n1 * steps[2].item():.2f}$')
 
-    ax2.plot(x_res, labelled_speed[:,0,40], label='Analytical', color='red')
-    ax2.plot(x_res, labelled_speed_noise[:,0,40], label='Analytical + Noise')
-    ax2.plot(x_domain, v[:,0,40,1], label='NN')
+    n2 = 35
+    ax2.plot(x_res, labelled_speed[:,0,n2], label='Analytical', color='red')
+    ax2.plot(x_res, labelled_speed_noise[:,0,n2], label='Analytical + Noise')
+    ax2.plot(x_domain, v[:,0,n2,1], label='NN')
     ax2.set_xlabel(r'$\hat{x}$')
     ax2.set_ylabel(r'$v_y$')
-    ax2.set_title(r'$\hat{t} = 0.215$')
+    ax2.set_title(f'$\\hat{{t}} = {n2 * steps[2].item():.2f}$')
     ax2.legend(loc='upper right')
 
     plt.tight_layout()

@@ -6,12 +6,14 @@ from matplotlib.animation import FuncAnimation
 import numpy as np
 from scipy.interpolate import make_interp_spline
 
-def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tensor, nspace: int, path: str, justplotdisp: bool = False):
+def plot_initial_conditions(z: torch.Tensor, z0: torch.Tensor, labelled_noise: torch.Tensor, space: torch.Tensor, 
+            space_in_nohyp: torch.Tensor, nspace: int, path: str, justplotdisp: bool = False):
     """Plot initial conditions.
     z0: tensor describing analytical initial conditions
     z: tensor describing predicted initial conditions"""
     x = torch.unique(space[:,0])
     y = torch.unique(space[:,1])
+    x_no_hyp = torch.unique(space_in_nohyp[:,0]).detach().cpu().numpy()
 
     x_raw = x.detach().cpu().numpy()
     y_raw = y.detach().cpu().numpy()
@@ -30,10 +32,13 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tens
 
         v0_eval = v0(x_smooth)
         v_eval = v(x_smooth)
+        v0_noise = labelled_noise[:,0,0]
 
         plt.figure()
         plt.plot(x_smooth, v0_eval, label='Analytical')
+        plt.plot(x_no_hyp, v0_noise, label='Analytical + Noise')
         plt.plot(x_smooth, v_eval, label='Predicted')
+
         plt.xlabel(r'$\hat{x}$')
         plt.ylabel(r'$v_y$')
         plt.legend()
