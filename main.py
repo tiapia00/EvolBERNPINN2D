@@ -72,7 +72,7 @@ steps = get_step((x_domain, y_domain, t_domain))
 
 grid = Grid(x_domain, multhyperx, y_domain, t_domain, device)
 scaley = 2 
-scale_interp = 2 
+scale_interp = 1 
 x_interp = torch.linspace(0, Lx, n_space // scale_interp)/Lx
 y_interp = torch.linspace(0, Ly, n_space // scale_interp)/Lx
 t_interp = torch.linspace(0, tmax, n_time // scale_interp)
@@ -246,16 +246,16 @@ if plot_comp:
     space_in = spacein.detach().cpu().numpy()
     plt.figure()
     fig, (ax1, ax2) = plt.subplots(1, 2)
-    ax1.plot(x_domain, labelled_speed[:,0,10], label='Analytical', color='red')
-    ax1.plot(x_domain, labelled_speed_noise[:,0,10], label='Analytical + Noise')
-    ax1.plot(x_domain, v[:,0,10,1], label='NN')
+    ax1.plot(x_res, labelled_speed[:,0,0], label='Analytical', color='red')
+    ax1.plot(x_res, labelled_speed_noise[:,0,0], label='Analytical + Noise')
+    ax1.plot(x_domain, v[:,0,0,1], label='NN')
     ax1.set_xlabel(r'$\hat{x}$')
     ax1.set_ylabel(r'$v_y$')
     ax1.set_title(r'$\hat{t} = 0.2$')
 
-    ax2.plot(x_domain, labelled_speed[:,0,40], label='Analytical', color='red')
+    ax2.plot(x_res, labelled_speed[:,0,40], label='Analytical', color='red')
+    ax2.plot(x_res, labelled_speed_noise[:,0,40], label='Analytical + Noise')
     ax2.plot(x_domain, v[:,0,40,1], label='NN')
-    ax2.plot(x_domain, labelled_speed_noise[:,0,40], label='Analytical + Noise')
     ax2.set_xlabel(r'$\hat{x}$')
     ax2.set_ylabel(r'$v_y$')
     ax2.set_title(r'$\hat{t} = 0.215$')

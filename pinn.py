@@ -697,7 +697,7 @@ def obtainsolt_u(pinn: PINN, space: torch.Tensor, t: torch.Tensor, nsamples: tup
     eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1).detach()
     dV = ((par['w0']/par['Lx'])**2*(par['mu']*torch.sum(eps**2, dim=1)) + par['lam']/2 * torch.sum(eps, dim=1)**2).detach()
 
-    v = torch.cat([vx, vy], dim=1)
+    v = torch.cat([vx, vy], dim=1)/par['t_ast']
     vnorm = torch.norm(v, dim=1)
     dT = (1/2*(par['w0']/par['t_ast'])**2*par['rho']*vnorm**2).detach()
     dT = dT * torch.max(dV)/torch.max(dT)
