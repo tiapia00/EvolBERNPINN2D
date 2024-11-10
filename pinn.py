@@ -71,7 +71,6 @@ def simps(y, dx, dim=0):
 
     return integral
 
-
 def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
