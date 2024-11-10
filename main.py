@@ -23,10 +23,10 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True
+load = True
+train = False
 plotloss = False
-getzip = True
+getzip = False
 plots = False
 plot_comp = True
 
@@ -46,14 +46,11 @@ E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 
 t_beam, t_tild, w, V_an, v, Ek_an = obtain_analytical_free(my_beam, w0, t, 3000, 2)
-"""
 plt.figure()
 plt.plot(t_beam, V_an, label='Potential')
 plt.plot(t_beam, Ek_an, label='Kinetic')
 plt.plot(t_beam, V_an + Ek_an, label='Tot')
 plt.legend()
-plt.show()
-"""
 
 interpdispbeam = RegularGridInterpolator((my_beam.xi, t_beam), w)
 interpvbeam = RegularGridInterpolator((my_beam.xi, t_beam), v)
@@ -107,11 +104,11 @@ cond0 = initial_conditions(spacein, w0)
 condx = cond0[:,1].reshape(n_space * multhyperx, n_space // scaley)
 condx = condx[:,0]
 
-x_res = x_interp[1:-1].detach().cpu().numpy()
+x_res = x_interp.detach().cpu().numpy()
 t_res = t_interp.detach().cpu().numpy()
 points_interp = np.array(np.meshgrid(x_res * Lx, t_res * t_tild)).T.reshape(-1,2)
 labelled = interpdispbeam(points_interp)
-labelled = labelled.reshape(n_space // scale_interp - 2, n_time // scale_interp)
+labelled = labelled.reshape(n_space // scale_interp, n_time // scale_interp)
 labelled = np.expand_dims(labelled, axis=1)
 labelled_no_noise = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
 sigma = 0.01
@@ -168,7 +165,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'model/11-10/1508/0.001_3000_(1, 50).pth'
+    filename = 'load/0.0001_15000_(1, 50).pth'
     dir_load = os.path.dirname(filename)
     state_dict = torch.load(filename, map_location=device)
     if 'in_penalties' in state_dict:
@@ -205,13 +202,17 @@ nsamples = (n_space, n_space) + (n_time,)
 sol, V, T, v = obtainsolt_u(pinn_trained, space, t, nsamples, 1, par, steps, device)
 
 Van = interpVbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
-Van *= np.max(V)/np.max(Van)
+V *= np.max(Van)/np.max(V) * 1e5
 Tan = interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
-Tan *= np.max(T)/np.max(Tan)
+T *= np.max(Tan)/np.max(T) * 1e5
+Van *= 1e5
+Tan *= 1e5
 
 plt.figure()
-plt.plot(torch.unique(t).detach().cpu().numpy(), V, label=r'$\hat{V}$')
-plt.plot(torch.unique(t).detach().cpu().numpy(), Van, label=r'$V$')
+plt.plot(torch.unique(t).detach().cpu().numpy(), V, 'b-', label=r'$\hat{V}$')
+plt.plot(torch.unique(t).detach().cpu().numpy(), Van, 'b--', label=r'$V$')
+plt.plot(torch.unique(t).detach().cpu().numpy(), T, 'r-', label=r'$\hat{T}$')
+plt.plot(torch.unique(t).detach().cpu().numpy(), Tan, 'r--', label=r'$T$')
 plt.xlabel(r'$\hat{t}$')
 plt.legend()
 plt.savefig(f'{dir_model}/anhatencomp.png')
@@ -227,16 +228,16 @@ errT = (calculateRMS(T, dt, tmax) - calculateRMS(Tan, dt, tmax))/(
         calculateRMS(Tan, dt, tmax)
 ).item()
 
-sol = sol.reshape(n_space**2, n_time, 2)
+sol_plot = sol.reshape(n_space**2, n_time, 2)
 inpoints = torch.cat(points['initial_points'], dim=1)
 spacein = inpoints[:,:2]
-plot_sol(sol, spacein, t, dir_model)
-plot_average_displ(sol, t, dir_model)
+plot_sol(sol_plot, spacein, t, dir_model)
+plot_average_displ(sol_plot, t, dir_model)
 
 labelled = labelled_no_noise
 """
 fig, ax = plt.subplots()
-line, = ax.plot(x_domain[1:-1].detach().cpu().numpy(), labelled[:,0,0])
+line, = ax.plot(x_domain.detach().cpu().numpy(), labelled[:,0,0])
 ax.legend()
 
 def update(frame):
@@ -248,9 +249,10 @@ ani = animation.FuncAnimation(fig=fig, func=update, frames=labelled.shape[2], in
 """
 if plot_comp:
     space_in = spacein.detach().cpu().numpy()
-    plt.figure()
-    n1 = 5 
+
     fig, (ax1, ax2) = plt.subplots(1, 2)
+    n1 = 5 
+
     ax1.plot(x_res, labelled_speed[:,0,n1], label='Analytical', color='red')
     ax1.plot(x_res, labelled_speed_noise[:,0,n1], label='Analytical + Noise')
     ax1.plot(x_domain, v[:,0,n1,1], label='NN')
@@ -258,7 +260,7 @@ if plot_comp:
     ax1.set_ylabel(r'$v_y$')
     ax1.set_title(f'$\\hat{{t}} = {n1 * steps[2].item():.2f}$')
 
-    n2 = 35
+    n2 = 30 
     ax2.plot(x_res, labelled_speed[:,0,n2], label='Analytical', color='red')
     ax2.plot(x_res, labelled_speed_noise[:,0,n2], label='Analytical + Noise')
     ax2.plot(x_domain, v[:,0,n2,1], label='NN')
@@ -268,7 +270,27 @@ if plot_comp:
     ax2.legend(loc='upper right')
 
     plt.tight_layout()
-    plt.savefig(f'{dir_model}/disp_comp.png')
+    plt.savefig(f'{dir_model}/disp_comp_speed.png')
+
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+
+    ax1.plot(x_res, labelled[:,0,n1], label='Analytical', color='red')
+    ax1.plot(x_res, labelled_noise[:,0,n1], label='Analytical + Noise')
+    ax1.scatter(space_in[:,0] + sol[...,n1,0].reshape(-1), space_in[:,1] + sol[...,n1,1].reshape(-1), label='NN')
+    ax1.set_xlabel(r'$\hat{x}$')
+    ax1.set_ylabel(r'$w$')
+    ax1.set_title(f'$\\hat{{t}} = {n1 * steps[2].item():.2f}$')
+
+    ax2.plot(x_res, labelled[:,0,n2], label='Analytical', color='red')
+    ax2.plot(x_res, labelled_noise[:,0,n2], label='Analytical + Noise')
+    ax2.scatter(space_in[:,0] + sol[...,n2,0].reshape(-1), space_in[:,1]/10 + sol[...,n2,1].reshape(-1), label='NN')
+    ax2.set_xlabel(r'$\hat{x}$')
+    ax2.set_ylabel(r'$w$')
+    ax2.set_title(f'$\\hat{{t}} = {n2 * steps[2].item():.2f}$')
+    ax2.legend(loc='upper right')
+
+    plt.tight_layout()
+    plt.savefig(f'{dir_model}/disp_comp_disp.png')
 
 if plotloss:
     grad_accumulation = {name: 0.0 for name, param in pinn_trained.named_parameters()}
