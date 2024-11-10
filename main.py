@@ -114,9 +114,9 @@ labelled = interpdispbeam(points_interp)
 labelled = labelled.reshape(n_space // scale_interp - 2, n_time // scale_interp)
 labelled = np.expand_dims(labelled, axis=1)
 labelled_no_noise = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
-sigma = 0.4
+sigma = 0.01
 noise = np.random.normal(0, sigma, labelled.shape)
-labelled_noise = labelled_no_noise
+labelled_noise = labelled_no_noise + noise
 labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
 
 x_res = x_interp.detach().cpu().numpy()
