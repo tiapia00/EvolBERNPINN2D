@@ -114,7 +114,8 @@ labelled = interpdispbeam(points_interp)
 labelled = labelled.reshape(n_space // scale_interp - 2, n_time // scale_interp)
 labelled = np.expand_dims(labelled, axis=1)
 labelled_no_noise = np.repeat(labelled, repeats=labelled.shape[0], axis=1)
-noise = np.random.normal(0, 0.1, labelled.shape)
+sigma = 0.4
+noise = np.random.normal(0, sigma, labelled.shape)
 labelled_noise = labelled_no_noise
 labelled = torch.tensor(labelled_noise, device=device, dtype=torch.float32)
 
@@ -124,7 +125,7 @@ points_interp = np.array(np.meshgrid(x_res * Lx, t_res * t_tild)).T.reshape(-1,2
 labelled_speed = interpvbeam(points_interp)
 labelled_speed = labelled_speed.reshape(n_space // scale_interp, n_time // scale_interp)
 labelled_speed = np.expand_dims(labelled_speed, axis=1)
-noise_speed = np.random.normal(0, 0.1, labelled_speed.shape)
+noise_speed = np.random.normal(0, sigma, labelled_speed.shape)
 labelled_speed_noise = labelled_speed + noise_speed
 
 if plots:
