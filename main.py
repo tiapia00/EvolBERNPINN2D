@@ -25,9 +25,9 @@ else:
     print("Using CPU device.")
 
 load = True
-train = True
+train = False
 plotloss = False
-getzip = True
+getzip = False
 plot_comp = False
 plot_mid = True
 
@@ -45,7 +45,6 @@ par = Parameters()
 Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
-
 t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 1000, 1)
 
 interpdispbeam = RegularGridInterpolator((my_beam.xi, t_beam), w)
@@ -116,7 +115,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'model/11-12/1247/0.001_1000_(1, 40).pth'
+    filename = 'load/0.0001_1000_(1, 40).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -188,10 +187,11 @@ if plot_comp:
     plt.savefig(f'{dir_model}/disp_comp.png')
 if plot_mid:
     sol = sol.reshape(n_space, n_space, n_time, 2)
+    t_end = n_time // 2
     solmid = np.mean(sol, axis=1)
-    solmid = solmid[n_space//2, :, 1]
-    t_plot = torch.unique(t).detach().cpu().numpy()
-    Fk0 = -1e-6
+    solmid = solmid[n_space//2, :t_end, 1]
+    t_plot = torch.unique(t).detach().cpu().numpy()[:t_end]
+    Fk0 = -1e-8
     omega = 2 * np.pi * 1/t_tild 
     n = 5 
     xk = Lx/2 
@@ -208,8 +208,8 @@ if plot_mid:
     w_eval = w_interp(t_plot * t_tild)
     plt.figure()
     plt.plot(t_plot, w_eval, label='Analytical')
-    plt.plot(t_plot, np.max(w_eval)/np.max(solmid) * solmid, label='NN')
-    plt.xlabel(r'$t$')
+    plt.plot(t_plot, np.max(np.abs(w_eval))/np.max(np.abs(solmid)) * solmid, label='NN')
+    plt.xlabel(r'$\hat{t}$')
     plt.ylabel(r'$w_\text{mid}$')
     plt.legend()
     plt.savefig(f'{dir_model}/mid_comp.png')
