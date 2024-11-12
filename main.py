@@ -185,25 +185,37 @@ if plot_comp:
 
     plt.tight_layout()
     plt.savefig(f'{dir_model}/disp_comp.png')
+
+def getFRF(omega, n):
+    mode_sum = 0
+    for i in range(n):
+        mode_sum += (np.sin(np.pi * (i+1) * xk/L))**2/(-omega**2*m*L/2 + (((i+1)*np.pi)/L)**4*E*J*L/2)
+    return mode_sum
+
 if plot_mid:
     sol = sol.reshape(n_space, n_space, n_time, 2)
     t_end = n_time // 2
     solmid = np.mean(sol, axis=1)
     solmid = solmid[n_space//2, :t_end, 1]
     t_plot = torch.unique(t).detach().cpu().numpy()[:t_end]
-    Fk0 = -1e-8
-    omega = 2 * np.pi * 1/t_tild 
-    n = 5 
+    Fk0 = -1e-4
+    n = 20 
+    Omega = np.pi * 1/t_tild
     xk = Lx/2 
     L = Lx
     E = E
     J = my_beam.J 
     m = rho * my_beam.A
     t_lin = np.linspace(0, 1, 1000)
-    mode_sum = 0
-    for i in range(n):
-        mode_sum += (np.sin(np.pi * (i+1) * xk/L))**2/(-omega**2*m*L/2 + (((i+1)*np.pi)/L)**4*E*J*L/2)
-    w = Fk0 * np.sin(omega * t_lin) * mode_sum
+    mode_sum = getFRF(Omega, n)
+    w = Fk0 * np.sin(Omega * t_lin) * mode_sum
+    omegaFRF = np.linspace(0, 400, 1000)
+    G = np.abs(getFRF(omegaFRF, n))
+    plt.figure()
+    plt.plot(omegaFRF, G)
+    plt.xlabel(r'$\Omega$')
+    plt.ylabel(r'$G$')
+    plt.savefig(f'{dir_model}/FRF.png')
     w_interp = make_interp_spline(x=t_lin, y=w, k=5)
     w_eval = w_interp(t_plot * t_tild)
     plt.figure()
