@@ -497,7 +497,7 @@ class Loss:
 
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         ekk = torch.sum(eps[:,[0,-1]])
-        sigmayy = self.par['w0']/self.par['Lx'] * (2 * self.adim[0] * eps[:,-1] + ekk).reshape(self.n_space, self.n_time - 1, 2)
+        sigmayy = 1/self.par['Lx'] * (2 * self.adim[0] * eps[:,-1] + ekk).reshape(self.n_space, self.n_time - 1, 2)
         extforce = torch.zeros_like(sigmayy)
         extforce[self.n_space // 2, :, 0] =  -1e-6 * torch.sin(2 * torch.pi * torch.unique(time).detach())
         Wext = extforce[self.n_space // 2, :, 0] * output.reshape(self.n_space, self.n_time - 1, 2, 2)[self.n_space//2, :, 0, 1].detach()
@@ -593,9 +593,9 @@ def train_model(
         l1_penalty = 0
         for param in nn_approximator.parameters():
             l1_penalty += torch.sum(torch.abs(param))
-        l1_penalty *= 1e-7 
+        l1_penalty *= 1e-9 
         
-        #loss += l1_penalty 
+        loss += l1_penalty 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
         loss.backward(retain_graph=False)

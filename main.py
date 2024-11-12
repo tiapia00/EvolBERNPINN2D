@@ -24,11 +24,12 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
+load = True
 train = True
 plotloss = False
 getzip = False
-plot_comp = True
+plot_comp = False
+plot_mid = True
 
 def get_step(tensors: tuple):
     a, b, c = tensors
@@ -115,7 +116,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.001_5000_(1, 70).pth'
+    filename = 'model/11-12/1156/0.0001_2000_(1, 40).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -185,6 +186,31 @@ if plot_comp:
 
     plt.tight_layout()
     plt.savefig(f'{dir_model}/disp_comp.png')
+if plot_mid:
+    sol = sol.reshape(n_space, n_space, n_time, 2)
+    solmid = np.mean(sol[n_space // 2, :, :, 1], axis=1)
+    t = torch.unique(t).detach().cpu().numpy()
+    Fk0 = -1e-6
+    omega = 2 * np.pi * 1/t_tild 
+    n = 5 
+    xk = Lx/2 
+    L = Lx
+    E = E
+    J = my_beam.J 
+    m = rho * my_beam.A
+    t_lin = np.linspace(0, 1, 1000)
+    mode_sum = 0
+    for i in range(n):
+        mode_sum += (np.sin(np.pi * (i+1) * xk/L))**2/(-omega**2*m*L/2 + (((i+1)*np.pi)/L)**4*E*J*L/2)
+    w = Fk0 * np.sin(omega * t_lin) * mode_sum
+    w_interp = make_interp_spline(x=t_lin, y=w, k=5)
+    plt.figure()
+    plt.plot(t, solmid, label='NN')
+    plt.plot(t, w_interp(t * t_tild), label='Analytical')
+    plt.xlabel(r'$t$')
+    plt.ylabel(r'$w_\text{mid}$')
+    plt.savefig(f'{dir_model}/mid_comp.png')
+
 
 dt = steps[2].item()
 errV = (calculateRMS(V, dt, tmax) - calculateRMS(Van, dt, tmax))/(
