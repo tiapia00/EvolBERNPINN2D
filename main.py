@@ -27,7 +27,7 @@ else:
 load = True
 train = True
 plotloss = False
-getzip = False
+getzip = True
 plot_comp = False
 plot_mid = True
 
@@ -116,7 +116,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'model/11-12/1156/0.0001_2000_(1, 40).pth'
+    filename = 'model/11-12/1247/0.001_1000_(1, 40).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -188,8 +188,9 @@ if plot_comp:
     plt.savefig(f'{dir_model}/disp_comp.png')
 if plot_mid:
     sol = sol.reshape(n_space, n_space, n_time, 2)
-    solmid = np.mean(sol[n_space // 2, :, :, 1], axis=1)
-    t = torch.unique(t).detach().cpu().numpy()
+    solmid = np.mean(sol, axis=1)
+    solmid = solmid[n_space//2, :, 1]
+    t_plot = torch.unique(t).detach().cpu().numpy()
     Fk0 = -1e-6
     omega = 2 * np.pi * 1/t_tild 
     n = 5 
@@ -204,11 +205,13 @@ if plot_mid:
         mode_sum += (np.sin(np.pi * (i+1) * xk/L))**2/(-omega**2*m*L/2 + (((i+1)*np.pi)/L)**4*E*J*L/2)
     w = Fk0 * np.sin(omega * t_lin) * mode_sum
     w_interp = make_interp_spline(x=t_lin, y=w, k=5)
+    w_eval = w_interp(t_plot * t_tild)
     plt.figure()
-    plt.plot(t, solmid, label='NN')
-    plt.plot(t, w_interp(t * t_tild), label='Analytical')
+    plt.plot(t_plot, w_eval, label='Analytical')
+    plt.plot(t_plot, np.max(w_eval)/np.max(solmid) * solmid, label='NN')
     plt.xlabel(r'$t$')
     plt.ylabel(r'$w_\text{mid}$')
+    plt.legend()
     plt.savefig(f'{dir_model}/mid_comp.png')
 
 
