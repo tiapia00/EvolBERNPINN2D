@@ -24,8 +24,8 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = True
-train = False
+load = False
+train = True
 plotloss = False
 getzip = False
 plot_comp = False
@@ -115,7 +115,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.0001_1000_(1, 40).pth'
+    filename = 'model/11-12/1819/0.001_1000_(1, 40).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -194,7 +194,7 @@ def getFRF(omega, n):
 
 if plot_mid:
     sol = sol.reshape(n_space, n_space, n_time, 2)
-    t_end = n_time // 2
+    t_end = n_time
     solmid = np.mean(sol, axis=1)
     solmid = solmid[n_space//2, :t_end, 1]
     t_plot = torch.unique(t).detach().cpu().numpy()[:t_end]

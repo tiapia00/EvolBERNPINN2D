@@ -293,7 +293,7 @@ class PINN(nn.Module):
         self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
         self.register_buffer('By', 0.4 * torch.randn((2, n_mode_spacey), device=device))
         self.register_buffer('Btx', torch.randn((1, n_mode_spacex), device=device))
-        self.register_buffer('Bty', 1.4 * torch.randn((1, n_mode_spacey), device=device))
+        self.register_buffer('Bty', 0.7 * torch.randn((1, n_mode_spacey), device=device))
         
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -593,7 +593,7 @@ def train_model(
         l1_penalty = 0
         for param in nn_approximator.parameters():
             l1_penalty += torch.sum(torch.abs(param))
-        l1_penalty *= 1e-10 
+        l1_penalty *= 1e-9 
         
         loss += l1_penalty 
         pbar.set_description(f"Loss: {loss.item():.3e}")
