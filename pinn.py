@@ -287,13 +287,13 @@ class PINN(nn.Module):
         n_mode_spacex = dim_hidden[0]
         n_mode_spacey = dim_hidden[1]
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
-        self.in_penalties = nn.Parameter(5 * torch.ones(n_space, n_space // scaley))
-        self.bound_penalties = nn.Parameter(2 * torch.ones(n_space, n_time - 1, 1))
+        self.in_penalties = nn.Parameter(torch.ones(n_space, n_space // scaley))
+        self.bound_penalties = nn.Parameter(5 * torch.ones(n_space, n_time - 1, 1))
 
         self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
-        self.register_buffer('By', 1.5 * torch.randn((2, n_mode_spacey), device=device))
+        self.register_buffer('By', 0.4 * torch.randn((2, n_mode_spacey), device=device))
         self.register_buffer('Btx', torch.randn((1, n_mode_spacex), device=device))
-        self.register_buffer('Bty', torch.randn((1, n_mode_spacey), device=device))
+        self.register_buffer('Bty', 1.7 * torch.randn((1, n_mode_spacey), device=device))
         
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -499,12 +499,13 @@ class Loss:
         ekk = torch.sum(eps[:,[0,-1]])
         sigmayy = self.par['w0']/self.par['Lx'] * (2 * self.adim[0] * eps[:,-1] + ekk).reshape(self.n_space, self.n_time - 1, 2)
         extforce = torch.zeros_like(sigmayy)
-        extforce[self.n_space // 2, :, 0] = 10 * torch.sin(2 * torch.pi * torch.unique(time))
+        extforce[self.n_space // 2, :, 0] =  - torch.sin(2 * torch.pi * torch.unique(time).detach())
+        Wext = extforce[self.n_space // 2, :, 0] * output.reshape(self.n_space, self.n_time - 1, 2, 2)[self.n_space//2, :, 0, 1].detach()
 
         loss = torch.tanh(pinn.bound_penalties) * (sigmayy - extforce).pow(2)
         loss = loss.mean()
 
-        return loss
+        return loss, Wext.detach()
 
     def initial_loss(self, pinn):
         init_points = self.points['initial_points_hyper']
@@ -533,7 +534,7 @@ class Loss:
     def verbose(self, pinn, inc_enloss: bool = False):
         res_loss, V, T, errV, errT, kurt, skew, lossgrid = self.res_loss(pinn)
         enloss = ((V+T)).pow(2).mean() 
-        boundloss = self.bound_N_loss(pinn)
+        boundloss, Wext = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
         loss = init_loss + res_loss + boundloss
 
@@ -550,6 +551,7 @@ class Loss:
             "enloss": enloss,
             "errV": errV,
             "errT": errT,
+            "Wext": Wext,
             "kurt_res": kurt,
             "skew_res": skew,
             "loss_distr": lossgrid
@@ -573,7 +575,7 @@ def train_model(
 
     from plots import plot_energy
 
-    exclude_params = ['res_penalties', 'in_penalties']
+    exclude_params = ['res_penalties', 'in_penalties', 'bound_penalties']
     params_to_optimize = [
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
         {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-3}
@@ -588,6 +590,12 @@ def train_model(
         use_en = False
         loss, res_loss, losses = loss_fn(nn_approximator, use_en)
 
+        l1_penalty = 0
+        for param in nn_approximator.parameters():
+            l1_penalty += torch.sum(torch.abs(param))
+        l1_penalty *= 1e-7 
+        
+        #loss += l1_penalty 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
         loss.backward(retain_graph=False)
@@ -606,7 +614,8 @@ def train_model(
             'init': losses['in_loss'].item(),
             'enlosses': losses["enloss"].item(),
             'V-V_an': losses["errV"],
-            'T-T_an': losses["errT"]
+            'T-T_an': losses["errT"],
+            'l1': l1_penalty.item()
         }, epoch)
 
         writer.add_scalars('Loss/Distr_res', {
@@ -645,7 +654,8 @@ def train_model(
         if epoch % 500 == 0:
             t = loss_fn.points['res_points'][-1].unsqueeze(1)
             t = torch.unique(t, sorted=True)
-            plot_energy(t.detach().cpu().numpy(), losses["V"].detach().cpu().numpy(), losses["T"].detach().cpu().numpy(), epoch, modeldir) 
+            plot_energy(t.detach().cpu().numpy(), losses["V"].detach().cpu().numpy(), losses["T"].detach().cpu().numpy(),
+                    losses['Wext'].detach().cpu().numpy(), epoch, modeldir) 
 
         pbar.update(1)
 
