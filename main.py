@@ -155,6 +155,7 @@ Van *= np.max(V)/np.max(Van)
 Tan = interpTbeam(torch.unique(t, sorted=True).detach().cpu().numpy() * t_tild)
 Tan *= np.max(T)/np.max(Tan)
 
+"""
 fig, ax = plt.subplots()
 line, = ax.plot(x_domain, labelled[:,0,0])
 ax.legend()
@@ -165,6 +166,7 @@ def update(frame):
     return line, 
 
 ani = animation.FuncAnimation(fig=fig, func=update, frames=labelled.shape[2], interval=100)
+"""
 if plot_comp:
     space_in = spacein.detach().cpu().numpy()
     fig, (ax1, ax2) = plt.subplots(1, 2)
