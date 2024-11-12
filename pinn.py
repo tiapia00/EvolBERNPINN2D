@@ -75,7 +75,7 @@ def simps(y, dx, dim=0):
 def initial_conditions(space: torch.Tensor, w0: float, i: float = 1) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0*torch.sin(torch.pi*i*x)
+    uy0 = torch.zeros_like(x)
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -288,6 +288,7 @@ class PINN(nn.Module):
         n_mode_spacey = dim_hidden[1]
         self.res_penalties = nn.Parameter(torch.ones(n_space - 2, (n_space - 2) // scaley, n_time - 1))
         self.in_penalties = nn.Parameter(5 * torch.ones(n_space, n_space // scaley))
+        self.bound_penalties = nn.Parameter(2 * torch.ones(n_space, n_time - 1, 1))
 
         self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
         self.register_buffer('By', 1.5 * torch.randn((2, n_mode_spacey), device=device))
@@ -485,7 +486,7 @@ class Loss:
         
         neumann = torch.cat([left, right], dim=0)
         space = neumann[:,:2]
-        time = neumann[:,1].unsqueeze(1)
+        time = neumann[:,-1].unsqueeze(1)
 
         output = pinn(space, time)
 
@@ -496,9 +497,12 @@ class Loss:
 
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         ekk = torch.sum(eps[:,[0,-1]])
-        sigmayy = self.par['w0']/self.par['Lx'] * (2 * self.adim[0] * eps[:,-1] + ekk)
+        sigmayy = self.par['w0']/self.par['Lx'] * (2 * self.adim[0] * eps[:,-1] + ekk).reshape(self.n_space, self.n_time - 1, 2)
+        extforce = torch.zeros_like(sigmayy)
+        extforce[self.n_space // 2, :, 0] = 10 * torch.sin(2 * torch.pi * torch.unique(time))
 
-        loss = sigmayy.pow(2).mean()
+        loss = torch.tanh(pinn.bound_penalties) * (sigmayy - extforce).pow(2)
+        loss = loss.mean()
 
         return loss
 
@@ -531,7 +535,7 @@ class Loss:
         enloss = ((V+T)).pow(2).mean() 
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
-        loss = init_loss + res_loss
+        loss = init_loss + res_loss + boundloss
 
         if inc_enloss:
             loss += enloss
