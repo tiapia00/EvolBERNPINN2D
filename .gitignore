@@ -6,6 +6,7 @@ tags
 next.md
 plttensor.py
 calcRMS.py
+calcforced.py
 
 # Ignore all directories
 */
