@@ -293,7 +293,7 @@ class PINN(nn.Module):
         self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
         self.register_buffer('By', 0.4 * torch.randn((2, n_mode_spacey), device=device))
         self.register_buffer('Btx', torch.randn((1, n_mode_spacex), device=device))
-        self.register_buffer('Bty', 3.3 * torch.randn((1, n_mode_spacey), device=device))
+        self.register_buffer('Bty', 1.5 * torch.randn((1, n_mode_spacey), device=device))
         
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -497,9 +497,9 @@ class Loss:
 
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         ekk = torch.sum(eps[:,[0,-1]])
-        sigmayy = 1/self.par['Lx'] * (2 * self.adim[0] * eps[:,-1] + ekk).reshape(self.n_space, self.n_time - 1, 2)
+        sigmayy = 1/self.par['Lx'] * (2 * self.adim[0] * self.par['lam'] * eps[:,-1] + self.par['lam'] * ekk).reshape(self.n_space, self.n_time - 1, 2)
         extforce = torch.zeros_like(sigmayy)
-        extforce[self.n_space // 2, :, 0] =  -1e-4 * torch.sin(torch.pi * torch.unique(time).detach()) + 5e-5 * torch.sin(torch.pi * 4 * torch.unique(time).detach())
+        extforce[self.n_space // 2, :, 0] =  -1e-4 * torch.sin(torch.pi * torch.unique(time).detach()) + 5e-5 * torch.sin(torch.pi * 6 * torch.unique(time).detach())
         Wext = extforce[self.n_space // 2, :, 0] * output.reshape(self.n_space, self.n_time - 1, 2, 2)[self.n_space//2, :, 0, 1].detach()
 
         loss = torch.tanh(pinn.bound_penalties) * (sigmayy - extforce).pow(2)
@@ -593,7 +593,7 @@ def train_model(
         l1_penalty = 0
         for param in nn_approximator.parameters():
             l1_penalty += torch.sum(torch.abs(param))
-        l1_penalty *= 1e-9 
+        l1_penalty *= 5e-9 
         
         loss += l1_penalty 
         pbar.set_description(f"Loss: {loss.item():.3e}")

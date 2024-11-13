@@ -24,8 +24,8 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = True
-train = False
+load = False
+train = True
 plotloss = False
 getzip = False
 plot_comp = False
@@ -202,7 +202,7 @@ if plot_mid:
     Fk2 = 5e-5
     n = 20 
     Omega_1 = np.pi * 1/t_tild
-    Omega_2 = np.pi * 4/t_tild
+    Omega_2 = np.pi * 6/t_tild
     xk = Lx/2 
     xj = Lx * 2/3
     L = Lx
