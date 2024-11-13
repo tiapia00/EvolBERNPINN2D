@@ -499,7 +499,7 @@ class Loss:
         ekk = torch.sum(eps[:,[0,-1]])
         sigmayy = 1/self.par['Lx'] * (2 * self.adim[0] * eps[:,-1] + ekk).reshape(self.n_space, self.n_time - 1, 2)
         extforce = torch.zeros_like(sigmayy)
-        extforce[self.n_space // 2, :, 0] =  -1e-4 * torch.sin(torch.pi * torch.unique(time).detach())
+        extforce[self.n_space // 2, :, 0] =  -1e-4 * torch.sin(torch.pi * torch.unique(time).detach()) + 5e-5 * torch.sin(torch.pi * 4 * torch.unique(time).detach())
         Wext = extforce[self.n_space // 2, :, 0] * output.reshape(self.n_space, self.n_time - 1, 2, 2)[self.n_space//2, :, 0, 1].detach()
 
         loss = torch.tanh(pinn.bound_penalties) * (sigmayy - extforce).pow(2)

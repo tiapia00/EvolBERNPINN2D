@@ -24,8 +24,8 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True
+load = True
+train = False
 plotloss = False
 getzip = False
 plot_comp = False
@@ -46,7 +46,6 @@ Lx, t, h, n_space_beam, n_time, w0 = get_params(par.beam_par)
 E, rho, _ = get_params(par.mat_par)
 my_beam = Beam(Lx, E, rho, h, h/3, n_space_beam)
 t_beam, t_tild, w, V_an, Ek_an = obtain_analytical_free(my_beam, w0, t, 1000, 1)
-
 interpdispbeam = RegularGridInterpolator((my_beam.xi, t_beam), w)
 interpVbeam = make_interp_spline(t_beam, V_an, k=5)
 interpTbeam = make_interp_spline(t_beam, Ek_an, k=5)
@@ -115,7 +114,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'model/11-12/1819/0.001_1000_(1, 40).pth'
+    filename = 'load/0.001_1000_(1, 40).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -186,36 +185,37 @@ if plot_comp:
     plt.tight_layout()
     plt.savefig(f'{dir_model}/disp_comp.png')
 
-def getFRF(omega, n):
+def getFRF(omega, n, xk, xj):
     mode_sum = 0
     for i in range(n):
-        mode_sum += (np.sin(np.pi * (i+1) * xk/L))**2/(-omega**2*m*L/2 + (((i+1)*np.pi)/L)**4*E*J*L/2)
+        mode_sum += (np.sin(np.pi * (i+1) * xk/L)*(np.sin(np.pi * (i+1) * xj/L)))/(-omega**2*m*L/2 + (((i+1)*np.pi)/L)**4*E*J*L/2)
     return mode_sum
 
 if plot_mid:
     sol = sol.reshape(n_space, n_space, n_time, 2)
     t_end = n_time
     solmid = np.mean(sol, axis=1)
-    solmid = solmid[n_space//2, :t_end, 1]
-    t_plot = torch.unique(t).detach().cpu().numpy()[:t_end]
-    Fk0 = -1e-4
+    idx = 2 * n_space // 3
+    solmid = solmid[idx, :, 1]
+    t_plot = torch.unique(t).detach().cpu().numpy()
+    Fk1 = -1e-4
+    Fk2 = 5e-5
     n = 20 
-    Omega = np.pi * 1/t_tild
+    Omega_1 = np.pi * 1/t_tild
+    Omega_2 = np.pi * 4/t_tild
     xk = Lx/2 
+    xj = Lx * 2/3
     L = Lx
     E = E
     J = my_beam.J 
     m = rho * my_beam.A
     t_lin = np.linspace(0, 1, 1000)
-    mode_sum = getFRF(Omega, n)
-    w = Fk0 * np.sin(Omega * t_lin) * mode_sum
+    mode_sum_1 = getFRF(Omega_1, n, xk, xj)
+    mode_sum_2 = getFRF(Omega_2, n, xk, xj)
+    w_1 = Fk1 * np.sin(Omega_1 * t_lin) * mode_sum_1
+    w_2 = Fk2 * np.sin(Omega_2 * t_lin) * mode_sum_2
+    w = w_1 + w_2
     omegaFRF = np.linspace(0, 400, 1000)
-    G = np.abs(getFRF(omegaFRF, n))
-    plt.figure()
-    plt.plot(omegaFRF, G)
-    plt.xlabel(r'$\Omega$')
-    plt.ylabel(r'$G$')
-    plt.savefig(f'{dir_model}/FRF.png')
     w_interp = make_interp_spline(x=t_lin, y=w, k=5)
     w_eval = w_interp(t_plot * t_tild)
     plt.figure()
