@@ -27,7 +27,7 @@ else:
 load = False
 train = True
 plotloss = False
-getzip = False
+getzip = True
 plot_comp = False
 plot_mid = True
 
@@ -114,7 +114,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.001_1000_(1, 40).pth'
+    filename = 'model/11-13/0944/0.0001_1000_(1, 50).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -196,13 +196,13 @@ if plot_mid:
     t_end = n_time
     solmid = np.mean(sol, axis=1)
     idx = 2 * n_space // 3
-    solmid = solmid[idx, :, 1]
+    solmid = solmid[idx + 1, :, 1]
     t_plot = torch.unique(t).detach().cpu().numpy()
     Fk1 = -1e-4
     Fk2 = 5e-5
     n = 20 
     Omega_1 = np.pi * 1/t_tild
-    Omega_2 = np.pi * 6/t_tild
+    Omega_2 = np.pi * 11/t_tild
     xk = Lx/2 
     xj = Lx * 2/3
     L = Lx

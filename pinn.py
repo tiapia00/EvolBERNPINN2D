@@ -291,9 +291,9 @@ class PINN(nn.Module):
         self.bound_penalties = nn.Parameter(5 * torch.ones(n_space, n_time - 1, 1))
 
         self.register_buffer('Bx', torch.randn([2, n_mode_spacex], device=device))
-        self.register_buffer('By', 0.4 * torch.randn((2, n_mode_spacey), device=device))
+        self.register_buffer('By', 0.01 * torch.randn((2, n_mode_spacey), device=device))
         self.register_buffer('Btx', torch.randn((1, n_mode_spacex), device=device))
-        self.register_buffer('Bty', 1.5 * torch.randn((1, n_mode_spacey), device=device))
+        self.register_buffer('Bty', 0.2 * torch.randn((1, n_mode_spacey), device=device))
         
         self.hid_space_layers_x = nn.ModuleList()
         hiddimx = multux * 2 * n_mode_spacex
@@ -499,13 +499,14 @@ class Loss:
         ekk = torch.sum(eps[:,[0,-1]])
         sigmayy = 1/self.par['Lx'] * (2 * self.adim[0] * self.par['lam'] * eps[:,-1] + self.par['lam'] * ekk).reshape(self.n_space, self.n_time - 1, 2)
         extforce = torch.zeros_like(sigmayy)
-        extforce[self.n_space // 2, :, 0] =  -1e-4 * torch.sin(torch.pi * torch.unique(time).detach()) + 5e-5 * torch.sin(torch.pi * 6 * torch.unique(time).detach())
+        extforce[self.n_space // 2, :, 0] =  (-1e-4 * torch.sin(torch.pi * torch.unique(time).detach()) + 5e-5 * torch.sin(torch.pi * 11 * torch.unique(time).detach()))/(
+                self.steps[0] * self.steps[0])
         Wext = extforce[self.n_space // 2, :, 0] * output.reshape(self.n_space, self.n_time - 1, 2, 2)[self.n_space//2, :, 0, 1].detach()
 
         loss = torch.tanh(pinn.bound_penalties) * (sigmayy - extforce).pow(2)
         loss = loss.mean()
 
-        return loss, Wext.detach()
+        return 5e-3 * loss, Wext.detach()
 
     def initial_loss(self, pinn):
         init_points = self.points['initial_points_hyper']
@@ -580,7 +581,7 @@ def train_model(
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
         {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-3}
     ]
-    optimizer = optim.AdamW(params_to_optimize)
+    optimizer = optim.AdamW(params_to_optimize, weight_decay=0.05)
     #scheduler = lr_scheduler.ExponentialLR(optimizer, 0.997)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 
@@ -593,9 +594,9 @@ def train_model(
         l1_penalty = 0
         for param in nn_approximator.parameters():
             l1_penalty += torch.sum(torch.abs(param))
-        l1_penalty *= 5e-9 
+        l1_penalty *= 1e-10 
         
-        loss += l1_penalty 
+        #loss += l1_penalty 
         pbar.set_description(f"Loss: {loss.item():.3e}")
 
         loss.backward(retain_graph=False)
