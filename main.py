@@ -24,10 +24,10 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True
+load = True
+train = False
 plotloss = False
-getzip = True
+getzip = False
 plot_comp = False
 plot_mid = True
 
@@ -114,7 +114,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'model/11-13/0944/0.0001_1000_(1, 50).pth'
+    filename = 'load/0.001_1000_(1, 40).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -195,8 +195,8 @@ if plot_mid:
     sol = sol.reshape(n_space, n_space, n_time, 2)
     t_end = n_time
     solmid = np.mean(sol, axis=1)
-    idx = 2 * n_space // 3
-    solmid = solmid[idx + 1, :, 1]
+    idx = n_space // 2
+    solmid = solmid[idx, :, 1]
     t_plot = torch.unique(t).detach().cpu().numpy()
     Fk1 = -1e-4
     Fk2 = 5e-5
@@ -204,7 +204,7 @@ if plot_mid:
     Omega_1 = np.pi * 1/t_tild
     Omega_2 = np.pi * 11/t_tild
     xk = Lx/2 
-    xj = Lx * 2/3
+    xj = Lx/2
     L = Lx
     E = E
     J = my_beam.J 
@@ -213,19 +213,48 @@ if plot_mid:
     mode_sum_1 = getFRF(Omega_1, n, xk, xj)
     mode_sum_2 = getFRF(Omega_2, n, xk, xj)
     w_1 = Fk1 * np.sin(Omega_1 * t_lin) * mode_sum_1
-    w_2 = Fk2 * np.sin(Omega_2 * t_lin) * mode_sum_2
-    w = w_1 + w_2
+    #w_2 = Fk2 * np.sin(Omega_2 * t_lin) * mode_sum_2
+    w = w_1
     omegaFRF = np.linspace(0, 400, 1000)
     w_interp = make_interp_spline(x=t_lin, y=w, k=5)
     w_eval = w_interp(t_plot * t_tild)
     plt.figure()
     plt.plot(t_plot, w_eval, label='Analytical')
     plt.plot(t_plot, np.max(np.abs(w_eval))/np.max(np.abs(solmid)) * solmid, label='NN')
+    err = np.mean((np.max(np.abs(w_eval))/np.max(np.abs(solmid)) * solmid - w_eval)**2)
+    print(err)
     plt.xlabel(r'$\hat{t}$')
     plt.ylabel(r'$w_\text{mid}$')
     plt.legend()
     plt.savefig(f'{dir_model}/mid_comp.png')
+    xj = np.linspace(0, L, 1000)
+    mode_sum_1 = getFRF(Omega_1, n, xk, xj)
+    mode_sum_2 = getFRF(Omega_2, n, xk, xj)
+    w_1 = Fk1 * np.sin(Omega_1 * t_lin) * np.repeat(np.expand_dims(mode_sum_1, axis=1), t_lin.shape[0], axis=1)
+    w_2 = Fk2 * np.sin(Omega_2 * t_lin) * np.repeat(np.expand_dims(mode_sum_2, axis=1), t_lin.shape[0], axis=1)
+    w = w_1 + w_2
+    w_interp = RegularGridInterpolator((xj, t_lin), w)
+    points_interp = np.array(np.meshgrid(x_domain.detach().cpu().numpy() * Lx, t_domain.detach().cpu().numpy() * t_tild)).T.reshape(-1,2)
+    w_ad = w_interp(points_interp).reshape(x_domain.shape[0], t_domain.shape[0])
+    w_ad *= np.max(np.abs(sol))/np.max(np.abs(w_ad))
 
+    plt.close()
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    n1 = 10
+    ax1.plot(x_domain, w_ad[:,n1], label='Analytical', color='red')
+    ax1.plot(x_domain, np.mean(sol[:,:,n1, 1], axis=1), label='NN')
+    ax1.set_xlabel(r'$\hat{x}$')
+    ax1.set_ylabel(r'$w$')
+    ax1.set_title(f'$\\hat{{t}} = {n1 * steps[2].item():.2f}$')
+
+    n2 = 45
+    ax2.plot(x_domain, w_ad[:,n2], label='Analytical', color='red')
+    ax2.plot(x_domain, np.mean(sol[:,:,n2, 1], axis=1), label='NN')
+    ax2.set_xlabel(r'$\hat{x}$')
+    ax2.set_title(f'$\\hat{{t}} = {n2 * steps[2].item():.2f}$')
+    ax2.legend(loc='upper right')
+    plt.tight_layout()
+    plt.savefig(f'{dir_model}/displ_snap.png')
 
 dt = steps[2].item()
 errV = (calculateRMS(V, dt, tmax) - calculateRMS(Van, dt, tmax))/(
