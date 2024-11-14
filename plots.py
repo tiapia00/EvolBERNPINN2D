@@ -7,7 +7,7 @@ from pinn import PINN
 import numpy as np
 
 
-def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tensor, path: str, justplotdisp: bool = False):
+def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tensor, n_space: int, path: str, justplotdisp: bool = False):
     """Plot initial conditions.
     z0: tensor describing analytical initial conditions
     z: tensor describing predicted initial conditions"""
@@ -26,7 +26,8 @@ def plot_initial_conditions(z: torch.tensor, z0: torch.tensor, space: torch.Tens
     if justplotdisp:
         plt.figure()
         scatter = plt.scatter(X.reshape(-1)+z[:, 0],
-                                    Y.reshape(-1)+z[:, 1], c=z[:,3], cmap='coolwarm')
+                                    Y.reshape(-1)+z[:, 1], c=z[:,3], cmap='coolwarm', label='Predicted')
+        plot = plt.plot(np.unique(x_raw), np.mean(z0[:,1].reshape(n_space, n_space), axis=1), label='Analytical')
         plt.xlabel('$\\hat{x}$')
         plt.ylabel('$w$')
         plt.colorbar(scatter, label=r'$v_y$')

@@ -170,13 +170,15 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.001_8000_(1, 60).pth'
+    filename = 'load/0.001_8000_(1, 80).pth'
     dir_load = os.path.dirname(filename)
     state_dict = torch.load(filename, map_location=device)
     if 'in_penalties' in state_dict:
         del state_dict['in_penalties']
     if 'data_penalties' in state_dict:
         del state_dict['data_penalties']
+    if 'outlayery.weight' in state_dict:
+        del state_dict['outlayery.weight']
     pinn.load_state_dict(state_dict, strict=False)
 if train:
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
@@ -196,7 +198,7 @@ z = pinn_trained(spacein, tin)
 v = calculate_speed(z, tin, par)
 z = torch.cat([z, v], dim=1)
 
-plot_initial_conditions(z, cond0, spacein, dir_model, justplotdisp=True)
+plot_initial_conditions(z, cond0, spacein, n_space, dir_model, justplotdisp=True)
 
 allpoints = torch.cat(points["all_points"], dim=1)
 space = allpoints[:,:2]
