@@ -648,10 +648,9 @@ def train_model(
 
         optimizer.step()
         #scheduler.step()
-        """
+        lambda_reg = 1e-8
         l1_norm = sum(p.abs().sum() for p in nn_approximator.parameters())
         loss += lambda_reg * l1_norm
-        """
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
