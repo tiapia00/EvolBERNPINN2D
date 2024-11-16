@@ -4,3 +4,4 @@ scipy
 tensorboard
 pytz
 matplotlib
+pandas
