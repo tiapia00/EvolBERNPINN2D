@@ -7,7 +7,7 @@ class Parameters:
         self.n_time = 50 
         self.dim_hidden = (1, 60) 
         self.modesx = 1
-        self.modesy = [1.8, 4.7]
+        self.modesy = [1.8, 7] 
         self.multux = 1
         self.multuy = 1 
         self.multhyperx = 3 
