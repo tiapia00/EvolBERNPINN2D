@@ -61,7 +61,7 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
+load = True
 train = True 
 plotloss = False
 getzip = False 
@@ -194,7 +194,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/1e-05_10000_(1, 60).pth'
+    filename = 'model/11-16/1724/0.001_4000_(1, 30).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
@@ -318,7 +318,6 @@ if plot_mid:
     plt.plot(t_plot, w_eval, label='Analytical')
     plt.plot(t_plot, np.max(np.abs(w_eval))/np.max(np.abs(solmid)) * solmid, label='NN')
     err = np.mean((np.max(np.abs(w_eval))/np.max(np.abs(solmid)) * solmid - w_eval)**2)
-    print(err)
     plt.xlabel(r'$\hat{t}$')
     plt.ylabel(r'$w_\text{mid}$')
     plt.legend()

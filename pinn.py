@@ -75,7 +75,7 @@ def simps(y, dx, dim=0):
 def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0*(torch.sin(2*torch.pi*x) + torch.sin(5*torch.pi*x))
+    uy0 = torch.zeros_like(x)
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -642,8 +642,6 @@ def train_model(
         use_en = False
         loss, res_loss, losses = loss_fn(nn_approximator, use_en)
 
-        pbar.set_description(f"Loss: {loss.item():.3e}")
-
         loss.backward()
 
         optimizer.step()
@@ -651,6 +649,8 @@ def train_model(
         lambda_reg = 1e-8
         l1_norm = sum(p.abs().sum() for p in nn_approximator.parameters())
         loss += lambda_reg * l1_norm
+
+        pbar.set_description(f"Loss: {loss.item():.3e}")
 
         writer.add_scalars('Loss', {
             'global': loss.item(),
@@ -661,6 +661,7 @@ def train_model(
             'dataloss': losses['data_loss'].item(),
             'V-V_an': losses["errV"],
             'T-T_an': losses["errT"],
+            'l1loss': lambda_reg * l1_norm.item()
         }, epoch)
 
         writer.add_scalars('Loss/Distr_res', {
