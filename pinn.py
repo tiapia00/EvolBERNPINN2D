@@ -524,7 +524,7 @@ class Loss:
         
         neumann = torch.cat([left, right], dim=0)
         space = neumann[:,:2]
-        time = neumann[:,1].unsqueeze(1)
+        time = neumann[:,-1].unsqueeze(1)
 
         output = pinn(space, time)
 
@@ -535,11 +535,15 @@ class Loss:
 
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         ekk = torch.sum(eps[:,[0,-1]])
-        sigmayy = self.par['w0']/self.par['Lx'] * (2 * self.adim[0] * eps[:,-1] + ekk)
+        sigmayy = 1/self.par['Lx'] * (2 * self.adim[0] * self.par['lam'] * eps[:,-1] + self.par['lam'] * ekk).reshape(self.n_space, self.n_time - 1, 2)
+        extforce = torch.zeros_like(sigmayy)
+        extforce[self.n_space // 2, :, 0] =  (-1e-4 * torch.sin(torch.pi * torch.unique(time).detach()) + 5e-5 * torch.sin(torch.pi * 11 * torch.unique(time).detach()))/(
+                self.steps[0] * self.steps[1])
 
-        loss = sigmayy.pow(2).mean()
+        loss = (sigmayy - extforce).pow(2)
+        loss = loss.mean()
 
-        return loss
+        return 5e-5 * loss
 
     def data_loss(self, pinn):
         x, y, t = self.points['all_points']
@@ -584,7 +588,7 @@ class Loss:
         data_loss = self.data_loss(pinn)
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
-        loss = init_loss + res_loss + data_loss
+        loss = init_loss + boundloss + res_loss
 
         if inc_enloss:
             loss += enloss
