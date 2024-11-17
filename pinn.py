@@ -307,7 +307,7 @@ class PINN(nn.Module):
             Btx = torch.randn([1, n_mode_spacex], device=device)
             self.register_buffer(f'Btx_{i}', Btx)
         for i in range(len(modesy)):
-            Bty = modesy[i] * torch.randn([1, n_mode_spacey], device=device)
+            Bty = modesy[i]**2 * torch.randn([1, n_mode_spacey], device=device)
             self.register_buffer(f'Bty_{i}', Bty)
 
         self.hid_space_layers_x = nn.ModuleList()
@@ -517,7 +517,7 @@ class Loss:
         errV = (calculateRMS(V.detach().cpu().numpy(), self.steps[2], self.tmax) - calculateRMS(Vbeam, self.steps[2], self.tmax)) / calculateRMS(Vbeam, self.steps[2], self.tmax)
         errT = (calculateRMS(T.detach().cpu().numpy(), self.steps[2], self.tmax) - calculateRMS(Ekbeam, self.steps[2], self.tmax)) / calculateRMS(Ekbeam, self.steps[2], self.tmax)
          
-        return loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall.detach()
+        return 1e-1 * loss, V, T, errV, errT, loss_kurt, loss_skew, lossesall.detach()
 
     def bound_N_loss(self, pinn):
         _, _, left, right, _ = self.points['boundary_points']
@@ -650,7 +650,7 @@ def train_model(
         #scheduler.step()
         lambda_reg = 1e-8
         l1_norm = sum(p.abs().sum() for p in nn_approximator.parameters())
-        loss += lambda_reg * l1_norm
+        #loss += lambda_reg * l1_norm
 
         writer.add_scalars('Loss', {
             'global': loss.item(),

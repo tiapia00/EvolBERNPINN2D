@@ -194,7 +194,7 @@ loss_fn.T0 = T0
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/1e-05_10000_(1, 60).pth'
+    filename = 'model/11-17/1452/0.001_2000_(1, 30).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
 if train:
