@@ -75,7 +75,7 @@ def simps(y, dx, dim=0):
 def initial_conditions(space: torch.Tensor, w0: float) -> torch.tensor:
     x = space[:,0].unsqueeze(1)
     ux0 = torch.zeros_like(x)
-    uy0 = w0*(torch.sin(2*torch.pi*x) + torch.sin(5*torch.pi*x))
+    uy0 = w0*(torch.sin(2*torch.pi*x) + 2*torch.sin(5*torch.pi*x))
     dotux0 = torch.zeros_like(x)
     dotuy0 = torch.zeros_like(x)
     return torch.cat((ux0, uy0, dotux0, dotuy0), dim=1)
@@ -536,14 +536,14 @@ class Loss:
         eps = torch.stack([dxyux[:,0], 1/2*(dxyux[:,1]+dxyuy[:,0]), dxyuy[:,1]], dim=1)
         ekk = torch.sum(eps[:,[0,-1]])
         sigmayy = 1/self.par['Lx'] * (2 * self.adim[0] * self.par['lam'] * eps[:,-1] + self.par['lam'] * ekk).reshape(self.n_space, self.n_time - 1, 2)
-        extforce = torch.zeros_like(sigmayy)
-        extforce[self.n_space // 2, :, 0] =  (-1e-4 * torch.sin(torch.pi * torch.unique(time).detach()) + 5e-5 * torch.sin(torch.pi * 11 * torch.unique(time).detach()))/(
-                self.steps[0] * self.steps[1])
+        #extforce = torch.zeros_like(sigmayy)
+        #extforce[self.n_space // 2, :, 0] =  (-1e-4 * torch.sin(torch.pi * torch.unique(time).detach()) + 5e-5 * torch.sin(torch.pi * 11 * torch.unique(time).detach()))/(
+        #        self.steps[0] * self.steps[1])
 
-        loss = (sigmayy - extforce).pow(2)
+        loss = (sigmayy).pow(2)
         loss = loss.mean()
 
-        return 5e-5 * loss
+        return loss
 
     def data_loss(self, pinn):
         x, y, t = self.points['all_points']
@@ -588,7 +588,7 @@ class Loss:
         data_loss = self.data_loss(pinn)
         boundloss = self.bound_N_loss(pinn)
         init_loss, init_losses = self.initial_loss(pinn)
-        loss = init_loss + boundloss + res_loss
+        loss = init_loss + res_loss
 
         if inc_enloss:
             loss += enloss
@@ -632,7 +632,7 @@ def train_model(
         {'params': [p for n, p in nn_approximator.named_parameters() if n not in exclude_params], 'lr': learning_rate},
         {'params': [p for n, p in nn_approximator.named_parameters() if n in exclude_params], 'lr': -1e-3}
     ]
-    optimizer = optim.AdamW(params_to_optimize, weight_decay=0.1)
+    optimizer = optim.AdamW(params_to_optimize)
     #scheduler = lr_scheduler.ExponentialLR(optimizer, 0.997)
     pbar = tqdm(total=max_epochs, desc="Training", position=0)
 

@@ -66,8 +66,8 @@ train = True
 plotloss = False
 getzip = False 
 plots = False
-plot_comp = False
-plot_mid = True
+plot_comp = True
+plot_mid = False
 import_abq = False
 
 def get_step(tensors: tuple):
