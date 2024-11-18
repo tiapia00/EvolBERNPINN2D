@@ -23,8 +23,8 @@ else:
     device = torch.device("cpu")
     print("Using CPU device.")
 
-load = False
-train = True 
+load = True
+train = False
 plotloss = False
 getzip = False
 plot_comp = True
@@ -118,7 +118,7 @@ loss_fn = Loss(
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'load/0.001_3000_(1, 60).pth'
+    filename = 'model/11-18/0816/0.0005_2000_(1, 40).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
     with np.load(f'{dir_load}/data.npz') as data:
@@ -194,15 +194,18 @@ ani = animation.FuncAnimation(fig=fig, func=update, frames=40, interval=100)
 plt.show()
 if plot_comp:
     space_in = spacein.detach().cpu().numpy()
+    sol = sol[:,:n_time//2,:]
+    labelled = labelled[:,:,:n_time//2]
+    sol *= np.max(np.abs(labelled))/np.max(np.abs(sol))
     plt.figure()
     fig, (ax1, ax2) = plt.subplots(1, 2)
-    ax1.plot(x_domain, labelled[:,0,1], label='Analytical', color='red')
+    ax1.plot(x_domain, labelled[:,0,10], label='Analytical', color='red')
     ax1.scatter(space_in[:,0] + sol[:,10,0], space_in[:,1] + sol[:,10,1], label='NN')
     ax1.set_xlabel(r'$\hat{x}$')
     ax1.set_title(r'$\hat{t} = 0.2$')
 
-    ax2.plot(x_domain, labelled[:,0,43], label='Analytical', color='red')
-    ax2.scatter(space_in[:,0] + sol[:,43,0], space_in[:,1] + sol[:,43,1], label='NN')
+    ax2.plot(x_domain, labelled[:,0,29], label='Analytical', color='red')
+    ax2.scatter(space_in[:,0] + sol[:,29,0], space_in[:,1] + sol[:,29,1], label='NN')
     ax2.set_xlabel(r'$\hat{x}$')
     ax2.set_title(r'$\hat{t} = 0.215$')
     ax2.legend(loc='upper right')
