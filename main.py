@@ -199,15 +199,17 @@ if plot_comp:
     sol *= np.max(np.abs(labelled))/np.max(np.abs(sol))
     plt.figure()
     fig, (ax1, ax2) = plt.subplots(1, 2)
-    ax1.plot(x_domain, labelled[:,0,10], label='Analytical', color='red')
-    ax1.scatter(space_in[:,0] + sol[:,10,0], space_in[:,1] + sol[:,10,1], label='NN')
+    n1 = 10
+    ax1.plot(x_domain, labelled[:,0,n1], label='Analytical', color='red')
+    ax1.scatter(space_in[:,0] + sol[:,n1,0], space_in[:,1] + sol[:,n1,1], label='NN')
     ax1.set_xlabel(r'$\hat{x}$')
-    ax1.set_title(r'$\hat{t} = 0.2$')
+    ax1.set_title(f'$\\hat{{t}} = {steps[2].item() * n1:.2f}$')
 
-    ax2.plot(x_domain, labelled[:,0,29], label='Analytical', color='red')
-    ax2.scatter(space_in[:,0] + sol[:,29,0], space_in[:,1] + sol[:,29,1], label='NN')
+    n2 = 29
+    ax2.plot(x_domain, labelled[:,0,n2], label='Analytical', color='red')
+    ax2.scatter(space_in[:,0] + sol[:,n2,0], space_in[:,1] + sol[:,n2,1], label='NN')
     ax2.set_xlabel(r'$\hat{x}$')
-    ax2.set_title(r'$\hat{t} = 0.215$')
+    ax2.set_title(f'$\\hat{{t}} = {steps[2].item() * n2:.2f}$')
     ax2.legend(loc='upper right')
 
     plt.tight_layout()
