@@ -118,11 +118,20 @@ loss_fn = Loss(
 dir_model = pass_folder('model')
 dir_logs = pass_folder('model/logs')
 if load:
-    filename = 'model/11-18/0816/0.0005_2000_(1, 40).pth'
+    filename = 'load/0.0005_2000_(1, 40).pth'
     dir_load = os.path.dirname(filename)
     pinn.load_state_dict(torch.load(filename, map_location=device))
     with np.load(f'{dir_load}/data.npz') as data:
-        loss_fn.gamma = data['gamma']
+        #loss_fn.gamma = data['gamma']
+        V = data['hatV']/100
+        T = data['hatT']/100
+        plt.figure()
+        plt.plot(np.linspace(0,1, V.shape[0]), V, label='Potential energy')
+        plt.plot(np.linspace(0,1, V.shape[0]), T, label='Kinetic energy')
+        plt.plot(np.linspace(0,1, V.shape[0]), T + V, label='Mechanical energy')
+        plt.legend()
+        plt.savefig(f'{dir_model}/energy_load.png')
+
         
 if train:
     pinn_trained = train_model(pinn, loss_fn=loss_fn, learning_rate=lr,
