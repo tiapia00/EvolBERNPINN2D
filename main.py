@@ -123,14 +123,22 @@ if load:
     pinn.load_state_dict(torch.load(filename, map_location=device))
     with np.load(f'{dir_load}/data.npz') as data:
         #loss_fn.gamma = data['gamma']
-        V = data['hatV']/100
-        T = data['hatT']/100
-        plt.figure()
-        plt.plot(np.linspace(0,1, V.shape[0]), V, label='Potential energy')
-        plt.plot(np.linspace(0,1, V.shape[0]), T, label='Kinetic energy')
-        plt.plot(np.linspace(0,1, V.shape[0]), T + V, label='Mechanical energy')
-        plt.legend()
-        plt.savefig(f'{dir_model}/energy_load.png')
+        hatw = data['hatw_mid']
+        hatw[0] = 0.008
+        wan = data['anw_mid']
+        t = np.linspace(0, 1, hatw.shape[0])
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 8))
+        ax[0].plot(t, np.zeros_like(t))
+        ax[0].set_xlabel(r'$\hat{t}$')
+        ax[0].set_ylabel(r'$\overline{u}_x$')
+
+        ax[1].plot(t, hatw)
+        ax[1].set_xlabel(r'$\hat{t}$')
+        ax[1].set_ylabel(r'$\overline{u}_y$')
+
+        file = f'{dir_model}/displ_comp_data.png'
+        plt.tight_layout()
+        plt.savefig(file)
 
         
 if train:
